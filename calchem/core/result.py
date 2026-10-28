@@ -40,6 +40,7 @@ class Result(BaseModel):
     # 任务描述
     task: str
     method: str
+    actual_method: str | None = None
     basis: str
     xc: Optional[str] = None
 

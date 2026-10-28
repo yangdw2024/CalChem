@@ -30,7 +30,7 @@ _METHOD_MAP = {
 }
 
 
-def _build_gjf(req: CalculationRequest, memory_mb: int, nproc: int) -> str:
+def _build_gjf(req: CalculationRequest, memory_mb: int, nproc: int, extra_keyword: str = "") -> str:
     """根据 CalculationRequest 生成 Gaussian gjf 输入。"""
     method = _METHOD_MAP.get(req.method.lower(), req.method.upper())
     if req.xc and req.method.lower() in ("dft", "rks", "uks"):
@@ -38,12 +38,13 @@ def _build_gjf(req: CalculationRequest, memory_mb: int, nproc: int) -> str:
 
     basis = req.basis.upper()
     mol = req.molecule
+    route_keyword = extra_keyword if extra_keyword else "SP"
 
     lines = [
         f"%mem={memory_mb}MB",
         f"%nprocshared={nproc}",
         f"%chk=calchem.chk",
-        f"# {method}/{basis} SP",
+        f"# {method}/{basis} {route_keyword}",
         "",
         f"CalChem auto-generated: {req.method}/{req.basis}",
         "",
@@ -106,7 +107,7 @@ class GaussianBackend(ExternalProgramBackend):
 
     def capabilities(self):
         caps = super().capabilities()
-        caps.tasks = ["single_point"]
+        caps.tasks = ["single_point", "optimize", "frequency"]
         caps.methods = list(_METHOD_MAP.keys())
         caps.basis_sets = ["sto-3g", "3-21g", "6-31g", "6-31g(d)", "6-311g(d,p)",
                            "cc-pvdz", "cc-pvtz", "def2-svp", "def2-tzvp"]
@@ -183,6 +184,7 @@ class GaussianBackend(ExternalProgramBackend):
             backend_version="G16",
             task=request.task,
             method=request.method,
+            actual_method=request.method,
             basis=request.basis,
             xc=request.xc,
             molecule=request.molecule,
@@ -200,3 +202,151 @@ class GaussianBackend(ExternalProgramBackend):
             input_file_path=str(gjf_path),
             run_directory=str(run_dir),
         )
+
+    def optimize(self, request: CalculationRequest) -> Result:
+        """Gaussian 几何优化。"""
+        return self._run_gaussian_task(request, keyword="Opt")
+
+    def frequency(self, request: CalculationRequest) -> Result:
+        """Gaussian 频率计算。"""
+        return self._run_gaussian_task(request, keyword="Freq")
+
+    def _run_gaussian_task(self, request: CalculationRequest, keyword: str) -> Result:
+        """运行 Gaussian Opt/Freq 任务。"""
+        started = datetime.now()
+        caps = self.capabilities()
+        if not caps.available:
+            raise BackendExecutionError(f"Gaussian not available: {caps.unavailable_reason}")
+
+        job_id = request.job_id or f"g16_{keyword}_{int(time.time())}"
+        tmp_base = Path(os.environ.get("CALCHEM_RUN_DIR", tempfile.gettempdir())) / "calchem_jobs"
+        run_dir = self._make_run_dir(tmp_base, job_id)
+
+        gjf = _build_gjf(
+            request,
+            memory_mb=request.resources.max_memory_mb,
+            nproc=request.resources.max_cpu_cores,
+            extra_keyword=keyword,
+        )
+        gjf_path = run_dir / "input.gjf"
+        gjf_path.write_text(gjf)
+
+        g16_dir = Path(self.executable).parent
+        env = os.environ.copy()
+        env["g16root"] = str(g16_dir)
+        env["GAUSS_EXEDIR"] = str(g16_dir)
+        env["GAUSS_SCRDIR"] = str(run_dir)
+        if str(g16_dir) not in env.get("PATH", ""):
+            env["PATH"] = str(g16_dir) + os.pathsep + env.get("PATH", "")
+
+        cmd = [self.executable, gjf_path.name]
+        try:
+            proc = subprocess.run(
+                cmd, cwd=str(run_dir), capture_output=True, text=True,
+                timeout=request.resources.timeout_seconds, shell=False, env=env,
+            )
+            returncode = proc.returncode
+        except subprocess.TimeoutExpired:
+            raise BackendExecutionError(
+                f"Gaussian timed out after {request.resources.timeout_seconds}s"
+            )
+
+        log_path = run_dir / "input.out"
+        if not log_path.exists():
+            log_path = run_dir / "input.log"
+        log_text = log_path.read_text(errors="replace") if log_path.exists() else (proc.stdout or "")
+
+        parsed = _parse_g16_log(log_text)
+        walltime = (datetime.now() - started).total_seconds()
+
+        errors = []
+        if not parsed["normal_termination"]:
+            errors.append(f"Gaussian {keyword} did not terminate normally (rc={returncode})")
+        if parsed["energy_hartree"] is None:
+            errors.append("Could not extract energy")
+
+        # 解析优化后的几何
+        optimized_coords = None
+        if keyword == "Opt":
+            optimized_coords = _parse_final_geometry(log_text)
+            if optimized_coords is None:
+                errors.append("Could not parse optimized geometry")
+
+        # 解析频率
+        frequencies = None
+        if keyword == "Freq":
+            frequencies = _parse_frequencies(log_text)
+            if frequencies is None:
+                errors.append("Could not parse frequencies")
+
+        status = "succeeded" if not errors else "failed"
+
+        return Result(
+            backend="gaussian",
+            backend_version="G16",
+            task=request.task,
+            method=request.method,
+            actual_method=request.method,
+            basis=request.basis,
+            xc=request.xc,
+            molecule=request.molecule,
+            status=status,
+            started_at=started,
+            finished_at=datetime.now(),
+            walltime_seconds=walltime,
+            scf_energy_hartree=parsed["energy_hartree"],
+            total_energy_hartree=parsed["energy_hartree"],
+            scf_converged=parsed["scf_converged"],
+            scf_iterations=parsed["scf_iterations"],
+            optimized_coordinates_angstrom=optimized_coords,
+            frequencies_cm=parsed.get("frequencies"),
+            errors=errors,
+            raw_log_path=str(log_path) if log_path.exists() else None,
+            input_file_path=str(gjf_path),
+            run_directory=str(run_dir),
+        )
+
+
+def _parse_final_geometry(log_text: str) -> list[list[float]] | None:
+    """从 Gaussian 日志中提取最后一次标准取向的几何。"""
+    # 找到所有 "Standard orientation:" 块
+    blocks = []
+    lines = log_text.split("\n")
+    i = 0
+    while i < len(lines):
+        if "Standard orientation:" in lines[i]:
+            # 跳过接下来的 ----- 行和表头
+            block_lines = []
+            j = i + 1
+            while j < len(lines) and "----" not in lines[j]:
+                j += 1
+            j += 1  # 跳过 -----
+            # 跳过表头
+            while j < len(lines) and "----" not in lines[j]:
+                j += 1
+            j += 1  # 跳过 -----
+            # 读取数据行
+            while j < len(lines) and "----" not in lines[j]:
+                parts = lines[j].split()
+                if len(parts) >= 6:
+                    block_lines.append([float(parts[3]), float(parts[4]), float(parts[5])])
+                j += 1
+            if block_lines:
+                blocks.append(block_lines)
+            i = j
+        else:
+            i += 1
+    if not blocks:
+        return None
+    return blocks[-1]
+
+
+def _parse_frequencies(log_text: str) -> list[float] | None:
+    """从 Gaussian 日志提取振动频率。"""
+    freqs = re.findall(r"Frequencies\s*--\s*((?:[-\d.]+\s*)+)", log_text)
+    if not freqs:
+        return None
+    result = []
+    for line in freqs:
+        result.extend(float(x) for x in line.split())
+    return result if result else None

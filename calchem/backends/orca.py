@@ -175,6 +175,7 @@ class ORCABackend(ExternalProgramBackend):
             backend_version="ORCA 6.1.1",
             task=request.task,
             method=request.method,
+            actual_method=request.method,
             basis=request.basis,
             xc=request.xc,
             molecule=request.molecule,
