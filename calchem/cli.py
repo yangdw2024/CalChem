@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import sys
 from pathlib import Path
@@ -15,6 +17,17 @@ from calchem.core import CalculationRequest, MoleculeSpec, ResourceLimits
 import calchem.backends  # noqa: F401  触发后端注册
 
 console = Console()
+
+
+@contextlib.contextmanager
+def _suppress_stdout():
+    """把计算过程的 stdout print 重定向到 stderr（JSON 模式下用）。"""
+    saved_stdout = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        yield
+    finally:
+        sys.stdout = saved_stdout
 
 
 @click.group()
@@ -130,12 +143,15 @@ def run(molecule, backend, method, basis, charge, multiplicity, output_json):
         resources=ResourceLimits(max_cpu_cores=8, max_memory_mb=4000, timeout_seconds=300),
     )
 
-    console.print(f"[cyan]Running:[/cyan] {backend} / {method} / {basis} on {mol.natom} atoms")
-    result = svc.run(req)
-
+    # --json 模式：状态信息走 stderr，stdout 只输出 JSON
     if output_json:
+        click.echo(f"Running: {backend}/{method}/{basis} on {mol.natom} atoms", err=True)
+        with _suppress_stdout():
+            result = svc.run(req)
         click.echo(result.model_dump_json(indent=2))
     else:
+        console.print(f"[cyan]Running:[/cyan] {backend} / {method} / {basis} on {mol.natom} atoms")
+        result = svc.run(req)
         console.print(f"\n  Status: [bold]{result.status}[/bold]")
         if result.scf_energy_hartree is not None:
             console.print(f"  Energy: [green]{result.scf_energy_hartree:.10f}[/green] Eh")

@@ -138,9 +138,25 @@ class NativeCalchem(Calculator):
         calc.kernel()
         walltime = time.time() - t0
 
-        # 提取结果
-        converged = getattr(calc, "converged", True)
-        energy = float(getattr(calc, "energy", 0.0) or 0.0)
+        # 提取结果——严格禁止默认值假数据
+        converged = getattr(calc, "converged", None)
+        if converged is None:
+            # 没有 converged 属性时，从能量是否有效判断
+            energy_raw = getattr(calc, "energy", None)
+            converged = energy_raw is not None and energy_raw != 0.0
+        else:
+            energy_raw = getattr(calc, "energy", None)
+
+        # 能量必须是真实非零有限值
+        energy = None
+        if energy_raw is not None:
+            try:
+                e = float(energy_raw)
+                if e != 0.0 and e == e:  # 非零且非 NaN
+                    energy = e
+            except (TypeError, ValueError):
+                energy = None
+
         n_iter = getattr(calc, "n_cycles", None) or getattr(calc, "scf_cycles", None)
 
         orbitals, homo, lumo = _extract_orbitals(calc)
@@ -148,30 +164,51 @@ class NativeCalchem(Calculator):
         dipole = getattr(calc, "dipole_moment", None)
         dipole_list = None
         if dipole is not None:
-            dipole_list = [float(x) for x in (dipole.tolist() if hasattr(dipole, "tolist") else dipole)]
+            try:
+                dipole_list = [float(x) for x in (dipole.tolist() if hasattr(dipole, "tolist") else dipole)]
+            except (TypeError, ValueError):
+                dipole_list = None
 
         # Post-HF 关联能
         mp2_corr = getattr(calc, "e_corr", None)
         if mp2_corr is not None:
-            mp2_corr = float(mp2_corr)
+            try:
+                mp2_corr = float(mp2_corr)
+            except (TypeError, ValueError):
+                mp2_corr = None
 
-        errors = [] if converged else [f"SCF did not converge after {n_iter} iterations"]
+        # 严格判断成功条件
+        errors = []
+        if energy is None:
+            errors.append("Could not extract valid energy from native calculation")
+        if not converged:
+            errors.append(f"SCF did not converge after {n_iter or '?'} iterations")
+
+        # total_energy: 对 MP2/CCSD 等，total = SCF + correlation
+        scf_e = energy
+        total_e = energy
+        if mp2_corr is not None and request.method.lower() in ("mp2", "mp4", "ccsd", "ccsd(t)"):
+            total_e = energy + mp2_corr
+
+        status = "succeeded" if (converged and energy is not None) else (
+            "not_converged" if not converged and energy is not None else "failed"
+        )
 
         return Result(
             backend="native",
-            backend_version="0.1.0",
+            backend_version="0.2.0",
             task=request.task,
             method=request.method,
             basis=request.basis,
             xc=request.xc,
             molecule=request.molecule,
-            status="succeeded" if converged else "not_converged",
+            status=status,
             started_at=started,
             finished_at=datetime.now(),
             walltime_seconds=walltime,
-            scf_energy_hartree=energy if energy != 0.0 else None,
+            scf_energy_hartree=scf_e,
             mp2_correction_hartree=mp2_corr,
-            total_energy_hartree=energy if energy != 0.0 else None,
+            total_energy_hartree=total_e,
             scf_converged=converged,
             scf_iterations=n_iter,
             homo_energy_hartree=homo,

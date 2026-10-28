@@ -68,7 +68,7 @@ def _parse_orca_output(text: str) -> dict:
         "energy_hartree": None,
         "scf_converged": "SCF CONVERGED" in text,
         "scf_iterations": None,
-        "dipole": None,
+        "dipole_magnitude": None,
         "error": None,
     }
 
@@ -80,10 +80,11 @@ def _parse_orca_output(text: str) -> dict:
     if m:
         result["scf_iterations"] = int(m.group(1))
 
-    # 偶极矩 (Debye)
+    # 偶极矩：只存 magnitude，不伪造矢量分量
+    dipole_mag = None
     m = re.search(r"Magnitude \(Debye\)\s*:\s*([-\d.]+)", text)
     if m:
-        result["dipole"] = [0.0, 0.0, float(m.group(1))]
+        dipole_mag = float(m.group(1))
 
     # 错误检测：只匹配真正的 ERROR 行（排除 SCF 参数中的 "DIIS Error" 等）
     if "ERROR" in text.upper():
@@ -185,7 +186,7 @@ class ORCABackend(ExternalProgramBackend):
             total_energy_hartree=parsed["energy_hartree"],
             scf_converged=parsed["scf_converged"],
             scf_iterations=parsed["scf_iterations"],
-            dipole_debye=parsed["dipole"],
+            dipole_magnitude_debye=dipole_mag,
             errors=errors,
             raw_log_path=str(out_path) if out_path.exists() else None,
             input_file_path=str(run_dir / "input.inp"),

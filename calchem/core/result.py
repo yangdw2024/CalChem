@@ -70,6 +70,7 @@ class Result(BaseModel):
 
     # 性质
     dipole_debye: Optional[List[float]] = None
+    dipole_magnitude_debye: Optional[float] = None
     gradients: Optional[List[List[float]]] = None
     frequencies_cm: Optional[List[float]] = None
 
