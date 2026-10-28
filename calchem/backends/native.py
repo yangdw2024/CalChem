@@ -239,11 +239,11 @@ class NativeCalchem(Calculator):
 
         # 梯度函数（数值差分）
         def gradient_fn(spec):
-            return central_gradient(energy_fn, spec, step_bohr=0.005)
+            return central_gradient(energy_fn, spec, step_bohr=0.002)
 
         outcome = optimize_geometry(
             energy_fn, gradient_fn, request.molecule,
-            max_iter=15, ftol=1e-5, gtol=5e-3,
+            max_iter=50, ftol=1e-7, gtol=1e-4,
         )
         walltime = time.time() - t0
 
