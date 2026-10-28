@@ -1,0 +1,9 @@
+{
+  "default_solvent": "chloroform",
+  "default_dft_grid": "ultrafine",
+  "scratch_dir": null,
+  "max_memory_gb": 8,
+  "n_threads": null,
+  "use_gpu": true,
+  "gpu_device": 0
+}

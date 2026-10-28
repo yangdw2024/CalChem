@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# CalChem specific
+*.chk
+*.fchk
+*.cube
+*.h5
+*.hdf5
+*.npz
+scratch/
+tmp/
+calchem_scratch/
+calchem_output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+benchmarks/results/
+benchmarks/*.jsonl
+
+# Docs build
+site/
+docs/site/
+
+# Env files
+.env
+.env.local
+
+# CalChem build
+*.egg-info/
+dist/
+build/
+_CalChemBuild/
+_blueprint_review/
+CalChem_Refactor_Handoff.zip
+blueprint/
