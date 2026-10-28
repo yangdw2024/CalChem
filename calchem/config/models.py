@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 
 
 class BackendPaths(BaseModel):
-    """外部程序路径配置。"""
-    gaussian_exe: str = r"D:\G16W\g16.exe"
-    orca_exe: str = r"E:\ORCA\software\ORCA6.1.1\orca.exe"
+    """外部程序路径配置。默认空——必须由用户配置或配置文件提供。"""
+    gaussian_exe: str = ""
+    orca_exe: str = ""
     xtb_exe: str = ""
     pyscf_auto_detect: bool = True
     rest_endpoint: str = ""

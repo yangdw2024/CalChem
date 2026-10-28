@@ -101,7 +101,7 @@ class GaussianBackend(ExternalProgramBackend):
 
     program_name = "gaussian"
 
-    def __init__(self, executable: str = r"D:\G16W\g16.exe"):
+    def __init__(self, executable: str = ""):
         super().__init__(executable)
 
     def capabilities(self):

@@ -108,7 +108,7 @@ class ORCABackend(ExternalProgramBackend):
 
     program_name = "orca"
 
-    def __init__(self, executable: str = r"E:\ORCA\software\ORCA6.1.1\orca.exe"):
+    def __init__(self, executable: str = ""):
         super().__init__(executable)
 
     def capabilities(self):

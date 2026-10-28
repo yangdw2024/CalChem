@@ -21,7 +21,7 @@ def test_he_sto3g():
     print()
     
     mol = Molecule(["He"], [[0.0, 0.0, 0.0]], units="bohr")
-    mf = RHF(mol, basis="sto-3g", max_cycles=50, verbose=0)
+    mf = RHF(mol, basis="sto-3g", max_iter=50)
     e = mf.kernel()
     
     print(f"计算能量: {e:.6f} Eh")
@@ -45,7 +45,7 @@ def test_be_sto3g():
     print()
     
     mol = Molecule(["Be"], [[0.0, 0.0, 0.0]], units="bohr")
-    mf = RHF(mol, basis="sto-3g", max_cycles=50, verbose=1)
+    mf = RHF(mol, basis="sto-3g", max_iter=50)
     try:
         e = mf.kernel()
         print(f"计算能量: {e:.6f} Eh")
@@ -65,7 +65,7 @@ def test_ne_sto3g():
     print()
     
     mol = Molecule(["Ne"], [[0.0, 0.0, 0.0]], units="bohr")
-    mf = RHF(mol, basis="sto-3g", max_cycles=100, verbose=1)
+    mf = RHF(mol, basis="sto-3g", max_iter=100)
     try:
         e = mf.kernel()
         print(f"计算能量: {e:.6f} Eh")

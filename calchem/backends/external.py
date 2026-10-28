@@ -48,20 +48,36 @@ class ExternalProgramBackend(Calculator):
     ) -> tuple[int, str, str]:
         """执行外部命令，返回 (returncode, stdout, stderr)。
 
-        不使用 shell=True，cmd 是参数列表。
+        超时后 kill 整个进程树（Windows 上用 taskkill /T）。
         """
+        import os
         cwd.mkdir(parents=True, exist_ok=True)
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(cwd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            shell=False,
+        )
         try:
-            proc = subprocess.run(
-                cmd,
-                cwd=str(cwd),
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                shell=False,
-            )
-            return proc.returncode, proc.stdout, proc.stderr
+            stdout, stderr = proc.communicate(timeout=timeout)
+            return proc.returncode, stdout, stderr
         except subprocess.TimeoutExpired:
+            # Windows: kill 整个进程树
+            try:
+                pid = proc.pid
+                if os.name == "nt":
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)],
+                                   capture_output=True, timeout=10)
+                else:
+                    proc.kill()
+            except Exception:
+                proc.kill()
+            try:
+                stdout, stderr = proc.communicate(timeout=5)
+            except Exception:
+                stdout, stderr = "", ""
             raise BackendExecutionError(
                 f"{self.program_name} timed out after {timeout}s"
             )

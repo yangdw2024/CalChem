@@ -16,6 +16,7 @@ from ..core.calculator import get_backend_class
 from ..core.errors import CalChemError
 from ..core.request import CalculationRequest
 from ..core.result import Result
+from ..config.models import AppConfig
 from ..jobs.models import Job
 from ..jobs.queue import JobQueue
 
@@ -23,9 +24,11 @@ from ..jobs.queue import JobQueue
 class TaskService:
     """统一任务服务。验证请求、选择后端、执行、保存结果。"""
 
-    def __init__(self, data_root: Optional[str] = None):
+    def __init__(self, data_root: Optional[str] = None, config: Optional[AppConfig] = None):
+        self.config = config or AppConfig()
         self.data_root = Path(
             data_root
+            or self.config.data_root
             or os.environ.get("CALCHEM_DATA")
             or r"D:\CalChemData"
         )
@@ -35,13 +38,22 @@ class TaskService:
         self.projects_root.mkdir(parents=True, exist_ok=True)
         self.queue = JobQueue()
 
+    def _create_backend(self, name: str):
+        """根据 AppConfig 创建后端实例，注入 executable 路径。"""
+        backend_cls = get_backend_class(name)
+        if name == "gaussian":
+            return backend_cls(executable=self.config.backends.gaussian_exe)
+        elif name == "orca":
+            return backend_cls(executable=self.config.backends.orca_exe)
+        elif name == "xtb":
+            return backend_cls(executable=self.config.backends.xtb_exe)
+        else:
+            return backend_cls()
+
     def run(self, request: CalculationRequest) -> Result:
         """同步执行一个计算请求（阻塞直到完成）。"""
-        # 实例化后端
-        backend_cls = get_backend_class(request.backend)
-        backend = backend_cls()
+        backend = self._create_backend(request.backend)
 
-        # 执行
         try:
             result = backend.run(request)
         except CalChemError as e:
