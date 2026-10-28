@@ -1,0 +1,20 @@
+{
+  "package_kind": "source_snapshot_and_product_blueprint",
+  "source_archive_sha256": "966cb5b230589b419b4e860ded8a99b49be04e1d91e8384ea88e7a1e157c7406",
+  "source_archive_name": "01-CalChem_v020_Complete_FullSource_Handoff.zip",
+  "source_member_count": 244,
+  "task_count": 54,
+  "blueprint_files": {
+    "00_START_HERE.md": "0efb43fb691a24d3e13db905ec9f4b353f5ba96ade9beca5221fcbda993c2d72",
+    "01_AUDIT.md": "2ed648ff159e066febe29ae68eac773177f1463308128a88b9323d90b903a5cd",
+    "02_PRODUCT_ARCHITECTURE.md": "6099707642d4147e4dc054c23c7e8978f09e7a0a18c8af78b6ac60cdc0af0150",
+    "03_FILE_LEVEL_TASKS.md": "49c233612fba7c18bd2bf2c854ff5a2568ab061aa21846e5f3a3b6f40b45cd0e",
+    "04_UI_SPEC.md": "2ca8446f21033e9337c34c297ec61b33310c9d6ca308e5184f34fb51dd796670",
+    "05_INTEGRATION_PACKAGING.md": "d2d8e567deddd89e3e77ead49c312ad9e681f4cf7a8595b6dbcaf68138c06ed9",
+    "06_ACCEPTANCE_GATES.md": "7aee02de862996b015d55dbb6f383e6a1d6bcea63bcc9dd7955993096f7063f5",
+    "07_LOCAL_AGENT_DIRECTIVE.md": "6c6d483bbaf224d52a5b502987bf67980595de6bfa9a3d040562afb91b9211e7",
+    "08_REFERENCES.md": "8eadd002de713863a47c7dbdecd40eb4c1b003552d06a04e346776192e366c51",
+    "09_FULL_PRODUCT_HORIZON.md": "3cf36dba91f4fa3eb478eb3e71cff17323e0e499788a113fc91215274124eb7a",
+    "TASK_TRACKER.csv": "39d69f118de9505f6214ab836769db66d0b1d0381c15558685efd60caed31bf6"
+  }
+}

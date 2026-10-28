@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "calchem"
-version = "0.1.0"
-description = "GPU-accelerated quantum chemistry software for organic and OPV materials"
+version = "0.2.0"
+description = "Unified quantum chemistry workstation: native engine + Gaussian/ORCA/PySCF adapters"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
@@ -70,7 +70,7 @@ docs = [
 all = ["calchem[external,pyscf,md,symmetry,gui,dev,docs]"]
 
 [project.scripts]
-calchem = "calchem.cli.main:cli"
+calchem = "calchem.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
