@@ -118,8 +118,8 @@ class NativeCalchem(Calculator):
     def __init__(self):
         self._caps = BackendCapabilities(
             name="native",
-            version="0.1.0",
-            tasks=["single_point"],
+            version="0.3.0",
+            tasks=["single_point", "optimize"],
             methods=_NATIVE_METHODS,
             basis_sets=_NATIVE_BASIS,
             requires_external_program=False,
@@ -216,4 +216,51 @@ class NativeCalchem(Calculator):
             orbitals=orbitals,
             dipole_debye=dipole_list,
             errors=errors,
+        )
+
+    def optimize(self, request: CalculationRequest) -> Result:
+        """几何优化：RHF/STO-3G 用有限差分梯度 + BFGS。"""
+        from ..grad.finite_difference import central_gradient
+        from ..opt.numeric_optimizer import optimize_geometry
+
+        started = datetime.now()
+        t0 = time.time()
+
+        # 能量函数
+        def energy_fn(spec):
+            req = CalculationRequest(
+                task="single_point", molecule=spec, backend="native",
+                method=request.method, basis=request.basis, xc=request.xc,
+            )
+            r = self.single_point(req)
+            if r.scf_energy_hartree is None:
+                return 1e10
+            return r.scf_energy_hartree
+
+        # 梯度函数（数值差分）
+        def gradient_fn(spec):
+            return central_gradient(energy_fn, spec, step_bohr=0.005)
+
+        outcome = optimize_geometry(
+            energy_fn, gradient_fn, request.molecule,
+            max_iter=15, ftol=1e-5, gtol=5e-3,
+        )
+        walltime = time.time() - t0
+
+        return Result(
+            backend="native",
+            backend_version="0.3.0",
+            task="optimize",
+            method=request.method,
+            basis=request.basis,
+            xc=request.xc,
+            molecule=request.molecule,
+            status="succeeded" if outcome.converged else "not_converged",
+            started_at=started,
+            finished_at=datetime.now(),
+            walltime_seconds=walltime,
+            total_energy_hartree=outcome.final_energy_hartree,
+            scf_energy_hartree=outcome.final_energy_hartree,
+            optimized_coordinates_angstrom=outcome.final_molecule.coordinates_angstrom,
+            errors=[] if outcome.converged else [f"Optimization: {outcome.message}"],
         )
