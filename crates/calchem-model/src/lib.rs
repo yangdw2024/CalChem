@@ -1,49 +1,410 @@
-//! CalChem 共享值类型。
-
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+pub const ANGSTROM_TO_BOHR: f64 = 1.8897261245650618;
+pub const BOHR_TO_ANGSTROM: f64 = 1.0 / ANGSTROM_TO_BOHR;
+
+#[derive(Debug, Error, Clone, PartialEq)]
 pub enum CalcError {
-    #[error("无效输入: {0}")]
-    InvalidInput(String),
-    #[error("不支持: {0}")]
-    Unsupported(String),
-    #[error("数值错误: {0}")]
-    Numerical(String),
-    #[error("SCF 未收敛")]
-    NotConverged,
-    #[error("资源限制: {0}")]
-    ResourceLimit(String),
+    #[error("Invalid molecule specification: {0}")]
+    InvalidMolecule(String),
+    #[error("Unsupported basis set or element: {0}")]
+    UnsupportedBasis(String),
+    #[error("Unsupported method or spin state: {0}")]
+    UnsupportedMethod(String),
+    #[error("Linear algebra failure: {0}")]
+    LinearAlgebra(String),
+    #[error("SCF failed to converge in {iterations} iterations (dE={delta_e:.3e}, rmsD={rms_d:.3e})")]
+    NotConverged {
+        iterations: usize,
+        delta_e: f64,
+        rms_d: f64,
+    },
+    #[error("Internal error: {0}")]
+    Internal(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Atom {
+    pub symbol: String,
     pub z: u8,
     pub position_bohr: [f64; 3],
 }
 
-#[derive(Debug, Clone)]
-pub struct Molecule {
-    pub atoms: Vec<Atom>,
-    pub charge: i32,
-    pub multiplicity: u32,
-}
+impl Atom {
+    pub fn from_angstrom(symbol: &str, pos_ang: [f64; 3]) -> Result<Self, CalcError> {
+        let z = atomic_number_from_symbol(symbol)?;
+        if !pos_ang.iter().all(|v| v.is_finite()) {
+            return Err(CalcError::InvalidMolecule(format!(
+                "Atom '{}' has non-finite coordinates",
+                symbol
+            )));
+        }
+        Ok(Self {
+            symbol: symbol.trim().to_string(),
+            z,
+            position_bohr: [
+                pos_ang[0] * ANGSTROM_TO_BOHR,
+                pos_ang[1] * ANGSTROM_TO_BOHR,
+                pos_ang[2] * ANGSTROM_TO_BOHR,
+            ],
+        })
+    }
 
-impl Molecule {
-    pub fn try_new(atoms: Vec<Atom>, charge: i32, multiplicity: u32) -> Result<Self, CalcError> {
-        if atoms.is_empty() {
-            return Err(CalcError::InvalidInput("分子为空".into()));
+    pub fn from_bohr(symbol: &str, pos_bohr: [f64; 3]) -> Result<Self, CalcError> {
+        let z = atomic_number_from_symbol(symbol)?;
+        if !pos_bohr.iter().all(|v| v.is_finite()) {
+            return Err(CalcError::InvalidMolecule(format!(
+                "Atom '{}' has non-finite coordinates",
+                symbol
+            )));
         }
-        for a in &atoms {
-            if a.z == 0 {
-                return Err(CalcError::InvalidInput("原子序数为 0".into()));
-            }
-        }
-        Ok(Self { atoms, charge, multiplicity })
+        Ok(Self {
+            symbol: symbol.trim().to_string(),
+            z,
+            position_bohr: pos_bohr,
+        })
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Reference {
-    Rhf, Uhf, Rks, Uks,
+pub fn atomic_number_from_symbol(sym: &str) -> Result<u8, CalcError> {
+    let clean = sym.trim();
+    if clean.is_empty() {
+        return Err(CalcError::InvalidMolecule("Empty element symbol".into()));
+    }
+    let mut chars = clean.chars();
+    let first = chars.next().unwrap().to_ascii_uppercase();
+    let rest: String = chars.map(|c| c.to_ascii_lowercase()).collect();
+    let norm = format!("{}{}", first, rest);
+    match norm.as_str() {
+        "H" => Ok(1),
+        "He" => Ok(2),
+        "Li" => Ok(3),
+        "Be" => Ok(4),
+        "B" => Ok(5),
+        "C" => Ok(6),
+        "N" => Ok(7),
+        "O" => Ok(8),
+        "F" => Ok(9),
+        "Ne" => Ok(10),
+        "Na" => Ok(11),
+        "Mg" => Ok(12),
+        "Al" => Ok(13),
+        "Si" => Ok(14),
+        "P" => Ok(15),
+        "S" => Ok(16),
+        "Cl" => Ok(17),
+        "Ar" => Ok(18),
+        "K" => Ok(19),
+        "Ca" => Ok(20),
+        "Sc" => Ok(21),
+        "Ti" => Ok(22),
+        "V" => Ok(23),
+        "Cr" => Ok(24),
+        "Mn" => Ok(25),
+        "Fe" => Ok(26),
+        "Co" => Ok(27),
+        "Ni" => Ok(28),
+        "Cu" => Ok(29),
+        "Zn" => Ok(30),
+        "Ga" => Ok(31),
+        "Ge" => Ok(32),
+        "As" => Ok(33),
+        "Se" => Ok(34),
+        "Br" => Ok(35),
+        "Kr" => Ok(36),
+        _ => Err(CalcError::InvalidMolecule(format!(
+            "Unsupported element symbol: {}",
+            sym
+        ))),
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Molecule {
+    pub atoms: Vec<Atom>,
+    pub charge: i32,
+    pub multiplicity: usize,
+}
+
+impl Molecule {
+    pub fn new(atoms: Vec<Atom>, charge: i32, multiplicity: usize) -> Self {
+        Self {
+            atoms,
+            charge,
+            multiplicity,
+        }
+    }
+
+    pub fn nelectron(&self) -> Result<usize, CalcError> {
+        let total_z: i32 = self.atoms.iter().map(|a| a.z as i32).sum();
+        let ne = total_z - self.charge;
+        if ne <= 0 {
+            return Err(CalcError::InvalidMolecule(format!(
+                "Non-positive electron count: {}",
+                ne
+            )));
+        }
+        Ok(ne as usize)
+    }
+
+    pub fn n_alpha_beta(&self) -> Result<(usize, usize), CalcError> {
+        let ne = self.nelectron()?;
+        if self.multiplicity < 1 {
+            return Err(CalcError::InvalidMolecule("Multiplicity must be >= 1".into()));
+        }
+        let unpaired = self.multiplicity - 1;
+        if unpaired > ne || (ne - unpaired) % 2 != 0 {
+            return Err(CalcError::InvalidMolecule(format!(
+                "Incompatible electron count ({}) and multiplicity ({})",
+                ne, self.multiplicity
+            )));
+        }
+        let n_beta = (ne - unpaired) / 2;
+        let n_alpha = n_beta + unpaired;
+        Ok((n_alpha, n_beta))
+    }
+
+    /// Validates that the molecule is well-formed and compatible with closed-shell RHF.
+    /// Returns `(n_alpha, n_beta)` where `n_alpha == n_beta > 0`.
+    pub fn validate_rhf(&self) -> Result<(usize, usize), CalcError> {
+        if self.atoms.is_empty() {
+            return Err(CalcError::InvalidMolecule(
+                "Molecule must contain at least one atom".into(),
+            ));
+        }
+
+        for (idx, atom) in self.atoms.iter().enumerate() {
+            if atom.z == 0 || atom.symbol.trim().is_empty() {
+                return Err(CalcError::InvalidMolecule(format!(
+                    "Atom at index {} has invalid symbol '{}' or atomic number {}",
+                    idx, atom.symbol, atom.z
+                )));
+            }
+            let expected_z = atomic_number_from_symbol(&atom.symbol)?;
+            if atom.z != expected_z {
+                return Err(CalcError::InvalidMolecule(format!(
+                    "Atom at index {} has mismatched symbol '{}' (expected Z={}, got Z={})",
+                    idx, atom.symbol, expected_z, atom.z
+                )));
+            }
+            if !atom.position_bohr.iter().all(|c| c.is_finite()) {
+                return Err(CalcError::InvalidMolecule(format!(
+                    "Atom {} ('{}') has non-finite coordinates",
+                    idx, atom.symbol
+                )));
+            }
+        }
+
+        for i in 0..self.atoms.len() {
+            for j in (i + 1)..self.atoms.len() {
+                let dx = self.atoms[i].position_bohr[0] - self.atoms[j].position_bohr[0];
+                let dy = self.atoms[i].position_bohr[1] - self.atoms[j].position_bohr[1];
+                let dz = self.atoms[i].position_bohr[2] - self.atoms[j].position_bohr[2];
+                let r = (dx * dx + dy * dy + dz * dz).sqrt();
+                if !r.is_finite() || r < 1e-3 {
+                    return Err(CalcError::InvalidMolecule(format!(
+                        "Atoms {} and {} are too close (r = {:.3e} Bohr < 1e-3 Bohr)",
+                        i, j, r
+                    )));
+                }
+            }
+        }
+
+        if self.multiplicity != 1 {
+            return Err(CalcError::UnsupportedMethod(format!(
+                "RHF requires singlet multiplicity=1, got multiplicity={}",
+                self.multiplicity
+            )));
+        }
+
+        let (n_alpha, n_beta) = self.n_alpha_beta()?;
+        if n_alpha != n_beta || n_alpha == 0 {
+            return Err(CalcError::UnsupportedMethod(
+                "RHF requires a closed-shell molecule with positive even electron count".into(),
+            ));
+        }
+
+        Ok((n_alpha, n_beta))
+    }
+
+    pub fn nuclear_repulsion_energy(&self) -> f64 {
+        let mut e_nuc = 0.0;
+        for i in 0..self.atoms.len() {
+            for j in (i + 1)..self.atoms.len() {
+                let dx = self.atoms[i].position_bohr[0] - self.atoms[j].position_bohr[0];
+                let dy = self.atoms[i].position_bohr[1] - self.atoms[j].position_bohr[1];
+                let dz = self.atoms[i].position_bohr[2] - self.atoms[j].position_bohr[2];
+                let r = (dx * dx + dy * dy + dz * dz).sqrt();
+                if r > 1e-12 {
+                    e_nuc += (self.atoms[i].z as f64) * (self.atoms[j].z as f64) / r;
+                }
+            }
+        }
+        e_nuc
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BasisFunctionMeta {
+    pub atom_index: usize,
+    pub shell_index: usize,
+    pub angular_lmn: [u8; 3],
+    pub center_bohr: [f64; 3],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShellMeta {
+    pub atom_index: usize,
+    pub angular_momentum: u8,
+    pub is_spherical: bool,
+    pub exponents: Vec<f64>,
+    pub coefficients: Vec<f64>,
+    pub center_bohr: [f64; 3],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScfOptions {
+    pub max_iter: usize,
+    pub conv_energy: f64,
+    pub conv_density: f64,
+    pub use_diis: bool,
+    pub diis_max_vecs: usize,
+    pub level_shift: f64,
+    pub damping: f64,
+}
+
+impl Default for ScfOptions {
+    fn default() -> Self {
+        Self {
+            max_iter: 100,
+            conv_energy: 1e-10,
+            conv_density: 1e-8,
+            use_diis: true,
+            diis_max_vecs: 6,
+            level_shift: 0.0,
+            damping: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScfDiagnostics {
+    pub iterations: usize,
+    pub energy_history: Vec<f64>,
+    pub rms_density_history: Vec<f64>,
+    pub diis_error_history: Vec<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScfWavefunction {
+    pub converged: bool,
+    pub iterations: usize,
+    pub total_energy_hartree: f64,
+    pub electronic_energy_hartree: f64,
+    pub nuclear_repulsion_hartree: f64,
+    pub n_ao: usize,
+    pub n_mo: usize,
+    pub mo_energies: Vec<f64>,
+    pub mo_occupations: Vec<f64>,
+    pub mo_coefficients: Vec<f64>,
+    pub density_alpha: Vec<f64>,
+    pub density_beta: Option<Vec<f64>>,
+    pub fock_alpha: Vec<f64>,
+    pub overlap_matrix: Vec<f64>,
+    pub h_core_matrix: Vec<f64>,
+    pub diagnostics: ScfDiagnostics,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_nuclear_repulsion_h2_he_h2o() {
+        let h2 = Molecule::new(
+            vec![
+                Atom::from_bohr("H", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("H", [0.0, 0.0, 1.4]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        assert!((h2.nuclear_repulsion_energy() - (1.0 / 1.4)).abs() < 1e-15);
+
+        let he = Molecule::new(vec![Atom::from_bohr("He", [0.0, 0.0, 0.0]).unwrap()], 0, 1);
+        assert_eq!(he.nuclear_repulsion_energy(), 0.0);
+
+        let h2o = Molecule::new(
+            vec![
+                Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("H", [0.0, 1.432, 0.0]).unwrap(),
+                Atom::from_bohr("H", [1.112, -0.716, 0.0]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        let r_oh1 = 1.432_f64;
+        let r_oh2 = (1.112_f64 * 1.112 + 0.716 * 0.716).sqrt();
+        let r_hh = (1.112_f64 * 1.112 + (1.432 + 0.716) * (1.432 + 0.716)).sqrt();
+        let expected = 8.0 / r_oh1 + 8.0 / r_oh2 + 1.0 / r_hh;
+        assert!((h2o.nuclear_repulsion_energy() - expected).abs() < 1e-14);
+    }
+
+    #[test]
+    fn test_validate_rhf_checks() {
+        // Empty molecule
+        let empty = Molecule::new(vec![], 0, 1);
+        assert!(matches!(
+            empty.validate_rhf(),
+            Err(CalcError::InvalidMolecule(_))
+        ));
+
+        // Coincident atoms
+        let coincident = Molecule::new(
+            vec![
+                Atom::from_bohr("H", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("H", [0.0, 0.0, 1e-5]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        assert!(matches!(
+            coincident.validate_rhf(),
+            Err(CalcError::InvalidMolecule(_))
+        ));
+
+        // Odd electron count with singlet multiplicity
+        let h_atom = Molecule::new(vec![Atom::from_bohr("H", [0.0, 0.0, 0.0]).unwrap()], 0, 1);
+        assert!(matches!(
+            h_atom.validate_rhf(),
+            Err(CalcError::InvalidMolecule(_))
+        ));
+
+        // Triplet multiplicity
+        let h2_triplet = Molecule::new(
+            vec![
+                Atom::from_bohr("H", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("H", [0.0, 0.0, 1.4]).unwrap(),
+            ],
+            0,
+            3,
+        );
+        assert!(matches!(
+            h2_triplet.validate_rhf(),
+            Err(CalcError::UnsupportedMethod(_))
+        ));
+
+        // Valid closed-shell H2O
+        let h2o = Molecule::new(
+            vec![
+                Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("H", [0.0, 1.432, 0.0]).unwrap(),
+                Atom::from_bohr("H", [1.112, -0.716, 0.0]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        assert_eq!(h2o.validate_rhf().unwrap(), (5, 5));
+    }
 }

@@ -1,9 +1,11 @@
-use pyo3::prelude::*;
-use calchem_model::{Atom, Molecule};
 use calchem_basis::BasisSet;
+use calchem_model::{Atom, Molecule, ScfOptions};
 use calchem_scf::rhf;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 #[pyclass]
+#[derive(Clone)]
 pub struct PyScfWavefunction {
     #[pyo3(get)]
     pub converged: bool,
@@ -11,62 +13,69 @@ pub struct PyScfWavefunction {
     pub iterations: usize,
     #[pyo3(get)]
     pub total_energy_hartree: f64,
+    #[pyo3(get)]
+    pub electronic_energy_hartree: f64,
+    #[pyo3(get)]
+    pub nuclear_repulsion_hartree: f64,
+    #[pyo3(get)]
+    pub mo_energies: Vec<f64>,
+    #[pyo3(get)]
+    pub mo_occupations: Vec<f64>,
 }
 
-// 嵌入基组数据
-const STO3G_JSON: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../calchem-basis/data/sto-3g.json"));
-
 #[pyfunction]
-#[pyo3(signature = (atomic_numbers, coords_bohr, charge=0, multiplicity=1, method="rhf", basis="sto-3g"))]
+#[pyo3(signature = (symbols, geometry_bohr, charge=0, multiplicity=1, method="rhf", basis="sto-3g", max_iter=100, conv_energy=1e-10, conv_density=1e-8))]
+#[allow(clippy::too_many_arguments)]
 pub fn run_single_point(
-    _py: Python<'_>,
-    atomic_numbers: Vec<u8>,
-    coords_bohr: Vec<f64>,
+    symbols: Vec<String>,
+    geometry_bohr: Vec<[f64; 3]>,
     charge: i32,
     multiplicity: usize,
     method: &str,
     basis: &str,
+    max_iter: usize,
+    conv_energy: f64,
+    conv_density: f64,
 ) -> PyResult<PyScfWavefunction> {
-    // 解析坐标
-    if coords_bohr.len() % 3 != 0 {
-        return Err(pyo3::exceptions::PyValueError::new_err("坐标数组长度必须是3的倍数"));
-    }
-    let natoms = atomic_numbers.len();
-    if coords_bohr.len() / 3 != natoms {
-        return Err(pyo3::exceptions::PyValueError::new_err("原子数与坐标数不匹配"));
-    }
-
-    let atoms: Vec<Atom> = atomic_numbers
-        .iter()
-        .zip(coords_bohr.chunks(3))
-        .map(|(&z, c)| Atom {
-            z,
-            position_bohr: [c[0], c[1], c[2]],
-        })
-        .collect();
-
-    let mol = Molecule::try_new(atoms, charge, multiplicity as u32)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-
-    if method.to_lowercase() != "rhf" {
-        return Err(pyo3::exceptions::PyNotImplementedError::new_err(
-            format!("目前仅支持 RHF，收到 method={method}")
+    if symbols.len() != geometry_bohr.len() {
+        return Err(PyValueError::new_err(
+            "symbols and geometry_bohr length mismatch",
         ));
     }
 
-    // 加载基组
-    let atom_list: Vec<(u8, [f64; 3])> = mol.atoms.iter().map(|a| (a.z, a.position_bohr)).collect();
-    let bs = BasisSet::build(basis, STO3G_JSON, &atom_list)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+    let mut atoms = Vec::with_capacity(symbols.len());
+    for (s, pos) in symbols.iter().zip(geometry_bohr.iter()) {
+        let atom = Atom::from_bohr(s, *pos).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        atoms.push(atom);
+    }
+    let mol = Molecule::new(atoms, charge, multiplicity);
 
-    // 执行 RHF
-    let result = rhf(&mol, &bs)
-        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    let bs =
+        BasisSet::from_name(basis, &mol).map_err(|e| PyValueError::new_err(e.to_string()))?;
 
+    let m = method.trim().to_ascii_lowercase();
+    if m != "rhf" && m != "hf" {
+        return Err(PyValueError::new_err(format!(
+            "Unsupported method in Rust Stage 2 core: {method}"
+        )));
+    }
+
+    let opts = ScfOptions {
+        max_iter,
+        conv_energy,
+        conv_density,
+        ..Default::default()
+    };
+
+    let wf = rhf(&mol, &bs, &opts).map_err(|e| PyValueError::new_err(e.to_string()))?;
     Ok(PyScfWavefunction {
-        converged: result.converged,
-        iterations: result.n_iter as usize,
-        total_energy_hartree: result.energy,
+        converged: wf.converged,
+        iterations: wf.iterations,
+        total_energy_hartree: wf.total_energy_hartree,
+        electronic_energy_hartree: wf.electronic_energy_hartree,
+        nuclear_repulsion_hartree: wf.nuclear_repulsion_hartree,
+        mo_energies: wf.mo_energies,
+        mo_occupations: wf.mo_occupations,
     })
 }
 

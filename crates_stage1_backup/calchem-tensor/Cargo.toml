@@ -1,0 +1,9 @@
+[package]
+name = "calchem-tensor"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+calchem-model = { path = "../calchem-model" }
+faer = { workspace = true }
+rayon = { workspace = true }

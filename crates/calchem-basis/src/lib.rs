@@ -1,27 +1,31 @@
-//! 基组层：从 JSON 加载基组数据，为分子构建收缩壳层。
+pub mod normalization;
 
+use calchem_model::{CalcError, Molecule};
+pub use normalization::{
+    double_factorial_odd, normalized_contraction, normalized_primitive_self_overlap, primitive_norm,
+};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::f64::consts::PI;
 
-/// 单个 GTO 原语
-#[derive(Debug, Clone)]
-pub struct Primitive {
-    pub alpha: f64,
-    pub norm: f64,
+const STO_3G_JSON: &str = include_str!("../data/sto-3g.json");
+const BASIS_631G_JSON: &str = include_str!("../data/6-31g.json");
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawShellData {
+    shell_type: String,
+    exponents: Vec<f64>,
+    coefficients: Vec<f64>,
 }
 
-/// 收缩壳层
-#[derive(Debug, Clone)]
-pub struct Shell {
-    pub origin: [f64; 3],
-    pub shell_type: ShellType,
-    pub coeffs: Vec<f64>,
-    pub exponents: Vec<f64>,
-    pub primitives: Vec<Primitive>,
+#[derive(Debug, Clone, Deserialize)]
+struct RawBasisFile {
+    name: String,
+    #[allow(dead_code)]
+    source: Option<String>,
+    elements: HashMap<String, Vec<RawShellData>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShellType {
     S,
     P,
@@ -29,7 +33,7 @@ pub enum ShellType {
 }
 
 impl ShellType {
-    pub fn angular_momentum(&self) -> u32 {
+    pub fn angular_momentum(&self) -> u8 {
         match self {
             ShellType::S => 0,
             ShellType::P => 1,
@@ -37,180 +41,197 @@ impl ShellType {
         }
     }
 
-    pub fn n_functions(&self) -> usize {
+    pub fn n_ao(&self) -> usize {
         match self {
             ShellType::S => 1,
             ShellType::P => 3,
-            ShellType::D => 6, // Cartesian
+            ShellType::D => 6,
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
-        match s {
-            "s" => ShellType::S,
-            "p" => ShellType::P,
-            "d" => ShellType::D,
-            _ => ShellType::S,
+    #[allow(non_snake_case)]
+    pub fn n_AO(&self) -> usize {
+        self.n_ao()
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, CalcError> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "s" => Ok(ShellType::S),
+            "p" => Ok(ShellType::P),
+            "d" => Ok(ShellType::D),
+            other => Err(CalcError::UnsupportedBasis(format!(
+                "Unsupported shell type: '{other}'"
+            ))),
+        }
+    }
+
+    pub fn components(&self) -> &'static [[u8; 3]] {
+        match self {
+            ShellType::S => &[[0, 0, 0]],
+            ShellType::P => &[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+            ShellType::D => &[
+                [2, 0, 0],
+                [1, 1, 0],
+                [1, 0, 1],
+                [0, 2, 0],
+                [0, 1, 1],
+                [0, 0, 2],
+            ],
         }
     }
 }
 
-/// 笛卡尔角动量组合
-pub fn cartesian_indices(L: u32) -> Vec<(i32, i32, i32)> {
-    let mut result = Vec::new();
-    for l in (0..=L).rev() {
-        for m in (0..=L - l).rev() {
-            let n = L - l - m;
-            result.push((l as i32, m as i32, n as i32));
-        }
+#[derive(Debug, Clone)]
+pub struct Primitive {
+    pub exponent: f64,
+    /// Contraction-normalized coefficient `\tilde{c}_p` such that `<phi | phi> = 1`.
+    pub coeff: f64,
+    /// Original unnormalized contraction coefficient from the basis set table.
+    pub raw_coeff: f64,
+    /// Primitive normalization constant for the leading Cartesian component `(L, 0, 0)`.
+    /// For Cartesian `d` shells where axial `(2,0,0)` and off-diagonal `(1,1,0)` norms differ,
+    /// use `Primitive::norm_for(lmn)` or `Shell::primitive_norm_for(prim_idx, lmn)`.
+    pub norm: f64,
+}
+
+impl Primitive {
+    pub fn norm_for(&self, lmn: [u8; 3]) -> f64 {
+        primitive_norm(self.exponent, lmn)
     }
-    result
 }
 
-fn double_factorial(n: i32) -> f64 {
-    if n <= 0 {
-        return 1.0;
+#[derive(Debug, Clone)]
+pub struct Shell {
+    pub atom_index: usize,
+    pub center: [f64; 3],
+    pub shell_type: ShellType,
+    pub primitives: Vec<Primitive>,
+    pub ao_offset: usize,
+}
+
+impl Shell {
+    pub fn n_functions(&self) -> usize {
+        self.shell_type.n_ao()
     }
-    let mut r = 1.0;
-    let mut v = n;
-    while v > 0 {
-        r *= v as f64;
-        v -= 2;
+
+    pub fn components(&self) -> &'static [[u8; 3]] {
+        self.shell_type.components()
     }
-    r
+
+    pub fn primitive_norm_for(&self, prim_idx: usize, lmn: [u8; 3]) -> f64 {
+        primitive_norm(self.primitives[prim_idx].exponent, lmn)
+    }
 }
 
-/// 计算单个原语的归一化常数（s 型）
-fn norm_s(alpha: f64) -> f64 {
-    (2.0 * alpha / PI).powf(0.75)
+pub fn norm_s(alpha: f64) -> f64 {
+    primitive_norm(alpha, [0, 0, 0])
 }
 
-/// 计算 p 型原语归一化
-fn norm_p(alpha: f64) -> f64 {
-    (2.0 * alpha / PI).powf(0.75) * (4.0 * alpha).sqrt()
+pub fn norm_p(alpha: f64) -> f64 {
+    primitive_norm(alpha, [1, 0, 0])
 }
 
-/// 计算 d 型原语归一化（笛卡尔）
-fn norm_d(alpha: f64) -> f64 {
-    (2.0 * alpha / PI).powf(0.75) * (4.0 * alpha) / (2.0_f64.sqrt())
+/// Returns the axial Cartesian d normalization constant `N(alpha; 2, 0, 0)`.
+/// For general Cartesian d components `(l, m, n)` with `l+m+n=2`, use `primitive_norm(alpha, lmn)`.
+pub fn norm_d(alpha: f64) -> f64 {
+    primitive_norm(alpha, [2, 0, 0])
 }
 
-#[derive(Debug, Deserialize)]
-struct BasisFile {
-    elements: HashMap<String, Vec<ShellDef>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ShellDef {
-    coefficients: Vec<f64>,
-    exponents: Vec<f64>,
-    shell_type: String,
-}
-
-/// 完整基组
+#[derive(Debug, Clone)]
 pub struct BasisSet {
     pub name: String,
-    shells: Vec<Shell>,
-    shell_ranges: Vec<(usize, usize)>,
-    pub nbf: usize,
+    pub shells: Vec<Shell>,
+    pub n_ao: usize,
 }
 
 impl BasisSet {
-    /// 从 JSON 数据加载基组并为分子构建壳层
-    pub fn build(
-        name: &str,
-        json_data: &str,
-        atoms: &[(u8, [f64; 3])], // (atomic_number, position_bohr)
-    ) -> Result<Self, String> {
-        let bf: BasisFile = serde_json::from_str(json_data)
-            .map_err(|e| format!("基组 JSON 解析失败: {e}"))?;
+    pub fn from_name(name: &str, mol: &Molecule) -> Result<Self, CalcError> {
+        let key = name.trim().to_ascii_lowercase();
+        match key.as_str() {
+            "sto-3g" | "sto3g" => Self::sto_3g(mol),
+            "6-31g" | "631g" => Self::basis_6_31g(mol),
+            other => Err(CalcError::UnsupportedBasis(format!(
+                "Unsupported basis set: '{other}'"
+            ))),
+        }
+    }
+
+    pub fn sto_3g(mol: &Molecule) -> Result<Self, CalcError> {
+        Self::from_json_str(STO_3G_JSON, mol)
+    }
+
+    pub fn basis_6_31g(mol: &Molecule) -> Result<Self, CalcError> {
+        Self::from_json_str(BASIS_631G_JSON, mol)
+    }
+
+    pub fn from_json_str(json_str: &str, mol: &Molecule) -> Result<Self, CalcError> {
+        let raw: RawBasisFile = serde_json::from_str(json_str)
+            .map_err(|e| CalcError::Internal(format!("Basis JSON parse error: {e}")))?;
+        Self::build(raw, mol)
+    }
+
+    fn build(raw: RawBasisFile, mol: &Molecule) -> Result<Self, CalcError> {
+        if mol.atoms.is_empty() {
+            return Err(CalcError::InvalidMolecule(
+                "Cannot build basis set for empty molecule".into(),
+            ));
+        }
 
         let mut shells = Vec::new();
+        let mut ao_offset = 0;
 
-        for &(z, pos) in atoms {
-            let symbol = atomic_number_to_symbol(z)?;
-            let shell_defs = bf.elements.get(symbol)
-                .ok_or_else(|| format!("基组中找不到元素 {symbol}"))?;
+        for (atom_index, atom) in mol.atoms.iter().enumerate() {
+            let elem_shells = raw.elements.get(&atom.symbol).ok_or_else(|| {
+                CalcError::UnsupportedBasis(format!(
+                    "Element '{}' not found in basis '{}'",
+                    atom.symbol, raw.name
+                ))
+            })?;
 
-            for def in shell_defs {
-                let stype = ShellType::from_str(&def.shell_type);
-                let mut primitives = Vec::new();
+            if elem_shells.is_empty() {
+                return Err(CalcError::UnsupportedBasis(format!(
+                    "Element '{}' has no shells in basis '{}'",
+                    atom.symbol, raw.name
+                )));
+            }
 
-                for &alpha in &def.exponents {
-                    let norm = match stype {
-                        ShellType::S => norm_s(alpha),
-                        ShellType::P => norm_p(alpha),
-                        ShellType::D => norm_d(alpha),
-                    };
-                    primitives.push(Primitive { alpha, norm });
+            for rs in elem_shells {
+                let stype = ShellType::from_str(&rs.shell_type)?;
+                let rep_lmn = stype.components()[0];
+                let norm_coeffs =
+                    normalized_contraction(&rs.exponents, &rs.coefficients, rep_lmn)?;
+
+                let mut prims = Vec::with_capacity(rs.exponents.len());
+                for ((&exp, &raw_coeff), &coeff) in rs
+                    .exponents
+                    .iter()
+                    .zip(rs.coefficients.iter())
+                    .zip(norm_coeffs.iter())
+                {
+                    let norm = primitive_norm(exp, rep_lmn);
+                    prims.push(Primitive {
+                        exponent: exp,
+                        coeff,
+                        raw_coeff,
+                        norm,
+                    });
                 }
 
                 shells.push(Shell {
-                    origin: pos,
+                    atom_index,
+                    center: atom.position_bohr,
                     shell_type: stype,
-                    coeffs: def.coefficients.clone(),
-                    exponents: def.exponents.clone(),
-                    primitives,
+                    primitives: prims,
+                    ao_offset,
                 });
+                ao_offset += stype.n_ao();
             }
-        }
-
-        // 计算基函数范围
-        let mut shell_ranges = Vec::new();
-        let mut idx = 0;
-        for s in &shells {
-            let nf = s.shell_type.n_functions();
-            shell_ranges.push((idx, idx + nf));
-            idx += nf;
         }
 
         Ok(Self {
-            name: name.to_string(),
+            name: raw.name,
             shells,
-            shell_ranges,
-            nbf: idx,
+            n_ao: ao_offset,
         })
-    }
-
-    pub fn shells(&self) -> &[Shell] {
-        &self.shells
-    }
-
-    pub fn shell_ranges(&self) -> &[(usize, usize)] {
-        &self.shell_ranges
-    }
-
-    /// 获取指定基函数对应的 (shell_index, function_index_in_shell)
-    pub fn bf_to_shell_func(&self, bf_idx: usize) -> (usize, usize) {
-        for (i, &(start, end)) in self.shell_ranges.iter().enumerate() {
-            if bf_idx >= start && bf_idx < end {
-                return (i, bf_idx - start);
-            }
-        }
-        panic!("基函数索引越界: {bf_idx}");
-    }
-}
-
-fn atomic_number_to_symbol(z: u8) -> Result<&'static str, String> {
-    match z {
-        1 => Ok("H"),
-        2 => Ok("He"),
-        3 => Ok("Li"),
-        4 => Ok("Be"),
-        5 => Ok("B"),
-        6 => Ok("C"),
-        7 => Ok("N"),
-        8 => Ok("O"),
-        9 => Ok("F"),
-        10 => Ok("Ne"),
-        11 => Ok("Na"),
-        12 => Ok("Mg"),
-        13 => Ok("Al"),
-        14 => Ok("Si"),
-        15 => Ok("P"),
-        16 => Ok("S"),
-        17 => Ok("Cl"),
-        18 => Ok("Ar"),
-        _ => Err(format!("不支持的原子序数: {z}")),
     }
 }

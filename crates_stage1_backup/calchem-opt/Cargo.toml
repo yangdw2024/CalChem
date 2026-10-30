@@ -1,0 +1,8 @@
+[package]
+name = "calchem-opt"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+calchem-model = { path = "../calchem-model" }
+calchem-grad = { path = "../calchem-grad" }
