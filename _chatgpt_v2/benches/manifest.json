@@ -1,0 +1,85 @@
+{
+  "cases": [
+    {
+      "id": "h2_sto3g_1.4bohr",
+      "symbols": [
+        "H",
+        "H"
+      ],
+      "coordinates_bohr": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.4
+        ]
+      ],
+      "charge": 0,
+      "multiplicity": 1,
+      "method": "rhf",
+      "basis": "sto-3g",
+      "compute_gradient": true,
+      "verify_fd": true,
+      "warmup": 1,
+      "repeats": 3
+    },
+    {
+      "id": "he_sto3g",
+      "symbols": [
+        "He"
+      ],
+      "coordinates_bohr": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "charge": 0,
+      "multiplicity": 1,
+      "method": "rhf",
+      "basis": "sto-3g",
+      "compute_gradient": false,
+      "verify_fd": false,
+      "warmup": 1,
+      "repeats": 3
+    },
+    {
+      "id": "h2o_szabo_sto3g",
+      "symbols": [
+        "O",
+        "H",
+        "H"
+      ],
+      "coordinates_bohr": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.432,
+          0.0
+        ],
+        [
+          1.112,
+          -0.716,
+          0.0
+        ]
+      ],
+      "charge": 0,
+      "multiplicity": 1,
+      "method": "rhf",
+      "basis": "sto-3g",
+      "compute_gradient": true,
+      "verify_fd": false,
+      "warmup": 0,
+      "repeats": 1
+    }
+  ]
+}

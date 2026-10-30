@@ -1,0 +1,13 @@
+[package]
+name = "calchem-opt"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+calchem-tensor = { path = "../calchem-tensor" }
+calchem-basis = { path = "../calchem-basis" }
+calchem-int = { path = "../calchem-int" }
+calchem-scf = { path = "../calchem-scf" }
+calchem-grad = { path = "../calchem-grad" }
+faer = { workspace = true }
+thiserror = { workspace = true }

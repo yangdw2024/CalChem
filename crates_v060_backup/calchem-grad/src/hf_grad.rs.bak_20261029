@@ -1,0 +1,772 @@
+//! HF 解析核梯度（RHF/闭壳层）。
+//!
+//! 原理（让计算化学方向、Python 薄弱的研究生也能看懂）：
+//!   总能量 E = 0.5 tr[P(H+F)] + E_nuc。
+//!   由于 SCF 收敛时能量对密度是驻定的，对某个核坐标 R_A 求导时，
+//!   “密度随核移动”的那一项恰好为零（这叫 Pulay 条件）。于是只需把
+//!   积分本身对核坐标的导数算出来：
+//!     dE/dR_A = Σ_mn P_mn dH_mn/dR_A
+//!             + 0.5 Σ_mn P_mn dJ_mn/dR_A
+//!             - 0.25 Σ_mn P_mn dK_mn/dR_A
+//!             + dE_nuc/dR_A
+//!   其中 dJ、dK 由“导数 ERI 张量”按与正常 JK 相同的收缩得到。
+//!
+//!   一个以 A 为中心的归一化高斯原语，其对“中心坐标”的导数满足
+//!     dχ_{lmn}/dA_x = sqrt(α(2l+1)) χ_{l+1,m,n}
+//!                     - 2l sqrt(α/(2l-1)) χ_{l-1,m,n}
+//!   即把被求导的壳层替换成“角动量 +1 / -1”的两个壳，再用现有积分引擎。
+//!   核吸引算子本身也含核坐标（Hellmann-Feynman 项），单独用场梯度块计算。
+
+use calchem_basis::{cartesian_angular_indices, BasisSetData, MoleculeCore, Shell};
+use calchem_scf::ScfOutput;
+use calchem_tensor::PackedSymMatrix;
+
+/// 构造一个壳层对“中心坐标”的两个导数壳：
+///   - dplus：角动量 l+1，原语系数 c_p·sqrt(α_p)
+///   - dminus：角动量 l-1（l>0 时），原语系数 c_p·sqrt(α_p)
+/// 收缩时再按具体笛卡尔分量乘上分量因子。
+fn build_derivative_shells(s: &Shell) -> (Shell, Option<Shell>) {
+    let l = s.angular_l as usize;
+    let coeffs: Vec<f64> = s
+        .exponents
+        .iter()
+        .zip(s.coefficients.iter())
+        .map(|(a, c)| c * a.sqrt())
+        .collect();
+    let dplus = Shell {
+        atom_idx: s.atom_idx,
+        angular_l: (l + 1) as u8,
+        center_bohr: s.center_bohr,
+        exponents: s.exponents.clone(),
+        coefficients: coeffs.clone(),
+        ao_offset: s.ao_offset,
+    };
+    let dminus = if l >= 1 {
+        Some(Shell {
+            atom_idx: s.atom_idx,
+            angular_l: (l - 1) as u8,
+            center_bohr: s.center_bohr,
+            exponents: s.exponents.clone(),
+            coefficients: coeffs,
+            ao_offset: s.ao_offset,
+        })
+    } else {
+        None
+    };
+    (dplus, dminus)
+}
+
+/// 沿被求导轴的角分量计数 k（x 轴=l，y 轴=m，z 轴=n）对应的导数分量因子。
+fn component_factors(k: usize) -> (f64, f64) {
+    let plus = (2.0 * k as f64 + 1.0).sqrt();
+    let minus = if k > 0 {
+        -2.0 * k as f64 * (1.0 / (2.0 * k as f64 - 1.0)).sqrt()
+    } else {
+        0.0
+    };
+    (plus, minus)
+}
+
+/// 导数壳（角动量 l+1）中，原壳分量 (la,ma,na) 沿轴 ax 经 +1 后对应的行索引。
+fn dplus_row_index(ax: usize, l: usize, la: usize, ma: usize, na: usize) -> usize {
+    let mut t = [la, ma, na];
+    t[ax] += 1;
+    let cart = cartesian_angular_indices(l + 1);
+    cart.iter().position(|&(x, y, z)| x == t[0] && y == t[1] && z == t[2]).unwrap()
+}
+
+/// 导数壳（角动量 l-1）中，原壳分量 (la,ma,na) 沿轴 ax 经 -1 后对应的行索引。
+fn dminus_row_index(ax: usize, l: usize, la: usize, ma: usize, na: usize) -> usize {
+    let t0 = [la, ma, na];
+    if t0[ax] == 0 {
+        return 0;
+    }
+    let mut t = t0;
+    t[ax] -= 1;
+    let cart = cartesian_angular_indices(l - 1);
+    cart.iter().position(|&(x, y, z)| x == t[0] && y == t[1] && z == t[2]).unwrap()
+}
+
+/// 构建某原子 A、某分量 ax 的“单电子导数矩阵”（行主序 nbf²，含基函数导数 + HF 场导数）。
+fn build_deriv_hcore(
+    mol: &MoleculeCore,
+    basis: &BasisSetData,
+    nuclei: &[([f64; 3], f64)],
+    a_atom: usize,
+    ax: usize,
+) -> Vec<f64> {
+    let nbf = basis.nbf;
+    let center = mol.atoms[a_atom].coord_bohr;
+    let za = mol.atoms[a_atom].atomic_number as f64;
+    let mut dh = vec![0.0; nbf * nbf];
+
+    // 1) 基函数导数：仅对以 A 为中心的壳。
+    for sh_i in 0..basis.shells.len() {
+        if basis.shells[sh_i].atom_idx as usize != a_atom {
+            continue;
+        }
+        let s = &basis.shells[sh_i];
+        let l = s.angular_l as usize;
+        let (dplus, dminus) = build_derivative_shells(s);
+        let (i0, _i1) = basis.shell_ao_range(sh_i);
+        let cart_orig = cartesian_angular_indices(l);
+        for sh_j in 0..basis.shells.len() {
+            let (j0, j1) = basis.shell_ao_range(sh_j);
+            let ncol = j1 - j0;
+            let kp = calchem_int::one_electron_block(&dplus, &basis.shells[sh_j], 1, nuclei);
+            let vp = calchem_int::one_electron_block(&dplus, &basis.shells[sh_j], 2, nuclei);
+            let (km, vm) = if let Some(dm) = &dminus {
+                (
+                    calchem_int::one_electron_block(dm, &basis.shells[sh_j], 1, nuclei),
+                    calchem_int::one_electron_block(dm, &basis.shells[sh_j], 2, nuclei),
+                )
+            } else {
+                (vec![0.0; ncol], vec![0.0; ncol])
+            };
+            for (ci, &(la_, ma_, na_)) in cart_orig.iter().enumerate() {
+                let kcount = [la_, ma_, na_][ax];
+                let (fp, fm) = component_factors(kcount);
+                let rp = dplus_row_index(ax, l, la_, ma_, na_);
+                let rm = dminus_row_index(ax, l, la_, ma_, na_);
+                for cj in 0..ncol {
+                    let mut v = fp * (kp[rp * ncol + cj] + vp[rp * ncol + cj]);
+                    if dminus.is_some() {
+                        v += fm * (km[rm * ncol + cj] + vm[rm * ncol + cj]);
+                    }
+                    // 同时放 bra (i,j) 与 ket (j,i)；对角时自然给出 bra+ket 两项。
+                    dh[(i0 + ci) * nbf + (j0 + cj)] += v;
+                    dh[(j0 + cj) * nbf + (i0 + ci)] += v;
+                }
+            }
+        }
+    }
+
+    // 2) Hellmann-Feynman 场导数：算子 -Z_A (r-A)/|r-A|³，对所有壳对。
+    for sh_i in 0..basis.shells.len() {
+        let (i0, i1) = basis.shell_ao_range(sh_i);
+        for sh_j in 0..basis.shells.len() {
+            let (j0, j1) = basis.shell_ao_range(sh_j);
+            let blk = calchem_int::nuclear_field_gradient_block(
+                &basis.shells[sh_i],
+                &basis.shells[sh_j],
+                center,
+                ax,
+            );
+            let ncol = j1 - j0;
+            for ii in 0..(i1 - i0) {
+                for jj in 0..ncol {
+                    dh[(i0 + ii) * nbf + (j0 + jj)] += -za * blk[ii * ncol + jj];
+                }
+            }
+        }
+    }
+    dh
+}
+
+/// 构建某原子 A、某分量 ax 的“导数 ERI 张量”（行主序 nbf⁴，仅基函数导数）。
+fn build_deriv_eri(
+    basis: &BasisSetData,
+    a_atom: usize,
+    ax: usize,
+) -> Vec<f64> {
+    let nbf = basis.nbf;
+    let nsh = basis.shells.len();
+    let mut de = vec![0.0; nbf * nbf * nbf * nbf];
+
+    for sh_i in 0..nsh {
+        if basis.shells[sh_i].atom_idx as usize != a_atom {
+            continue;
+        }
+        let s = &basis.shells[sh_i];
+        let l = s.angular_l as usize;
+        let (dplus, dminus) = build_derivative_shells(s);
+        let (i0, _i1) = basis.shell_ao_range(sh_i);
+        let cart_orig = cartesian_angular_indices(l);
+
+        // 其余三个壳全遍历。
+        for sh_t in 0..nsh {
+            let (t0, t1) = basis.shell_ao_range(sh_t);
+            for sh_u in 0..nsh {
+                let (u0, u1) = basis.shell_ao_range(sh_u);
+                for sh_v in 0..nsh {
+                    let (v0, v1) = basis.shell_ao_range(sh_v);
+                    let bp = calchem_int::eri_block(
+                        &dplus,
+                        &basis.shells[sh_t],
+                        &basis.shells[sh_u],
+                        &basis.shells[sh_v],
+                    );
+                    let (bm, has_m) = if let Some(dm) = &dminus {
+                        (
+                            calchem_int::eri_block(
+                                dm,
+                                &basis.shells[sh_t],
+                                &basis.shells[sh_u],
+                                &basis.shells[sh_v],
+                            ),
+                            true,
+                        )
+                    } else {
+                        (Vec::new(), false)
+                    };
+                    let dt = (t1 - t0, u1 - u0, v1 - v0);
+                    for (ci, &(la_, ma_, na_)) in cart_orig.iter().enumerate() {
+                        let kcount = [la_, ma_, na_][ax];
+                        let (fp, fm) = component_factors(kcount);
+                        let rp = dplus_row_index(ax, l, la_, ma_, na_);
+                        let rm = dminus_row_index(ax, l, la_, ma_, na_);
+                        for itf in 0..dt.0 {
+                            for iuf in 0..dt.1 {
+                                for ivf in 0..dt.2 {
+                                    let ip = ((rp * dt.0 + itf) * dt.1 + iuf) * dt.2 + ivf;
+                                    let mut val = fp * bp[ip];
+                                    if has_m {
+                                        let im = ((rm * dt.0 + itf) * dt.1 + iuf) * dt.2 + ivf;
+                                        val += fm * bm[im];
+                                    }
+                                    let m = i0 + ci;
+                                    let tf = t0 + itf;
+                                    let uf = u0 + iuf;
+                                    let vf = v0 + ivf;
+                                    // 把导数放在 4 个位置（每个位置 1 个）；
+                                    // 全遍历 t,u,v 时，within-ket 交换由循环覆盖，
+                                    // 合计正好 8 重对称。
+                                    let perms = [
+                                        (m, tf, uf, vf),
+                                        (tf, m, uf, vf),
+                                        (uf, vf, m, tf),
+                                        (uf, vf, tf, m),
+                                    ];
+                                    for (w, x, y, z) in perms {
+                                        de[((w * nbf + x) * nbf + y) * nbf + z] += val;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    de
+}
+
+/// 计算 RHF 解析核梯度 dE/dR_A（单位 Eh/Bohr），顺序 [atom][x,y,z]。
+pub fn compute_analytical_gradient(
+    mol: &MoleculeCore,
+    basis: &BasisSetData,
+    scf: &ScfOutput,
+) -> Vec<[f64; 3]> {
+    let natom = mol.natom();
+    let nbf = basis.nbf;
+    let mut grad = mol.nuclear_repulsion_grad();
+
+    let nuclei: Vec<([f64; 3], f64)> = mol
+        .atoms
+        .iter()
+        .map(|a| (a.coord_bohr, a.atomic_number as f64))
+        .collect();
+
+    for a_atom in 0..natom {
+        for ax in 0..3 {
+            let dh = build_deriv_hcore(mol, basis, &nuclei, a_atom, ax);
+            let de = build_deriv_eri(basis, a_atom, ax);
+
+            // 单电子收缩 Σ_mn P_mn dH_mn。
+            let mut g = 0.0;
+            for m in 0..nbf {
+                for n in 0..nbf {
+                    g += scf.density.get(m, n) * dh[m * nbf + n];
+                }
+            }
+            // 双电子：由导数 ERI 构建 J、K，再 0.5 P·J - 0.25 P·K。
+            let (dj, dk) = calchem_int::build_jk_incore(nbf, &de, &scf.density, 1.0);
+            for m in 0..nbf {
+                for n in m..nbf {
+                    let w = if m == n { 1.0 } else { 2.0 };
+                    g += w * scf.density.get(m, n)
+                        * (0.5 * dj.get(m, n) - 0.25 * dk.get(m, n));
+                }
+            }
+            grad[a_atom][ax] += g;
+        }
+    }
+    grad
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use calchem_basis::AngularType;
+
+    fn run_grad(z: &[u8], coords: &[f64]) -> Vec<[f64; 3]> {
+        let mol = MoleculeCore::new(z, coords, 0, 1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g", &mol, AngularType::Cartesian).unwrap();
+        let scf = calchem_scf::execute_scf_pipeline(z, coords, 0, 1, "rhf", "sto-3g", None, false, 0)
+            .unwrap();
+        compute_analytical_gradient(&mol, &basis, &scf)
+    }
+
+    /// 临时调试：导数 ERI 张量 vs 有限差分（H2 沿 z）。
+    #[test]
+    fn debug_deriv_eri_h2() {
+        let coords = [0.0, 0.0, 0.0, 0.0, 0.0, 1.4];
+        let mol = MoleculeCore::new(&[1, 1], &coords, 0, 1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g", &mol, AngularType::Cartesian).unwrap();
+        let nbf = basis.nbf;
+        let de = build_deriv_eri(&basis, 0, 2);
+        let h = 1e-6;
+        let cp = [0.0, 0.0, h, 0.0, 0.0, 1.4];
+        let mp = MoleculeCore::new(&[1, 1], &cp, 0, 1);
+        let bp = calchem_basis::load_builtin_basis("sto-3g", &mp, AngularType::Cartesian).unwrap();
+        let ep = calchem_int::compute_eri_incore(&bp);
+        let cm = [0.0, 0.0, -h, 0.0, 0.0, 1.4];
+        let mm = MoleculeCore::new(&[1, 1], &cm, 0, 1);
+        let bm = calchem_basis::load_builtin_basis("sto-3g", &mm, AngularType::Cartesian).unwrap();
+        let em = calchem_int::compute_eri_incore(&bm);
+        let idx = |i: usize, j: usize, k: usize, l: usize| ((i * nbf + j) * nbf + k) * nbf + l;
+        let mut maxerr = 0.0;
+        for i in 0..nbf {
+            for j in 0..nbf {
+                for k in 0..nbf {
+                    for l in 0..nbf {
+                        let num = (ep[idx(i, j, k, l)] - em[idx(i, j, k, l)]) / (2.0 * h);
+                        let ana = de[idx(i, j, k, l)];
+                        let err = (num - ana).abs();
+                        if err > maxerr {
+                            maxerr = err;
+                            if err > 1e-4 {
+                                println!("ijkl={}{}{}{} ana={} num={} err={}", i, j, k, l, ana, num, err);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        println!("deriv ERI maxerr={}", maxerr);
+        assert!(maxerr < 1e-5, "maxerr={}", maxerr);
+    }
+
+    /// 冻结密度总能量：tr[P H] + 0.5 tr[P J] - 0.25 tr[P K] + E_nuc。
+    fn etot_frozen(mol: &MoleculeCore, basis: &BasisSetData, p: &PackedSymMatrix) -> f64 {
+        let nuclei: Vec<([f64;3],f64)> = mol
+            .atoms.iter().map(|a|(a.coord_bohr,a.atomic_number as f64)).collect();
+        let t = calchem_int::compute_one_electron_matrix(basis,1,&nuclei);
+        let v = calchem_int::compute_one_electron_matrix(basis,2,&nuclei);
+        let mut h = vec![0.0; basis.nbf*basis.nbf];
+        for i in 0..basis.nbf { for j in 0..basis.nbf { h[i*basis.nbf+j]=t[i*basis.nbf+j]+v[i*basis.nbf+j]; } }
+        let eri = calchem_int::compute_eri_incore(basis);
+        let (j,k) = calchem_int::build_jk_incore(basis.nbf,&eri,p,1.0);
+        let mut e = 0.0;
+        for m in 0..basis.nbf { for n in 0..basis.nbf {
+            e += p.get(m,n)*h[m*basis.nbf+n];
+        } }
+        for m in 0..basis.nbf { for n in m..basis.nbf {
+            let w = if m==n {1.0} else {2.0};
+            e += w*p.get(m,n)*(0.5*j.get(m,n)-0.25*k.get(m,n));
+        } }
+        e += mol.nuclear_repulsion_energy();
+        e
+    }
+
+    /// 解析梯度 vs 冻结密度总能量有限差分（排除密度松弛）。
+    #[test]
+    fn debug_grad_vs_frozen_etot() {
+        let coords = [0.0,0.0,0.0,0.0,1.432,0.0,1.112,-0.716,0.0];
+        let mol = MoleculeCore::new(&[8,1,1],&coords,0,1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g",&mol,AngularType::Cartesian).unwrap();
+        let scf = calchem_scf::execute_scf_pipeline(&[8,1,1],&coords,0,1,"rhf","sto-3g",None,false,0).unwrap();
+        let g = compute_analytical_gradient(&mol,&basis,&scf);
+        let h = 1e-5;
+        for atom in 0..3 { for ax in 0..3 {
+            let mut cp = coords; cp[atom*3+ax]+=h;
+            let mp = MoleculeCore::new(&[8,1,1],&cp,0,1);
+            let bp = calchem_basis::load_builtin_basis("sto-3g",&mp,AngularType::Cartesian).unwrap();
+            let ep = etot_frozen(&mp,&bp,&scf.density);
+            let mut cm = coords; cm[atom*3+ax]-=h;
+            let mm = MoleculeCore::new(&[8,1,1],&cm,0,1);
+            let bm = calchem_basis::load_builtin_basis("sto-3g",&mm,AngularType::Cartesian).unwrap();
+            let em = etot_frozen(&mm,&bm,&scf.density);
+            let num=(ep-em)/(2.0*h);
+            println!("atom={} ax={} ana={} frozen_num={} err={}",atom,ax,g[atom][ax],num,(g[atom][ax]-num).abs());
+        } }
+    }
+
+    /// 双电子能量（冻结密度）：0.5 tr[P J] - 0.25 tr[P K]。
+    fn e2_frozen(basis: &BasisSetData, eri: &[f64], p: &PackedSymMatrix) -> f64 {
+        let (j, k) = calchem_int::build_jk_incore(basis.nbf, eri, p, 1.0);
+        let mut e = 0.0;
+        for m in 0..basis.nbf {
+            for n in m..basis.nbf {
+                let w = if m == n { 1.0 } else { 2.0 };
+                e += w * p.get(m, n) * (0.5 * j.get(m, n) - 0.25 * k.get(m, n));
+            }
+        }
+        e
+    }
+
+    /// 双电子梯度（冻结密度）vs 有限差分。
+    #[test]
+    fn debug_g2_frozen_h2o() {
+        let coords = [0.0, 0.0, 0.0, 0.0, 1.432, 0.0, 1.112, -0.716, 0.0];
+        let mol = MoleculeCore::new(&[8, 1, 1], &coords, 0, 1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g", &mol, AngularType::Cartesian).unwrap();
+        let scf = calchem_scf::execute_scf_pipeline(&[8,1,1],&coords,0,1,"rhf","sto-3g",None,false,0).unwrap();
+        let eri0 = calchem_int::compute_eri_incore(&basis);
+        let e20 = e2_frozen(&basis, &eri0, &scf.density);
+        let h = 1e-5;
+        for atom in 0..3 {
+            for ax in 0..3 {
+                let de = build_deriv_eri(&basis, atom, ax);
+                let (dj, dk) = calchem_int::build_jk_incore(basis.nbf, &de, &scf.density, 1.0);
+                let mut g2 = 0.0;
+                for m in 0..basis.nbf { for n in m..basis.nbf {
+                    let w = if m==n {1.0} else {2.0};
+                    g2 += w * scf.density.get(m,n) * (0.5*dj.get(m,n) - 0.25*dk.get(m,n));
+                } }
+                // 有限差分（冻结密度）。
+                let mut cp = coords; cp[atom*3+ax]+=h;
+                let mp = MoleculeCore::new(&[8,1,1],&cp,0,1);
+                let bp = calchem_basis::load_builtin_basis("sto-3g",&mp,AngularType::Cartesian).unwrap();
+                let ep = calchem_int::compute_eri_incore(&bp);
+                let e2p = e2_frozen(&bp, &ep, &scf.density);
+                let mut cm = coords; cm[atom*3+ax]-=h;
+                let mm = MoleculeCore::new(&[8,1,1],&cm,0,1);
+                let bm = calchem_basis::load_builtin_basis("sto-3g",&mm,AngularType::Cartesian).unwrap();
+                let em = calchem_int::compute_eri_incore(&bm);
+                let e2m = e2_frozen(&bm, &em, &scf.density);
+                let num = (e2p - e2m)/(2.0*h);
+                println!("atom={} ax={} g2={} num={} (e20={}) err={}", atom, ax, g2, num, e20, (g2-num).abs());
+            }
+        }
+    }
+
+    /// 通用：导数 ERI 张量 vs 有限差分。
+    fn check_deriv_eri(z: &[u8], coords: &[f64], atom: usize, ax: usize) -> f64 {
+        let mol = MoleculeCore::new(z, coords, 0, 1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g", &mol, AngularType::Cartesian).unwrap();
+        let nbf = basis.nbf;
+        let de = build_deriv_eri(&basis, atom, ax);
+        let h = 1e-6;
+        let mut cp = coords.to_vec();
+        cp[atom*3+ax] += h;
+        let mp = MoleculeCore::new(z, &cp, 0, 1);
+        let bp = calchem_basis::load_builtin_basis("sto-3g", &mp, AngularType::Cartesian).unwrap();
+        let ep = calchem_int::compute_eri_incore(&bp);
+        let mut cm = coords.to_vec();
+        cm[atom*3+ax] -= h;
+        let mm = MoleculeCore::new(z, &cm, 0, 1);
+        let bm = calchem_basis::load_builtin_basis("sto-3g", &mm, AngularType::Cartesian).unwrap();
+        let em = calchem_int::compute_eri_incore(&bm);
+        let idx = |i:usize,j:usize,k:usize,l:usize| ((i*nbf+j)*nbf+k)*nbf+l;
+        let mut maxerr = 0.0;
+        for i in 0..nbf { for j in 0..nbf { for k in 0..nbf { for l in 0..nbf {
+            let num = (ep[idx(i,j,k,l)] - em[idx(i,j,k,l)])/(2.0*h);
+            let err = (num - de[idx(i,j,k,l)]).abs();
+            if err > maxerr { maxerr=err; }
+        } } } }
+        maxerr
+    }
+
+    #[test]
+    fn debug_deriv_eri_h2o() {
+        let coords = [0.0, 0.0, 0.0, 0.0, 1.432, 0.0, 1.112, -0.716, 0.0];
+        for atom in 0..3 {
+            for ax in 0..3 {
+                let me = check_deriv_eri(&[8,1,1], &coords, atom, ax);
+                println!("atom={} ax={} derivERI maxerr={}", atom, ax, me);
+                assert!(me < 1e-5, "atom={} ax={} me={}", atom, ax, me);
+            }
+        }
+    }
+
+    /// 通用：导数单电子矩阵 vs 有限差分（以 scf.h_core 为对照）。
+    fn check_deriv_hcore(z: &[u8], coords: &[f64], atom: usize, ax: usize) -> f64 {
+        let mol = MoleculeCore::new(z, coords, 0, 1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g", &mol, AngularType::Cartesian).unwrap();
+        let nbf = basis.nbf;
+        let nuclei: Vec<([f64;3],f64)> = mol
+            .atoms.iter().map(|a|(a.coord_bohr,a.atomic_number as f64)).collect();
+        let dh = build_deriv_hcore(&mol,&basis,&nuclei,atom,ax);
+        let h = 1e-6;
+        let hc = |c: &[f64]| -> Vec<f64> {
+            let scf = calchem_scf::execute_scf_pipeline(z,c,0,1,"rhf","sto-3g",None,false,0).unwrap();
+            let mut out = vec![0.0; nbf*nbf];
+            for i in 0..nbf { for j in 0..nbf { out[i*nbf+j] = scf.h_core.get(i,j); } }
+            out
+        };
+        let mut cp = coords.to_vec(); cp[atom*3+ax]+=h;
+        let hp = hc(&cp);
+        let mut cm = coords.to_vec(); cm[atom*3+ax]-=h;
+        let hm = hc(&cm);
+        let mut maxerr=0.0;
+        for i in 0..nbf { for j in 0..nbf {
+            let num=(hp[i*nbf+j]-hm[i*nbf+j])/(2.0*h);
+            let err=(num-dh[i*nbf+j]).abs();
+            if err>maxerr {maxerr=err;}
+        } }
+        maxerr
+    }
+
+    #[test]
+    fn debug_deriv_hcore_h2o() {
+        let coords = [0.0,0.0,0.0,0.0,1.432,0.0,1.112,-0.716,0.0];
+        let mol = MoleculeCore::new(&[8,1,1],&coords,0,1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g",&mol,AngularType::Cartesian).unwrap();
+        let nbf = basis.nbf;
+        // 分项：场梯度块 vs 核吸引块有限差分（仅 O 场，ax=0）。
+        let center = [0.0,0.0,0.0];
+        for sh_i in 0..basis.shells.len() {
+            for sh_j in 0..basis.shells.len() {
+                let fg = calchem_int::nuclear_field_gradient_block(&basis.shells[sh_i],&basis.shells[sh_j],center,0);
+                let h = 1e-6;
+                let vd = |c:[f64;3]| -> Vec<f64> {
+                    let mut sh = basis.shells[sh_i].clone();
+                    // 场点移动（核吸引场），壳不动。
+                    let nuc = vec![(c, 8.0f64)];
+                    // 只取对 O 的核吸引（nuclei 仅 O）。
+                    calchem_int::one_electron_block(&basis.shells[sh_i],&basis.shells[sh_j],2,&nuc)
+                };
+                let vp = vd([h,0.0,0.0]);
+                let vm = vd([-h,0.0,0.0]);
+                let (i0,i1)=basis.shell_ao_range(sh_i);
+                let (j0,j1)=basis.shell_ao_range(sh_j);
+                let ncol=j1-j0;
+                for ii in 0..(i1-i0) { for jj in 0..ncol {
+                    let num = (vp[ii*ncol+jj]-vm[ii*ncol+jj])/(2.0*h);
+                    let err=(num-fg[ii*ncol+jj]).abs();
+                    if err>1e-5 {
+                        println!("FIELD sh={},{} i={} j={} fg={} num={} err={}",sh_i,sh_j,ii,jj,fg[ii*ncol+jj],num,err);
+                    }
+                } }
+            }
+        }
+        // 完整对照。
+        for atom in 0..3 { for ax in 0..3 {
+            let me = check_deriv_hcore(&[8,1,1],&coords,atom,ax);
+            println!("atom={} ax={} derivH maxerr={}",atom,ax,me);
+        } }
+        let _ = nbf;
+    }
+
+    /// 临时调试：导数单电子矩阵 vs 有限差分（H2 沿 z）。
+    #[test]
+    fn debug_deriv_hcore_h2() {
+        let coords = [0.0, 0.0, 0.0, 0.0, 0.0, 1.4];
+        let mol = MoleculeCore::new(&[1, 1], &coords, 0, 1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g", &mol, AngularType::Cartesian).unwrap();
+        let nbf = basis.nbf;
+        let nuclei: Vec<([f64; 3], f64)> = mol
+            .atoms.iter().map(|a| (a.coord_bohr, a.atomic_number as f64)).collect();
+        let dh = build_deriv_hcore(&mol, &basis, &nuclei, 0, 2);
+        let h = 1e-6;
+        let one = |mol: &MoleculeCore| -> Vec<f64> {
+            let b = calchem_basis::load_builtin_basis("sto-3g", mol, AngularType::Cartesian).unwrap();
+            let nuc: Vec<([f64; 3], f64)> = mol
+                .atoms.iter().map(|a| (a.coord_bohr, a.atomic_number as f64)).collect();
+            let t = calchem_int::one_electron_block(&b.shells[0], &b.shells[0], 1, &nuc);
+            let v = calchem_int::one_electron_block(&b.shells[0], &b.shells[0], 2, &nuc);
+            let mut hc = vec![0.0; nbf * nbf];
+            for i in 0..nbf {
+                for j in 0..nbf {
+                    // 完整 hcore：遍历所有壳对。
+                }
+            }
+            // 直接用 scf 的 h_core 对照。
+            let scf = calchem_scf::execute_scf_pipeline(
+                &[1, 1], &mol.atoms.iter().flat_map(|a| a.coord_bohr).collect::<Vec<_>>(),
+                0, 1, "rhf", "sto-3g", None, false, 0).unwrap();
+            for i in 0..nbf { for j in 0..nbf { hc[i*nbf+j] = scf.h_core.get(i,j); } }
+            hc
+        };
+        let cp = [0.0, 0.0, h, 0.0, 0.0, 1.4];
+        let hp = one(&MoleculeCore::new(&[1, 1], &cp, 0, 1));
+        let cm = [0.0, 0.0, -h, 0.0, 0.0, 1.4];
+        let hm = one(&MoleculeCore::new(&[1, 1], &cm, 0, 1));
+        let mut maxerr = 0.0;
+        for i in 0..nbf { for j in 0..nbf {
+            let num = (hp[i*nbf+j] - hm[i*nbf+j]) / (2.0*h);
+            let ana = dh[i*nbf+j];
+            let err = (num-ana).abs();
+            if err > maxerr { maxerr=err; if err>1e-5 { println!("ij={}{} ana={} num={} err={}",i,j,ana,num,err); } }
+        } }
+        println!("deriv hcore maxerr={}", maxerr);
+        assert!(maxerr < 1e-6, "maxerr={}", maxerr);
+    }
+
+    /// 平移不变性：所有原子梯度之和必须为零。
+    #[test]
+    fn grad_translation_sum_zero() {
+        let coords = [0.0, 0.0, 0.0, 0.0, 1.432, 0.0, 1.112, -0.716, 0.0];
+        let g = run_grad(&[8, 1, 1], &coords);
+        for ax in 0..3 {
+            let s: f64 = g.iter().map(|x| x[ax]).sum();
+            assert!(s.abs() < 1e-7, "ax={} sum={}", ax, s);
+        }
+    }
+
+    /// 解析梯度与中心差分数值梯度对照（H2O）。
+    #[test]
+    fn grad_vs_finite_difference() {
+        let coords = [0.0, 0.0, 0.0, 0.0, 1.432, 0.0, 1.112, -0.716, 0.0];
+        let g = run_grad(&[8, 1, 1], &coords);
+        let h = 1e-5;
+        let mut maxerr: f64 = 0.0;
+        for atom in 0..3 {
+            for ax in 0..3 {
+                let mut cp = coords;
+                cp[atom * 3 + ax] += h;
+                let ep = calchem_scf::execute_scf_pipeline(
+                    &[8, 1, 1], &cp, 0, 1, "rhf", "sto-3g", None, false, 0,
+                )
+                .unwrap()
+                .total_energy;
+                let mut cm = coords;
+                cm[atom * 3 + ax] -= h;
+                let em = calchem_scf::execute_scf_pipeline(
+                    &[8, 1, 1], &cm, 0, 1, "rhf", "sto-3g", None, false, 0,
+                )
+                .unwrap()
+                .total_energy;
+                let num = (ep - em) / (2.0 * h);
+                let err = (num - g[atom][ax]).abs();
+                maxerr = maxerr.max(err);
+                println!("atom={} ax={} ana={} num={} err={}", atom, ax, g[atom][ax], num, err);
+            }
+        }
+        assert!(maxerr < 1e-6, "maxerr={}", maxerr);
+    }
+
+    /// 分解：动能/核吸引基函数/场/ERI/核排斥 各部分对总梯度的贡献。
+    #[test]
+    fn debug_grad_decomp() {
+        let coords = [0.0, 0.0, 0.0, 0.0, 1.432, 0.0, 1.112, -0.716, 0.0];
+        let mol = MoleculeCore::new(&[8,1,1],&coords,0,1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g",&mol,AngularType::Cartesian).unwrap();
+        let scf = calchem_scf::execute_scf_pipeline(&[8,1,1],&coords,0,1,"rhf","sto-3g",None,false,0).unwrap();
+        let nuclei: Vec<([f64;3],f64)> = mol.atoms.iter().map(|a|(a.coord_bohr,a.atomic_number as f64)).collect();
+        let gnuc = mol.nuclear_repulsion_grad();
+        for atom in 0..3 { for ax in 0..3 {
+            let dh = build_deriv_hcore(&mol,&basis,&nuclei,atom,ax);
+            // 拆分 dT / dV（基函数）/ 场。
+            let mut gt=0.0; let mut gv=0.0; let mut gf=0.0;
+            // 重新构造：动能部分（type1）、核吸引部分（type2 基函数）、场。
+            // 直接用 dh 无法拆，这里分别算。
+            // 动能基函数。
+            for sh_i in 0..basis.shells.len() {
+                if basis.shells[sh_i].atom_idx as usize != atom {continue;}
+                let s=&basis.shells[sh_i];
+                let l=s.angular_l as usize;
+                let (dplus,dminus)=build_derivative_shells(s);
+                let (i0,_)=basis.shell_ao_range(sh_i);
+                let cart=cartesian_angular_indices(l);
+                for sh_j in 0..basis.shells.len() {
+                    let (j0,j1)=basis.shell_ao_range(sh_j);
+                    let ncol=j1-j0;
+                    let kp=calchem_int::one_electron_block(&dplus,&basis.shells[sh_j],1,&nuclei);
+                    let vp=calchem_int::one_electron_block(&dplus,&basis.shells[sh_j],2,&nuclei);
+                    let (km,vm)= if let Some(dm)=&dminus {
+                        (calchem_int::one_electron_block(dm,&basis.shells[sh_j],1,&nuclei),
+                         calchem_int::one_electron_block(dm,&basis.shells[sh_j],2,&nuclei))
+                    } else { (vec![0.0;ncol],vec![0.0;ncol]) };
+                    for (ci,&(la,ma,na)) in cart.iter().enumerate() {
+                        let kc=[la,ma,na][ax];
+                        let (fp,fm)=component_factors(kc);
+                        let rp=dplus_row_index(ax,l,la,ma,na);
+                        let rm=dminus_row_index(ax,l,la,ma,na);
+                        for cj in 0..ncol {
+                            let mut vt=fp*kp[rp*ncol+cj];
+                            let mut vv=fp*vp[rp*ncol+cj];
+                            if dminus.is_some() {
+                                vt+=fm*km[rm*ncol+cj];
+                                vv+=fm*vm[rm*ncol+cj];
+                            }
+                            gt+=scf.density.get(i0+ci,j0+cj)*vt;
+                            gv+=scf.density.get(i0+ci,j0+cj)*vv;
+                        }
+                    }
+                }
+            }
+            // 场。
+            for sh_i in 0..basis.shells.len() {
+                let (i0,i1)=basis.shell_ao_range(sh_i);
+                for sh_j in 0..basis.shells.len() {
+                    let (j0,j1)=basis.shell_ao_range(sh_j);
+                    let blk=calchem_int::nuclear_field_gradient_block(&basis.shells[sh_i],&basis.shells[sh_j],mol.atoms[atom].coord_bohr,ax);
+                    let ncol=j1-j0;
+                    for ii in 0..(i1-i0) { for jj in 0..ncol {
+                        gf += scf.density.get(i0+ii,j0+jj)*(-(mol.atoms[atom].atomic_number as f64))*blk[ii*ncol+jj];
+                    } }
+                }
+            }
+            // ERI。
+            let de=build_deriv_eri(&basis,atom,ax);
+            let (dj,dk)=calchem_int::build_jk_incore(7,&de,&scf.density,1.0);
+            let mut ge=0.0;
+            for m in 0..7 { for n in m..7 {
+                let w=if m==n {1.0} else {2.0};
+                ge+=w*scf.density.get(m,n)*(0.5*dj.get(m,n)-0.25*dk.get(m,n));
+            } }
+            let total=gnuc[atom][ax]+gt+gv+gf+ge;
+            println!("atom={} ax={} T={:.5} Vb={:.5} F={:.5} ERI={:.5} nuc={:.5} SUM={:.6}",
+                atom,ax,gt,gv,gf,ge,gnuc[atom][ax],total);
+        } }
+    }
+
+    /// 直接计算密度项 tr[F dP] 与梯度差，核对二者相等。
+    #[test]
+    fn debug_density_term() {
+        let coords = [0.0, 0.0, 0.0, 0.0, 1.432, 0.0, 1.112, -0.716, 0.0];
+        let h = 0.0005;
+        let mol = MoleculeCore::new(&[8,1,1],&coords,0,1);
+        let basis = calchem_basis::load_builtin_basis("sto-3g",&mol,AngularType::Cartesian).unwrap();
+        let scf = calchem_scf::execute_scf_pipeline(&[8,1,1],&coords,0,1,"rhf","sto-3g",None,false,0).unwrap();
+        let g = compute_analytical_gradient(&mol,&basis,&scf);
+        for atom in 0..3 { for ax in 0..3 {
+            // 位移 SCF。
+            let mut cp = coords; cp[atom*3+ax]+=h;
+            let sp = calchem_scf::execute_scf_pipeline(&[8,1,1],&cp,0,1,"rhf","sto-3g",None,false,0).unwrap();
+            let mut cm = coords; cm[atom*3+ax]-=h;
+            let sm = calchem_scf::execute_scf_pipeline(&[8,1,1],&cm,0,1,"rhf","sto-3g",None,false,0).unwrap();
+            let num=(sp.total_energy-sm.total_energy)/(2.0*h);
+            // tr[F dP]：用中心差分密度。
+            let mut tr=0.0;
+            for i in 0..7 { for j in 0..7 {
+                let dp = (sp.density.get(i,j)-sm.density.get(i,j))/(2.0*h);
+                tr += scf.fock.get(i,j)*dp;
+            } }
+            // 公式：-Σ_p ε_p occ_p (C^T dS C)_{pp}。
+            let mut ew=0.0;
+            for p in 0..7 {
+                let eps = scf.mo_energies[p];
+                let mut ctsd=0.0;
+                for m in 0..7 { for n in 0..7 {
+                    ctsd += scf.mo_coeff[m*7+p]*(sp.overlap.get(m,n)-sm.overlap.get(m,n))/(2.0*h)*scf.mo_coeff[n*7+p];
+                } }
+                ew += eps * (if p<4 {2.0} else {0.0}) * ctsd;
+            }
+            println!("atom={} ax={} ana={:.6} num={:.6} gradiff={:.3e} tr[FdP]={:.3e} -EW={:.3e}",atom,ax,g[atom][ax],num,g[atom][ax]-num,tr,-ew);
+        } }
+    }
+
+    /// 综合：解析梯度 vs 松弛梯度（多 h），观察收敛。
+    #[test]
+    fn debug_grad_full() {
+        let coords = [0.0, 0.0, 0.0, 0.0, 1.432, 0.0, 1.112, -0.716, 0.0];
+        let g = run_grad(&[8, 1, 1], &coords);
+        for &h in &[0.001, 0.0001, 0.00001] {
+            let mut maxdiff: f64 = 0.0;
+            for atom in 0..3 {
+                for ax in 0..3 {
+                    let mut cp = coords; cp[atom*3+ax]+=h;
+                    let ep = calchem_scf::execute_scf_pipeline(&[8,1,1],&cp,0,1,"rhf","sto-3g",None,false,0).unwrap().total_energy;
+                    let mut cm = coords; cm[atom*3+ax]-=h;
+                    let em = calchem_scf::execute_scf_pipeline(&[8,1,1],&cm,0,1,"rhf","sto-3g",None,false,0).unwrap().total_energy;
+                    let num=(ep-em)/(2.0*h);
+                    maxdiff=maxdiff.max((num-g[atom][ax]).abs());
+                }
+            }
+            println!("h={} maxdiff ana-vs-relaxed={}", h, maxdiff);
+        }
+    }
+}

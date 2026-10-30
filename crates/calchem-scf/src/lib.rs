@@ -57,21 +57,85 @@ pub fn rhf(mol: &Molecule, basis: &BasisSet) -> Result<ScfResult, CalcError> {
     let mut converged = false;
     let mut n_iter = 0;
 
+    // DIIS storage
+    let diis_start = 3;
+    let diis_max = 8;
+    let mut diis_errors: Vec<Vec<f64>> = Vec::new(); // error vectors (flattened FDS-SDF)
+    let mut diis_focks: Vec<Vec<Vec<f64>>> = Vec::new(); // stored Fock matrices
+
     for iteration in 0..100 {
         n_iter = iteration + 1;
 
         // 构建 Fock 矩阵: F = H + J - 0.5K
         let fock = build_fock(&h_core, &dm, &engine, nbf);
 
-        // 计算能量: E = trace(P*H) + 0.5*trace(P*G) + nuc_rep
-        // G = F - H, so E = 0.5*trace(P*H) + 0.5*trace(P*F) + nuc_rep
+        // 计算能量
         let energy_new = 0.5 * trace(&mat_mul(&dm, &h_core))
             + 0.5 * trace(&mat_mul(&dm, &fock))
             + engine.nuclear_repulsion;
 
+        // 计算 DIIS 误差: E = FDS - SDF (flattened)
+        let fds = mat_mul(&mat_mul(&fock, &dm), &s);
+        let sdf = mat_mul(&mat_mul(&s, &dm), &fock);
+        let mut err_vec = Vec::with_capacity(nbf * nbf);
+        for i in 0..nbf {
+            for j in 0..nbf {
+                err_vec.push(fds[i][j] - sdf[i][j]);
+            }
+        }
+        let err_norm: f64 = err_vec.iter().map(|x| x*x).sum::<f64>().sqrt();
+
+        // 存储 DIIS 数据
+        if iteration >= diis_start {
+            diis_errors.push(err_vec);
+            diis_focks.push(fock.clone());
+            if diis_errors.len() > diis_max {
+                diis_errors.remove(0);
+                diis_focks.remove(0);
+            }
+        }
+
+        // DIIS 外推
+        let fock_extrap = if diis_errors.len() >= 2 {
+            let n_diis = diis_errors.len();
+            // 构建 B 矩阵: B_ij = <e_i, e_j>
+            let mut b = vec![vec![0.0; n_diis + 1]; n_diis + 1];
+            for i in 0..n_diis {
+                for j in 0..n_diis {
+                    let mut dot = 0.0;
+                    for k in 0..nbf*nbf {
+                        dot += diis_errors[i][k] * diis_errors[j][k];
+                    }
+                    b[i][j] = dot;
+                }
+                b[i][n_diis] = -1.0;
+                b[n_diis][i] = -1.0;
+            }
+            b[n_diis][n_diis] = 0.0;
+
+            // 解线性系统: B * c = [0,0,...,0,-1]^T
+            // 使用简单高斯消元
+            let mut rhs = vec![0.0; n_diis + 1];
+            rhs[n_diis] = -1.0;
+            let coeffs = solve_linear(&b, &rhs, n_diis + 1);
+
+            // 构建外推 Fock: F_new = sum c_i * F_i
+            let mut f_ext = vec![vec![0.0; nbf]; nbf];
+            for i in 0..n_diis {
+                for r in 0..nbf {
+                    for c in 0..nbf {
+                        f_ext[r][c] += coeffs[i] * diis_focks[i][r][c];
+                    }
+                }
+            }
+            f_ext
+        } else {
+            fock.clone()
+        };
+
         // 更新 Fock 并对角化
         let f_orth = mat_mul(
-            &mat_mul(&transpose(&s_sqrt_inv), &fock),
+            &mat_mul(&transpose(&s_sqrt_inv), &fock_extrap),
             &s_sqrt_inv,
         );
         let (eigvals, c_orth_new) = eigh_sym(&f_orth);
@@ -93,7 +157,7 @@ pub fn rhf(mol: &Molecule, basis: &BasisSet) -> Result<ScfResult, CalcError> {
         energy = energy_new;
         dm = dm_new;
 
-        if iteration > 3 && delta_e < 1e-10 && delta_dm < 1e-8 {
+        if iteration > 3 && delta_e < 1e-10 && err_norm < 1e-6 {
             converged = true;
             break;
         }
@@ -144,4 +208,49 @@ fn build_fock(h_core: &[Vec<f64>], dm: &[Vec<f64>], engine: &IntegralEngine, nbf
     }
 
     mat_add(h_core, &g)
+}
+
+/// 简单高斯消元解线性方程组 Ax = b
+fn solve_linear(a: &[Vec<f64>], b: &[f64], n: usize) -> Vec<f64> {
+    let mut mat: Vec<Vec<f64>> = a.iter().enumerate().map(|(i, row)| {
+        let mut r = row.clone();
+        r.push(b[i]);
+        r
+    }).collect();
+
+    // 前向消元
+    for col in 0..n {
+        // 找主元
+        let mut max_row = col;
+        for row in (col+1)..n {
+            if mat[row][col].abs() > mat[max_row][col].abs() {
+                max_row = row;
+            }
+        }
+        mat.swap(col, max_row);
+
+        // 消元
+        let pivot = mat[col][col];
+        if pivot.abs() < 1e-14 {
+            // 奇异矩阵，返回零解
+            return vec![0.0; n];
+        }
+        for row in (col+1)..n {
+            let factor = mat[row][col] / pivot;
+            for j in col..=n {
+                mat[row][j] -= factor * mat[col][j];
+            }
+        }
+    }
+
+    // 回代
+    let mut x = vec![0.0; n];
+    for i in (0..n).rev() {
+        x[i] = mat[i][n];
+        for j in (i+1)..n {
+            x[i] -= mat[i][j] * x[j];
+        }
+        x[i] /= mat[i][i];
+    }
+    x
 }

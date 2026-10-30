@@ -1,0 +1,16 @@
+molecule:
+  file: water.xyz
+  charge: 0
+  multiplicity: 1
+
+calculation:
+  type: single_point
+  method: B3LYP
+  basis: def2-SVP
+  max_scf_cycles: 100
+  convergence: default
+
+output:
+  format: json
+  file: water_sp.json
+  verbose: normal

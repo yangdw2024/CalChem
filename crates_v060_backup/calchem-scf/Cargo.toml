@@ -1,0 +1,12 @@
+[package]
+name = "calchem-scf"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+calchem-tensor = { path = "../calchem-tensor" }
+calchem-basis = { path = "../calchem-basis" }
+calchem-int = { path = "../calchem-int" }
+faer = { workspace = true }
+rayon = { workspace = true }
+thiserror = { workspace = true }

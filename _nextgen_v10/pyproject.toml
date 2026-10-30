@@ -1,0 +1,26 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "calchem"
+version = "1.0.0-alpha1"
+description = "Next-Gen Quantum Chemistry Workstation: High-Performance Rust Core + MolForge Workbench"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "h5py>=3.8",
+    "PyYAML>=6.0",
+    "click>=8.1",
+    "rich>=13.0",
+    "pydantic>=2.0",
+]
+
+[tool.maturin]
+module-name = "calchem._core"
+manifest-path = "crates/calchem-py/Cargo.toml"
+python-source = "."
+features = ["pyo3/extension-module"]

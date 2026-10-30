@@ -1,0 +1,19 @@
+{
+  "cases": {
+    "h2_sto3g_1.4bohr": {
+      "energy_eh": -1.116714325063,
+      "energy_tol_eh": 1e-10,
+      "max_grad_fd_error": 1e-08
+    },
+    "he_sto3g": {
+      "energy_eh": -2.8077839575,
+      "energy_tol_eh": 1e-08,
+      "max_grad_fd_error": null
+    },
+    "h2o_szabo_sto3g": {
+      "energy_eh": -74.695319114236,
+      "energy_tol_eh": 1e-06,
+      "max_grad_fd_error": null
+    }
+  }
+}

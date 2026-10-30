@@ -1,0 +1,103 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calchem"
+version = "0.1.0"
+description = "GPU-accelerated quantum chemistry software for organic and OPV materials"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+authors = [
+    { name = "CalChem Team", email = "calchem@trae.ai" }
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+keywords = ["quantum chemistry", "DFT", "GPU", "OPV", "GROMACS", "CalChem"]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "h5py>=3.8",
+    "PyYAML>=6.0",
+    "click>=8.1",
+    "rich>=13.0",
+    "pydantic>=2.0",
+    "pyscf>=2.5",
+    "MDAnalysis>=2.5",
+    "spglib>=2.2",
+    "mendeleev>=0.15",
+    "tables>=3.8",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "cupy-cuda12x>=13.0",
+    "cupyx-jit>=13.0",
+]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "pytest-xdist>=3.3",
+    "ruff>=0.4",
+    "mypy>=1.6",
+    "pre-commit>=3.5",
+    "black>=24.0",
+    "isort>=5.12",
+]
+docs = [
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.5",
+]
+all = ["calchem[gpu,dev,docs]"]
+
+[project.scripts]
+calchem = "calchem.cli.main:cli"
+
+[project.entry-points."calchem.methods"]
+hf = "calchem.scf.hf:HFMethod"
+dft = "calchem.scf.dft:DFTMethod"
+mp2 = "calchem.posthf.mp2:MP2Method"
+tddft = "calchem.excited.tddft:TDDFTMethod"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["calchem*"]
+
+[tool.setuptools.package-data]
+calchem = ["basis/*.dat", "data/*.yaml", "data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "gpu: requires GPU (deselect with '-m \"not gpu\"')",
+    "regression: regression tests against Gaussian reference",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "C4", "SIM", "UP"]
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+exclude = ["tests/"]

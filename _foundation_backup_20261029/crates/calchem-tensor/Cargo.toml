@@ -1,0 +1,9 @@
+[package]
+name = "calchem-tensor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+faer = { workspace = true }
+rayon = { workspace = true }
+thiserror = { workspace = true }

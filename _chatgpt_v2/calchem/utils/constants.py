@@ -1,0 +1,9 @@
+from __future__ import annotations
+from ..core.periodic_table import ATOMIC_NUMBER as ATOMIC_NUMBERS, ATOMIC_MASS as ATOMIC_MASSES
+from ..core.units import BOHR_TO_ANGSTROM, ANGSTROM_TO_BOHR, HARTREE_TO_EV, HARTREE_TO_KCAL as HARTREE_TO_KCAL_MOL
+
+__version__ = "1.0.0-stage1"
+KB = 1.380649e-23
+HARTREE_TO_JOULE = 4.3597447222071e-18
+AVOGADRO = 6.02214076e23
+R = KB * AVOGADRO

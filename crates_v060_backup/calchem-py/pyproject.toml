@@ -1,0 +1,17 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "calchem-core"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+[tool.maturin]
+# Cargo 清单就在本目录。
+manifest-path = "Cargo.toml"
+# 编译产物放进根目录的 calchem 包，使其成为 calchem._core。
+python-source = "../../"
+module-name = "calchem._core"
+# 仅构建扩展模块（不绑解释器版本）。
+features = ["pyo3/extension-module"]

@@ -1,0 +1,6 @@
+def read_xyz(*a,**k): raise NotImplementedError()
+def read_gjf(*a,**k): raise NotImplementedError()
+def read_gro(*a,**k): raise NotImplementedError()
+def read_mol2(*a,**k): raise NotImplementedError()
+def read_molecule(*a,**k): raise NotImplementedError()
+def parse_gjf_route(*a,**k): raise NotImplementedError()

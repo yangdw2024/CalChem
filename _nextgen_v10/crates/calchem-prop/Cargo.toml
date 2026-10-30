@@ -1,0 +1,11 @@
+[package]
+name = "calchem-prop"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+calchem-tensor = { path = "../calchem-tensor" }
+calchem-basis = { path = "../calchem-basis" }
+calchem-scf = { path = "../calchem-scf" }
+rayon = { workspace = true }
+thiserror = { workspace = true }

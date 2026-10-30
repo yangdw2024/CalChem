@@ -129,11 +129,83 @@ class NativeCalchem(Calculator):
     def capabilities(self) -> BackendCapabilities:
         return self._caps
 
+    def _try_rust(self, request: CalculationRequest, mol, started, t0) -> Result | None:
+        """尝试使用 Rust 引擎计算。仅支持 RHF/STO-3G s-type 体系。"""
+        # 检查是否支持
+        method = request.method.lower()
+        basis = request.basis.lower()
+        if method not in ("rhf", "hf"):
+            return None
+        if basis != "sto-3g":
+            return None
+
+        # 检查 Rust 扩展是否可用
+        try:
+            from .. import _core as rust_core
+        except ImportError:
+            return None
+
+        # 检查是否只含 s 型原子（H, He 等轻原子 s 型）
+        # Rust 目前只对 s 型积分完全验证
+        symbols = [s.upper() for s in request.molecule.symbols]
+        # 只允许 H, He 完全用 Rust；其他原子有 p 型积分近似误差
+        supported_s = {"H", "HE"}
+        if not all(s in supported_s for s in symbols):
+            # 对于含 p 轨道的原子，回退到 Python（Rust p 型积分有已知误差）
+            return None
+
+        try:
+            from ..core.periodic_table import get_atomic_number
+            b2a = 0.529177210903
+            nums = [get_atomic_number(s) for s in symbols]
+            coords_bohr = []
+            for row in request.molecule.coordinates_angstrom:
+                coords_bohr.extend([c / b2a for c in row])
+
+            result = rust_core.run_single_point(
+                nums, coords_bohr,
+                request.molecule.charge,
+                request.molecule.multiplicity,
+                "rhf", "sto-3g",
+            )
+            walltime = time.time() - t0
+
+            return Result(
+                backend="native",
+                backend_version="rust-0.1.0",
+                task=request.task,
+                method=request.method,
+                actual_method="RHF-Rust",
+                basis=request.basis,
+                xc=request.xc,
+                molecule=request.molecule,
+                status="succeeded" if result.converged else "not_converged",
+                started_at=started,
+                finished_at=datetime.now(),
+                walltime_seconds=walltime,
+                scf_energy_hartree=result.total_energy_hartree,
+                total_energy_hartree=result.total_energy_hartree,
+                scf_converged=result.converged,
+                scf_iterations=result.iterations,
+                homo_energy_hartree=None,
+                lumo_energy_hartree=None,
+                orbitals=[],
+                errors=[] if result.converged else ["Rust SCF not converged"],
+            )
+        except Exception:
+            return None
+
     def single_point(self, request: CalculationRequest) -> Result:
         mol = _spec_to_molecule(request.molecule)
         started = datetime.now()
         t0 = time.time()
 
+        # 尝试 Rust 引擎（优先路径）
+        rust_result = self._try_rust(request, mol, started, t0)
+        if rust_result is not None:
+            return rust_result
+
+        # Python 参考引擎（回退路径）
         calc = _build_calculator(mol, request.method, request.basis, request.xc, request.options)
         calc.kernel()
         walltime = time.time() - t0

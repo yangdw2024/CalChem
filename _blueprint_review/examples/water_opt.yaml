@@ -1,0 +1,20 @@
+molecule:
+  file: water.xyz
+  charge: 0
+  multiplicity: 1
+
+calculation:
+  type: optimize
+  method: B3LYP
+  basis: def2-SVP
+  functional: B3LYP
+  max_scf_cycles: 100
+  max_opt_cycles: 50
+  opt_algorithm: bfgs
+  convergence: tight
+
+output:
+  format: json
+  file: water_opt.json
+  save_trajectory: true
+  save_final_xyz: true

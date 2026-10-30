@@ -1,0 +1,16 @@
+[package]
+name = "calchem-int"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+calchem-tensor = { path = "../calchem-tensor" }
+calchem-basis = { path = "../calchem-basis" }
+rayon = { workspace = true }
+libcint = { workspace = true, optional = true }
+thiserror = { workspace = true }
+
+[features]
+default = ["cint"]
+cint = ["dep:libcint"]
+pure-rust = []
