@@ -1,0 +1,39 @@
+{"probe": "provenance", "extension": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\round2_20261110\\accepted_core\\_core.pyd", "sha256": "19d343c899a4f2551bc0cc07ae1b64876f3b61e98d7b686ab41aa80f4dc821ae", "version": "0.2.0"}
+{"probe": "D3_external_and_FD", "molecule": "water", "damping": "bj", "reference": -0.0005738766, "energy": -0.000573876613451887, "error_Eh": -1.3451887065189794e-11, "max_gradient_error": 9.673445897456193e-13}
+{"probe": "D3_external_and_FD", "molecule": "water", "damping": "zero", "reference": -7.8678e-06, "energy": -7.867806896134965e-06, "error_Eh": -6.896134965834024e-12, "max_gradient_error": 7.951374984599326e-13}
+{"probe": "D3_external_and_FD", "molecule": "ethylene", "damping": "bj", "reference": -0.0039425875, "energy": -0.0039425874524617955, "error_Eh": 4.753820427583211e-11, "max_gradient_error": 3.10702013433823e-12}
+{"probe": "D3_external_and_FD", "molecule": "ethylene", "damping": "zero", "reference": -0.000849534, "energy": -0.0008495339619579651, "error_Eh": 3.804203490848784e-11, "max_gradient_error": 4.555969195115493e-12}
+{"probe": "D3_external_and_FD", "molecule": "hbr", "damping": "bj", "reference": -0.0006851118, "energy": -0.0006851118496776305, "error_Eh": -4.967763049881779e-11, "max_gradient_error": 2.62979798477085e-13}
+{"probe": "D3_external_and_FD", "molecule": "hbr", "damping": "zero", "reference": -4.0581e-06, "energy": -4.058123811583497e-06, "error_Eh": -2.381158349651618e-11, "max_gradient_error": 4.82116648984959e-13}
+{"probe": "D3_external_and_FD", "molecule": "water_stretched", "damping": "bj", "reference": -0.0005740277, "energy": -0.0005740277287911088, "error_Eh": -2.8791108819953282e-11, "max_gradient_error": 4.72945344267905e-12}
+{"probe": "D3_external_and_FD", "molecule": "water_stretched", "damping": "zero", "reference": -1.2961e-05, "energy": -1.296100845140197e-05, "error_Eh": -8.45140197076519e-12, "max_gradient_error": 1.3402755874537473e-12}
+{"probe": "unknown_D3_wrapper", "rejected": true, "type": "ValueError", "message": "Unsupported method or spin state: Unsupported D3 functional: typo"}
+{"probe": "custom_D3_wrapper", "rejected": true, "type": "ValueError", "message": "Custom D3 parameters are not supported by this wrapper; use a documented named functional and damping scheme."}
+{"probe": "unknown_D3_wrapper", "rejected": true, "type": "ValueError", "message": "Unsupported method or spin state: Unsupported D3 functional: typo"}
+{"probe": "custom_D3_wrapper", "rejected": true, "type": "ValueError", "message": "Custom D3 parameters are not supported by this wrapper; use a documented named functional and damping scheme."}
+{"probe": "unknown_D3_damping", "rejected": true, "type": "ValueError", "message": "D3 damping must be 'bj' or 'zero'"}
+{"probe": "unsupported_LRC_cam-b3lyp", "rejected": true, "type": "ValueError", "message": "Unsupported method in Rust core: cam-b3lyp"}
+{"probe": "unsupported_LRC_wb97x-d", "rejected": true, "type": "ValueError", "message": "Unsupported method in Rust core: wb97x-d"}
+{"probe": "unsupported_LRC_wB97X", "rejected": true, "type": "ValueError", "message": "Unsupported method in Rust core: wB97X"}
+{"probe": "spin_stress", "symbols": ["N"], "method": "uhf", "basis": "sto-3g", "multiplicity": 4, "energy": -53.71901017527117, "s_squared": 3.7500000000000004, "n_alpha": 5, "n_beta": 2, "iterations": 2, "seconds": 0.0024753999896347523}
+{"probe": "spin_stress", "symbols": ["O"], "method": "uhf", "basis": "sto-3g", "multiplicity": 3, "energy": -73.80415019143551, "s_squared": 2.000000000000002, "n_alpha": 5, "n_beta": 3, "iterations": 2, "seconds": 0.0029137999954400584}
+{"probe": "spin_stress", "symbols": ["H", "H"], "method": "uhf", "basis": "sto-3g", "multiplicity": 1, "energy": -0.6100388968182509, "s_squared": 1.5543122344752192e-15, "n_alpha": 1, "n_beta": 1, "iterations": 2, "seconds": 0.0004400000034365803}
+{"probe": "spin_stress", "symbols": ["O", "H"], "method": "uhf", "basis": "sto-3g", "multiplicity": 2, "energy": -74.36062930737818, "s_squared": 0.7529630432897974, "n_alpha": 5, "n_beta": 4, "iterations": 9, "seconds": 0.0027169999957550317}
+{"probe": "radical_gradient", "method": "uhf", "errors": [3.490662218996743e-08, 4.187491242646502e-09], "total_force_norm": 5.095246377785861e-16}
+{"probe": "spin_stress", "symbols": ["O", "H"], "method": "b3lyp", "basis": "sto-3g", "multiplicity": 2, "energy": -74.6555051911695, "s_squared": 0.7509515692126327, "n_alpha": 5, "n_beta": 4, "iterations": 9, "seconds": 0.0841556999948807}
+{"probe": "radical_gradient", "method": "b3lyp", "errors": [1.3802836887344405e-08, 4.416669646678528e-08], "total_force_norm": 1.5176262787090018e-15}
+{"probe": "spin_stress", "symbols": ["Br"], "method": "uhf", "basis": "lanl2dz", "multiplicity": 2, "energy": -12.918721267139588, "s_squared": 0.7502899160388536, "n_alpha": 4, "n_beta": 3, "iterations": 8, "seconds": 0.0052097000007051975}
+{"probe": "spin_stress", "symbols": ["Fe"], "method": "uhf", "basis": "lanl2dz", "multiplicity": 5, "energy": -121.81446305790924, "s_squared": 6.002776924592897, "n_alpha": 9, "n_beta": 5, "iterations": 32, "seconds": 0.35192499999538995}
+{"probe": "independent_gas_reference", "gas": -74.963005149813, "labeled_gas": -74.963005149813, "solvated": -74.96020889258267, "delta_g": 1.7546779039489266, "identity_error_kcal": -2.7977620220553945e-13}
+{"probe": "SCF_iteration_budget", "rejected": true, "type": "ScfNotConvergedError", "message": "SCF failed to converge in 1 iterations (dE=inf, rmsD=5.275e-1)"}
+{"probe": "invalid_spin", "rejected": true, "type": "ValueError", "message": "Unsupported method or spin state: RHF requires singlet multiplicity=1, got multiplicity=4"}
+{"probe": "coincident_atoms", "rejected": true, "type": "ValueError", "message": "Invalid molecule specification: Atoms 0 and 1 are too close (r = 0.000e0 Bohr < 1e-3 Bohr)"}
+{"probe": "PCM_partial_gradient", "model": "cpcm", "gradient": [[0.0, -1.214306433183765e-13, -0.007876659642276976], [4.336808689942018e-15, -0.0017859135538738496, 0.003938329822829843], [0.0, 0.0017859135539605858, 0.003938329823124746]]}
+{"probe": "PCM_partial_gradient", "model": "cosmo", "gradient": [[-4.336808689942018e-15, -1.1709383462843448e-13, -0.007826715886791527], [8.673617379884035e-15, -0.00177458956199944, 0.003913357945069772], [-8.673617379884035e-15, 0.0017745895620558186, 0.00391335794542539]]}
+Traceback (most recent call last):
+  File "E:\YDW\Trae_Gaussian\docs\audits\2026-11-10_round2\probes\acceptance.py", line 86, in <module>
+    rejected('noncontiguous_density',lambda:c.run_solvation_gradient(sy,x.tolist(),'sto-3g',np.asfortranarray(d)))
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\YDW\Trae_Gaussian\docs\audits\2026-11-10_round2\probes\acceptance.py", line 14, in rejected
+    raise AssertionError(name+' accepted invalid/unsupported input')
+AssertionError: noncontiguous_density accepted invalid/unsupported input

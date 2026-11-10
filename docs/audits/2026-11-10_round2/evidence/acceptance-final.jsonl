@@ -1,0 +1,7 @@
+{"probe": "provenance", "extension": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\round2_20261110\\accepted_core\\_core.pyd", "sha256": "19d343c899a4f2551bc0cc07ae1b64876f3b61e98d7b686ab41aa80f4dc821ae", "version": "0.2.0"}
+{"probe": "IR_external", "molecule": "water", "native_ir": [7.237419603708192, 44.28806773001005, 29.97334543198052], "gaussian_ir": [7.2374, 44.288, 29.9732], "max_error_km_mol": 0.0001454319805205273, "max_frequency_error": 0.00018220826041215332}
+Traceback (most recent call last):
+  File "E:\YDW\Trae_Gaussian\docs\audits\2026-11-10_round2\probes\acceptance.py", line 37, in <module>
+    err=float(abs(np.array(row['gaussian_ir'])-f.ir_intensities_km_mol).max());assert err<5e-4
+                                                                                      ^^^^^^^^
+AssertionError

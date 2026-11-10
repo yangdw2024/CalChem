@@ -1,0 +1,44 @@
+{
+  "name": "@yangdw2024/calchem",
+  "version": "0.2.1",
+  "description": "Cross-platform CLI & Node.js wrapper for CalChem: Unified quantum chemistry computational engine (HF, DFT, TD-DFT, Range-Separated Hybrids, PCM/SMD, Opt, Freq).",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "bin": {
+    "calchem": "bin/calchem.js"
+  },
+  "files": [
+    "bin/",
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "calchem",
+    "quantum-chemistry",
+    "computational-chemistry",
+    "dft",
+    "hartree-fock",
+    "orca",
+    "gaussian",
+    "chemistry-cli"
+  ],
+  "author": "yangdw2024",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yangdw2024/CalChem.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yangdw2024/CalChem/issues"
+  },
+  "homepage": "https://github.com/yangdw2024/CalChem#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

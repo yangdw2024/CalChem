@@ -1,0 +1,117 @@
+   Compiling bytemuck v1.25.2
+   Compiling rand_core v0.6.4
+   Compiling cfg-if v1.0.5
+   Compiling num-traits v0.2.19
+   Compiling libm v0.2.16
+   Compiling reborrow v0.5.5
+   Compiling crossbeam-utils v0.8.23
+   Compiling bitflags v2.13.2
+   Compiling either v1.19.0
+   Compiling syn v2.0.119
+   Compiling windows-link v0.2.1
+   Compiling once_cell v1.21.4
+   Compiling libc v0.2.191
+   Compiling psm v0.1.24
+   Compiling memchr v2.8.3
+   Compiling nano-gemm-core v0.1.0
+   Compiling windows-sys v0.61.2
+   Compiling serde_core v1.0.229
+   Compiling typenum v1.20.1
+   Compiling ucd-trie v0.1.7
+   Compiling nano-gemm-f32 v0.1.0
+   Compiling nano-gemm-f64 v0.1.0
+   Compiling rand v0.8.8
+   Compiling dyn-stack v0.13.2
+   Compiling raw-cpuid v11.6.0
+   Compiling matrixcompare-core v0.1.0
+   Compiling coe-rs v0.1.2
+   Compiling crossbeam-epoch v0.9.21
+   Compiling byteorder v1.5.0
+   Compiling dyn-stack v0.11.0
+   Compiling zmij v1.0.23
+   Compiling dbgf v0.1.2
+   Compiling generativity v1.2.1
+   Compiling cpufeatures v0.2.17
+   Compiling stacker v0.1.25
+   Compiling crossbeam-deque v0.8.8
+   Compiling itoa v1.0.18
+   Compiling generic-array v0.14.7
+   Compiling pest_stack_guard v1.0.0
+   Compiling rayon-core v1.13.0
+   Compiling pest v2.9.5
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling rayon v1.12.0
+   Compiling sha2 v0.10.9
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.47
+   Compiling matrixcompare v0.3.0
+   Compiling rand_distr v0.4.3
+   Compiling num-bigint v0.4.8
+   Compiling pulp v0.21.5
+   Compiling nano-gemm-c64 v0.1.0
+   Compiling nano-gemm-c32 v0.1.0
+   Compiling pulp v0.18.22
+   Compiling thiserror-impl v1.0.69
+   Compiling equator-macro v0.2.1
+   Compiling equator-macro v0.4.2
+   Compiling faer-entity v0.20.1
+   Compiling py_literal v0.4.0
+   Compiling gemm-common v0.18.2
+   Compiling npyz v0.8.4
+   Compiling equator v0.4.2
+   Compiling equator v0.2.2
+   Compiling thiserror v1.0.69
+   Compiling calchem-model v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-model)
+   Compiling nano-gemm v0.1.3
+   Compiling gemm-f64 v0.18.2
+   Compiling gemm-c32 v0.18.2
+   Compiling gemm-c64 v0.18.2
+   Compiling gemm-f32 v0.18.2
+   Compiling calchem-basis v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-basis)
+   Compiling gemm v0.18.2
+   Compiling faer v0.20.2
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+warning: value assigned to `comm_norm` is never read
+   --> crates\calchem-scf\src\uhf.rs:253:25
+    |
+253 |     let mut comm_norm = comm_0;
+    |                         ^^^^^^ this value is reassigned later and never used
+...
+278 |             comm_norm = frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
+    |             ---------------------------------------------------------------------------------------- `comm_norm` is overwritten here before the previous value is read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling calchem-grad v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-grad)
+warning: `calchem-scf` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 30.80s
+     Running tests\redteam_diffuse.rs (build_target\runtime\round2_20261110\target\release\deps\redteam_diffuse-7cbbb67d08cb5351.exe)
+
+running 1 test
+test diffuse_gaussian_density_conserves_one_electron ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\redteam_quartets.rs (build_target\runtime\round2_20261110\target\release\deps\redteam_quartets-e293b400aea1f257.exe)
+
+running 1 test
+test lazy_quartets_match_canonical_definition ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\redteam_boundaries.rs (build_target\runtime\round2_20261110\target\release\deps\redteam_boundaries-fe9224ca9e517c3d.exe)
+
+running 3 tests
+test singular_basis_is_rejected_instead_of_zero_energy_ghost_orbitals ... ok
+test memory_and_invalid_scf_options_are_rejected_before_integrals ... ok
+test legacy_lrc_enum_is_not_a_backdoor ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

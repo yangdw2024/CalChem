@@ -1955,19 +1955,22 @@ class OPVWorkflow:
                 resources=self._default_resources(),
             )
             irc_res = self.service.run(irc_req)
-            if irc_res.status == "succeeded":
+            if irc_res.status in ("succeeded", "not_converged"):
                 fwd_barrier = irc_res.irc_forward_barrier_kcal_mol
                 rev_barrier = irc_res.irc_reverse_barrier_kcal_mol
                 rxn_energy = irc_res.reaction_energy_kcal_mol
                 path_points = irc_res.irc_path
 
+        def _barrier_text(value):
+            return "unavailable (IRC endpoints incomplete)" if value is None else f"{value:8.2f} kcal/mol"
+
         summary = (
             f"=== CalChem Reaction Pathway ({name}: {method.upper()}/{basis}) ===\n"
             f"TS Electronic Energy E_TS = {ts_energy:14.8f} Hartree\n"
             f"Imaginary Frequency       = {imag_freq:10.1f} cm^-1\n"
-            f"Forward Barrier E_a(fwd)  = {fwd_barrier or 0.0:8.2f} kcal/mol\n"
-            f"Reverse Barrier E_a(rev)  = {rev_barrier or 0.0:8.2f} kcal/mol\n"
-            f"Reaction Energy Delta_H   = {rxn_energy or 0.0:8.2f} kcal/mol\n"
+            f"Forward Barrier E_a(fwd)  = {_barrier_text(fwd_barrier)}\n"
+            f"Reverse Barrier E_a(rev)  = {_barrier_text(rev_barrier)}\n"
+            f"Reaction Energy Delta_H   = {_barrier_text(rxn_energy)}\n"
             f"IRC Pathway Points        = {len(path_points)} points\n"
         )
 

@@ -1189,7 +1189,7 @@ class NativeCalchem(Calculator):
         reaction_energy = None
 
         if irc_res.forward is not None:
-            fwd_barrier = irc_res.forward.barrier_kcal_mol
+            fwd_barrier = irc_res.barrier_forward_kcal_mol
             for p in irc_res.forward.points:
                 path_points.append(
                     IrcPointInfo(
@@ -1204,7 +1204,7 @@ class NativeCalchem(Calculator):
                 )
 
         if irc_res.reverse is not None:
-            rev_barrier = irc_res.reverse.barrier_kcal_mol
+            rev_barrier = irc_res.barrier_reverse_kcal_mol
             for p in irc_res.reverse.points:
                 path_points.append(
                     IrcPointInfo(
@@ -1218,8 +1218,9 @@ class NativeCalchem(Calculator):
                     )
                 )
 
-        if irc_res.forward is not None and irc_res.reverse is not None:
-            reaction_energy = rev_barrier - fwd_barrier
+        reaction_energy = irc_res.reaction_energy_kcal_mol
+        branches = [b for b in (irc_res.forward, irc_res.reverse) if b is not None]
+        path_complete = bool(branches) and all(b.converged_to_minimum for b in branches)
 
         actual_tag = f"Rust-IRC-GS-{method.upper()}({basis_arg})"
         if xc:
@@ -1236,7 +1237,7 @@ class NativeCalchem(Calculator):
             basis=request.basis,
             xc=request.xc or xc,
             molecule=request.molecule,
-            status="succeeded",
+            status="succeeded" if path_complete else "not_converged",
             started_at=started,
             finished_at=datetime.now(),
             walltime_seconds=walltime,
@@ -1249,6 +1250,7 @@ class NativeCalchem(Calculator):
             reaction_energy_kcal_mol=reaction_energy,
             irc_path=path_points,
             extra={
+                "irc_endpoints_converged": path_complete,
                 "total_points": irc_res.total_points,
                 "has_forward": irc_res.forward is not None,
                 "has_reverse": irc_res.reverse is not None,

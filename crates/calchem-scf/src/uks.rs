@@ -282,14 +282,11 @@ pub fn uks_with_grid(
     let mut ca = Matrix2D::zeros(n, n);
     let mut cb = Matrix2D::zeros(n, n);
     let fp_density_tol = opts.conv_density.min(1e-10);
-    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-8);
-    let mut comm_norm = f64::INFINITY;
-    let mut fp_converged = false;
+    let fp_comm_tol = (opts.conv_density * 10.0).clamp(1e-13,1e-8);
     let mut fp_diis = DiisState::new(opts.diis_max_vecs.max(6));
 
     for fp_step in 0..30 {
         let err = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
-        let cn0 = frobenius_norm(&err);
         let f_stacked = stack(&fa, &fb);
         let (fa_step, fb_step) = if fp_step >= 2 {
             let ex = fp_diis.push_and_extrapolate(&f_stacked, &err);
@@ -315,7 +312,7 @@ pub fn uks_with_grid(
         e_elec_final = e_reb;
 
         let err2 = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
-        comm_norm = frobenius_norm(&err2).min(cn0);
+        let comm_norm = frobenius_norm(&err2);
 
         if diff < fp_density_tol && comm_norm < fp_comm_tol {
             let (ea_ex, ca_ex, pa_ex) = diagonalize_spin(&fa, &x, &xt, n_alpha)?;
@@ -326,15 +323,19 @@ pub fn uks_with_grid(
             cb = cb_ex;
             pa = pa_ex;
             pb = pb_ex;
-            let (_fa_ex, _fb_ex, e_ex, _) =
+            let (fa_ex, fb_ex, e_ex, _) =
                 assemble_uks_fock_and_energy(&h_core, &pa, &pb, &eri, basis, grid, xc);
+            fa=fa_ex;
+            fb=fb_ex;
             e_elec_final = e_ex;
-            fp_converged = true;
             break;
         }
     }
 
-    if !fp_converged && comm_norm > 1e-6 {
+    // Recheck after the final exact diagonalization and density rebuild too.
+    let final_error=stack(&commutator(&fa,&pa,&s),&commutator(&fb,&pb,&s));
+    let final_comm_norm=frobenius_norm(&final_error);
+    if !final_comm_norm.is_finite() || final_comm_norm > fp_comm_tol {
         return Err(CalcError::NotConverged {
             iterations: used_iter,
             delta_e: last_delta_e,

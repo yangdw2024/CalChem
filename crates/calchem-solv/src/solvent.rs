@@ -22,6 +22,14 @@ impl Default for SolventModel {
 }
 
 impl SolventModel {
+    pub fn validate_native(self) -> Result<(), calchem_model::CalcError> {
+        if !matches!(self,Self::Cpcm|Self::Cosmo) {
+            return Err(calchem_model::CalcError::UnsupportedMethod(
+                "Native solvent boundary solver implements C-PCM/COSMO only; IEF-PCM/Onsager require distinct operators and an external backend".into()
+            ));
+        }
+        Ok(())
+    }
     /// Evaluates the dielectric screening prefactor `f(epsilon)`.
     pub fn dielectric_factor(self, epsilon: f64) -> f64 {
         if (epsilon - 1.0).abs() < 1e-12 {

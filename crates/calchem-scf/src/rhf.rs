@@ -213,7 +213,7 @@ pub fn rhf(
     let comm_norm_init = frobenius_norm(&comm_init);
 
     let fp_density_tol = opts.conv_density.min(1e-10);
-    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-8);
+    let fp_comm_tol = (opts.conv_density * 10.0).clamp(1e-13, 1e-8);
 
     let mut final_eps = eps_init;
     let mut final_c = c_init;
@@ -266,7 +266,7 @@ pub fn rhf(
         comm_chk.data[idx] = fps_chk.data[idx] - spf_chk.data[idx];
     }
     let final_comm_norm = frobenius_norm(&comm_chk);
-    if !final_comm_norm.is_finite() || final_comm_norm > 1e-6 {
+    if !final_comm_norm.is_finite() || final_comm_norm > fp_comm_tol {
         return Err(CalcError::NotConverged {
             iterations: used_iter,
             delta_e: last_delta_e,

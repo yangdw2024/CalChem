@@ -241,6 +241,11 @@ pub fn search_transition_state(
     }
 
     let dim = n_atoms * 3;
+    if opts.mode_index.is_some_and(|i| i>=dim)
+        || [opts.max_force,opts.rms_force,opts.max_displacement,opts.trust_radius_bohr]
+            .iter().any(|x|!x.is_finite() || *x<=0.0) {
+        return Err(CalcError::InvalidMolecule("Invalid TS mode index or nonpositive/nonfinite tolerances/trust radius".into()));
+    }
     let mut x = coords_from_mol(mol);
 
     // Initial exact Hessian evaluation

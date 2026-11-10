@@ -143,6 +143,12 @@ pub fn compute_cartesian_hessian_and_apt(
     method: VibMethod,
     opts: &FreqOptions,
 ) -> Result<(Matrix2D, Matrix2D, f64), CalcError> {
+    // A density error is amplified by 1/(2h) in both the Hessian and APT.
+    // Energy convergence alone does not control IR intensity accuracy.
+    let mut response_options=opts.clone();
+    response_options.scf_options.conv_energy=response_options.scf_options.conv_energy.min(1e-13);
+    response_options.scf_options.conv_density=response_options.scf_options.conv_density.min(1e-12);
+    let opts=&response_options;
     let n_atoms = mol.atoms.len();
     let dim = 3 * n_atoms;
     if dim == 0 {

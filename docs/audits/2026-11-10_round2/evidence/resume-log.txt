@@ -1,0 +1,3 @@
+27241364c81457cb387651616d347ef24992c6b8 2026-11-10T11:27:03+08:00 feat(core): release v0.2.0 - pure-rust quantum chemistry engine with hardened SCF DIIS, open-shell solvation, and TD-DFT
+c9fd62e939f62caffbe7d2d382f1c5fe0f65cf9a 2026-10-30T14:11:11+08:00 chore: project root cleanup - archive old handoffs, delete temp test dirs
+ced006bf5377a46d297920894e8631c03428efa1 2026-10-30T14:05:40+08:00 v1.0 Stage 2: proper Obara-Saika VRR, p-type integrals correct

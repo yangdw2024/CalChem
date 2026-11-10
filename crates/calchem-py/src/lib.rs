@@ -542,9 +542,7 @@ fn resolve_scf_kind(
             })
         }
         other => {
-            let func = XcFunctional::from_name(other).map_err(|_| {
-                PyValueError::new_err(format!("Unsupported method in Rust core: {method}"))
-            })?;
+            let func = XcFunctional::from_name(other).map_err(to_py_err)?;
             Ok(if multiplicity != 1 {
                 ResolvedScfKind::Uks(func)
             } else {
@@ -2719,6 +2717,8 @@ pub fn run_solvation(
         exclusion_tol_bohr: 1e-5,
     };
 
+    model.validate_native().map_err(to_py_err)?;
+
     let solv_opts = SolvationOptions {
         solvent: solv.clone(),
         model,
@@ -2795,6 +2795,7 @@ pub fn run_pcm_from_scf_py(
         "onsager" => SolventModel::Onsager,
         other => return Err(PyValueError::new_err(format!("Unknown solvent model: '{other}'"))),
     };
+    model.validate_native().map_err(to_py_err)?;
 
     let cav_opts = CavityOptions {
         scaling_factor,
@@ -2993,10 +2994,11 @@ pub fn run_solvation_gradient<'py>(
         PyValueError::new_err(format!("Unsupported solvent: {solvent}"))
     })?;
     let model = match _solvent_model.to_ascii_lowercase().as_str() {
+        "cpcm" | "c-pcm" => calchem_solv::SolventModel::Cpcm,
         "cosmo" => calchem_solv::SolventModel::Cosmo,
         "iefpcm" | "ief-pcm" => calchem_solv::SolventModel::IefPcm,
         "onsager" => calchem_solv::SolventModel::Onsager,
-        _ => calchem_solv::SolventModel::Cpcm,
+        other => return Err(PyValueError::new_err(format!("Unknown solvent model: '{other}'"))),
     };
     let cav_opts = CavityOptions {
         scaling_factor,

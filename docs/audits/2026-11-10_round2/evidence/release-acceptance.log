@@ -1,0 +1,74 @@
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+warning: value assigned to `comm_norm` is never read
+   --> crates\calchem-scf\src\uhf.rs:253:25
+    |
+253 |     let mut comm_norm = comm_0;
+    |                         ^^^^^^ this value is reassigned later and never used
+...
+278 |             comm_norm = frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
+    |             ---------------------------------------------------------------------------------------- `comm_norm` is overwritten here before the previous value is read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling calchem-prop v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-prop)
+   Compiling calchem-grad v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-grad)
+   Compiling calchem-tddft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tddft)
+   Compiling calchem-vib v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-vib)
+   Compiling calchem-solv v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-solv)
+warning: `calchem-scf` (lib) generated 1 warning
+warning: unused variable: `e_solv_elec`
+   --> crates\calchem-solv\src\scrf.rs:304:9
+    |
+304 |     let e_solv_elec: f64 = 0.5 * q_converged.iter().zip(v_solute_converged.iter()).map(|(&qk, &vk)| qk * vk).sum::<f64>();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `e_solv_elec`
+   --> crates\calchem-solv\src\scrf.rs:509:9
+    |
+509 |     let e_solv_elec: f64 = 0.5 * q_converged.iter().zip(v_solute_converged.iter()).map(|(&qk, &vk)| qk * vk).sum::<f64>();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+
+   Compiling calchem-opt v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-opt)
+warning: `calchem-solv` (lib) generated 2 warnings (run `cargo fix --lib -p calchem-solv` to apply 2 suggestions)
+   Compiling calchem-py v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-py)
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:44:1
+   |
+44 | create_exception!(_core, RustCoreError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `calchem-py` (lib) generated 4 warnings (1 duplicate)
+    Finished `release` profile [optimized] target(s) in 9.08s

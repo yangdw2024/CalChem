@@ -250,10 +250,8 @@ pub fn uhf(
     let mut eps_b = eb_0;
     let mut ca = ca_0;
     let mut cb = cb_0;
-    let mut comm_norm = comm_0;
-
     let fp_density_tol = opts.conv_density.min(1e-10);
-    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-8);
+    let fp_comm_tol = (opts.conv_density * 10.0).clamp(1e-13,1e-8);
 
     if comm_0 > fp_comm_tol {
         let mut diis_a = DiisState::new(opts.diis_max_vecs.max(6));
@@ -275,7 +273,7 @@ pub fn uhf(
             let (fa_n, fb_n) = build_uhf_fock(&h_core, &pa, &pb, &eri);
             fa = fa_n;
             fb = fb_n;
-            comm_norm = frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
+            let comm_norm = frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
             if diff < fp_density_tol && comm_norm < fp_comm_tol {
                 let (ea_ex, ca_ex, pa_ex) = diagonalize_spin(&fa, &x, &xt, n_alpha)?;
                 let (eb_ex, cb_ex, pb_ex) = diagonalize_spin(&fb, &x, &xt, n_beta)?;
@@ -294,7 +292,7 @@ pub fn uhf(
     }
 
     let final_comm = frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
-    if !final_comm.is_finite() || final_comm > 1e-6 {
+    if !final_comm.is_finite() || final_comm > fp_comm_tol {
         return Err(CalcError::NotConverged {
             iterations: used_iter,
             delta_e: last_delta_e,

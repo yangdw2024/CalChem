@@ -53,11 +53,15 @@ pub fn compute_pcm_gradient_fd(
     cavity_opts: Option<&CavityOptions>,
     h_bohr: f64,
 ) -> Result<Vec<[f64; 3]>, CalcError> {
+    model.validate_native()?;
     let n_atoms = mol.atoms.len();
     let mut grad = vec![[0.0, 0.0, 0.0]; n_atoms];
 
     let opts = cavity_opts.cloned().unwrap_or_default();
-    let h = if h_bohr > 0.0 { h_bohr } else { 1e-4 };
+    if !h_bohr.is_finite() || h_bohr<=0.0 {
+        return Err(CalcError::InvalidMolecule("PCM difference step must be finite and positive".into()));
+    }
+    let h=h_bohr;
 
     for i in 0..n_atoms {
         for c in 0..3 {

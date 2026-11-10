@@ -84,6 +84,7 @@ pub fn compute_pcm_solvation(
     gas_wf: &ScfWavefunction,
     opts: &SolvationOptions,
 ) -> Result<SolvationResult, CalcError> {
+    opts.model.validate_native()?;
     let cavity = MolecularCavity::build(mol, &opts.cavity_opts);
     let boundary_matrix = BoundaryMatrix::build(&cavity)?;
     let potential_engine = CavityPotentialEngine::build(mol, basis, &cavity)?;
@@ -155,6 +156,7 @@ pub fn run_scrf_rhf(
     scf_opts: &ScfOptions,
     opts: &SolvationOptions,
 ) -> Result<SolvationResult, CalcError> {
+    opts.model.validate_native()?;
     calchem_scf::validate_resources_and_options(basis, scf_opts)?;
     let n = basis.n_ao;
     let n_elec = mol.nelectron()?;
@@ -344,7 +346,7 @@ pub fn run_scrf_rhf(
         gas_energy,
         delta_g_solv: delta_g_solv_hartree,
         delta_g_solv_kcal_mol: delta_g_solv_hartree * HARTREE_TO_KCAL_MOL,
-        delta_g_elec_kcal_mol: e_solv_elec * HARTREE_TO_KCAL_MOL,
+        delta_g_elec_kcal_mol: (delta_g_solv_hartree - cds_hartree) * HARTREE_TO_KCAL_MOL,
         delta_g_cds_kcal_mol: cds_kcal_mol,
         cavity_surface_area_angstrom2: cavity.total_area_angstrom2,
         total_surface_charge: total_q,
@@ -364,6 +366,7 @@ pub fn run_scrf_rks(
     opts: &SolvationOptions,
     xc: XcFunctional,
 ) -> Result<SolvationResult, CalcError> {
+    opts.model.validate_native()?;
     calchem_scf::validate_resources_and_options(basis, scf_opts)?;
     xc.validate_native()?;
     let n = basis.n_ao;
@@ -548,7 +551,7 @@ pub fn run_scrf_rks(
         gas_energy,
         delta_g_solv: delta_g_solv_hartree,
         delta_g_solv_kcal_mol: delta_g_solv_hartree * HARTREE_TO_KCAL_MOL,
-        delta_g_elec_kcal_mol: e_solv_elec * HARTREE_TO_KCAL_MOL,
+        delta_g_elec_kcal_mol: (delta_g_solv_hartree - cds_hartree) * HARTREE_TO_KCAL_MOL,
         delta_g_cds_kcal_mol: cds_kcal_mol,
         cavity_surface_area_angstrom2: cavity.total_area_angstrom2,
         total_surface_charge: total_q,
@@ -576,51 +579,22 @@ pub fn run_scrf(
         || m == "uks";
 
     if is_open_shell {
-        let is_dft = match m.as_str() {
-            "rhf" | "hf" | "uhf" => false,
-            _ => true,
-        };
-        let uhf_wf = if is_dft {
-            let func = xc.unwrap_or(XcFunctional::B3lyp);
-            calchem_scf::uks(mol, basis, func, GridLevel::Medium, scf_opts)?
-        } else {
-            calchem_scf::uhf(mol, basis, scf_opts)?
-        };
-        let n = basis.n_ao;
-        let mut occ = vec![0.0; n];
-        for i in 0..uhf_wf.n_alpha.min(n) {
-            occ[i] += 1.0;
-        }
-        for i in 0..uhf_wf.n_beta.min(n) {
-            occ[i] += 1.0;
-        }
-        let scf_wf = ScfWavefunction {
-            converged: uhf_wf.converged,
-            iterations: uhf_wf.iterations,
-            total_energy_hartree: uhf_wf.total_energy_hartree,
-            electronic_energy_hartree: uhf_wf.electronic_energy_hartree,
-            nuclear_repulsion_hartree: uhf_wf.nuclear_repulsion_hartree,
-            n_ao: uhf_wf.n_ao,
-            n_mo: uhf_wf.n_ao,
-            mo_energies: uhf_wf.mo_energies_alpha.clone(),
-            mo_occupations: occ,
-            mo_coefficients: uhf_wf.mo_coefficients_alpha.clone(),
-            density_alpha: uhf_wf.density_alpha.clone(),
-            density_beta: Some(uhf_wf.density_beta.clone()),
-            fock_alpha: vec![0.0; n * n],
-            overlap_matrix: uhf_wf.overlap_matrix.clone(),
-            h_core_matrix: vec![0.0; n * n],
-            diagnostics: uhf_wf.diagnostics.clone(),
-        };
-        return compute_pcm_solvation(mol, basis, &scf_wf, opts);
+        return Err(CalcError::UnsupportedMethod(
+            "Self-consistent open-shell PCM is not implemented. A post-SCF correction to a gas UHF/UKS density must not be reported as SCRF; use an external backend.".into()
+        ));
     }
 
     match m.as_str() {
         "rhf" | "hf" => run_scrf_rhf(mol, basis, scf_opts, opts),
-        "rks" | "dft" | "b3lyp" | "pbe" | "blyp" | "svwn5" | "pbe0" | "camb3lyp"
+        "rks" | "dft" => {
+            let func=xc.unwrap_or(XcFunctional::B3lyp);
+            run_scrf_rks(mol,basis,scf_opts,opts,func)
+        }
+        "b3lyp" | "b3lyp5" | "pbe" | "blyp" | "svwn5" | "pbe0" | "camb3lyp"
         | "cam-b3lyp" | "wb97xd" | "wb97x-d" | "wb97x" => {
-            let func = xc.unwrap_or(XcFunctional::B3lyp);
-            run_scrf_rks(mol, basis, scf_opts, opts, func)
+            let func=XcFunctional::from_name(method)?;
+            if xc.is_some_and(|x| x!=func) {return Err(CalcError::UnsupportedMethod("Conflicting method and XC identities".into()));}
+            run_scrf_rks(mol,basis,scf_opts,opts,func)
         }
         other => Err(CalcError::UnsupportedMethod(format!(
             "Unsupported SCRF method: {other}"

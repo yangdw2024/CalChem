@@ -1,0 +1,1015 @@
+D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\setuptools\config\_apply_pyprojecttoml.py:82: SetuptoolsDeprecationWarning: `project.license` as a TOML table is deprecated
+!!
+
+        ********************************************************************************
+        Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+
+        By 2027-Feb-18, you need to update your project and remove deprecated calls
+        or your builds will no longer be supported.
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  corresp(dist, value, root_dir)
+D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\setuptools\config\_apply_pyprojecttoml.py:61: SetuptoolsDeprecationWarning: License classifiers are deprecated.
+!!
+
+        ********************************************************************************
+        Please consider removing the following classifiers in favor of a SPDX license expression:
+
+        License :: OSI Approved :: Apache Software License
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  dist._finalize_license_expression()
+D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\setuptools\dist.py:765: SetuptoolsDeprecationWarning: License classifiers are deprecated.
+!!
+
+        ********************************************************************************
+        Please consider removing the following classifiers in favor of a SPDX license expression:
+
+        License :: OSI Approved :: Apache Software License
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  self._finalize_license_expression()
+running bdist_wheel
+running build
+running build_py
+creating build\lib.win-amd64-cpython-313\calchem
+copying calchem\cli.py -> build\lib.win-amd64-cpython-313\calchem
+copying calchem\molforge_bridge.py -> build\lib.win-amd64-cpython-313\calchem
+copying calchem\__init__.py -> build\lib.win-amd64-cpython-313\calchem
+copying calchem\__main__.py -> build\lib.win-amd64-cpython-313\calchem
+creating build\lib.win-amd64-cpython-313\calchem\api
+copying calchem\api\high_level.py -> build\lib.win-amd64-cpython-313\calchem\api
+copying calchem\api\service.py -> build\lib.win-amd64-cpython-313\calchem\api
+copying calchem\api\__init__.py -> build\lib.win-amd64-cpython-313\calchem\api
+creating build\lib.win-amd64-cpython-313\calchem\backends
+copying calchem\backends\external.py -> build\lib.win-amd64-cpython-313\calchem\backends
+copying calchem\backends\gaussian.py -> build\lib.win-amd64-cpython-313\calchem\backends
+copying calchem\backends\native.py -> build\lib.win-amd64-cpython-313\calchem\backends
+copying calchem\backends\orca.py -> build\lib.win-amd64-cpython-313\calchem\backends
+copying calchem\backends\pyscf.py -> build\lib.win-amd64-cpython-313\calchem\backends
+copying calchem\backends\rest.py -> build\lib.win-amd64-cpython-313\calchem\backends
+copying calchem\backends\xtb.py -> build\lib.win-amd64-cpython-313\calchem\backends
+copying calchem\backends\__init__.py -> build\lib.win-amd64-cpython-313\calchem\backends
+creating build\lib.win-amd64-cpython-313\calchem\basis
+copying calchem\basis\basis_data.py -> build\lib.win-amd64-cpython-313\calchem\basis
+copying calchem\basis\basis_set.py -> build\lib.win-amd64-cpython-313\calchem\basis
+copying calchem\basis\gto.py -> build\lib.win-amd64-cpython-313\calchem\basis
+copying calchem\basis\library.py -> build\lib.win-amd64-cpython-313\calchem\basis
+copying calchem\basis\__init__.py -> build\lib.win-amd64-cpython-313\calchem\basis
+creating build\lib.win-amd64-cpython-313\calchem\config
+copying calchem\config\loader.py -> build\lib.win-amd64-cpython-313\calchem\config
+copying calchem\config\models.py -> build\lib.win-amd64-cpython-313\calchem\config
+copying calchem\config\__init__.py -> build\lib.win-amd64-cpython-313\calchem\config
+creating build\lib.win-amd64-cpython-313\calchem\core
+copying calchem\core\calculator.py -> build\lib.win-amd64-cpython-313\calchem\core
+copying calchem\core\capabilities.py -> build\lib.win-amd64-cpython-313\calchem\core
+copying calchem\core\errors.py -> build\lib.win-amd64-cpython-313\calchem\core
+copying calchem\core\periodic_table.py -> build\lib.win-amd64-cpython-313\calchem\core
+copying calchem\core\request.py -> build\lib.win-amd64-cpython-313\calchem\core
+copying calchem\core\result.py -> build\lib.win-amd64-cpython-313\calchem\core
+copying calchem\core\units.py -> build\lib.win-amd64-cpython-313\calchem\core
+copying calchem\core\__init__.py -> build\lib.win-amd64-cpython-313\calchem\core
+creating build\lib.win-amd64-cpython-313\calchem\dft
+copying calchem\dft\d3.py -> build\lib.win-amd64-cpython-313\calchem\dft
+copying calchem\dft\dft.py -> build\lib.win-amd64-cpython-313\calchem\dft
+copying calchem\dft\fock.py -> build\lib.win-amd64-cpython-313\calchem\dft
+copying calchem\dft\functionals.py -> build\lib.win-amd64-cpython-313\calchem\dft
+copying calchem\dft\grid.py -> build\lib.win-amd64-cpython-313\calchem\dft
+creating build\lib.win-amd64-cpython-313\calchem\excited
+copying calchem\excited\cis.py -> build\lib.win-amd64-cpython-313\calchem\excited
+copying calchem\excited\spectra.py -> build\lib.win-amd64-cpython-313\calchem\excited
+copying calchem\excited\tddft.py -> build\lib.win-amd64-cpython-313\calchem\excited
+copying calchem\excited\tddft_native.py -> build\lib.win-amd64-cpython-313\calchem\excited
+copying calchem\excited\__init__.py -> build\lib.win-amd64-cpython-313\calchem\excited
+creating build\lib.win-amd64-cpython-313\calchem\gpu
+copying calchem\gpu\fock.py -> build\lib.win-amd64-cpython-313\calchem\gpu
+copying calchem\gpu\__init__.py -> build\lib.win-amd64-cpython-313\calchem\gpu
+creating build\lib.win-amd64-cpython-313\calchem\grad
+copying calchem\grad\analytical.py -> build\lib.win-amd64-cpython-313\calchem\grad
+copying calchem\grad\dft_grad.py -> build\lib.win-amd64-cpython-313\calchem\grad
+copying calchem\grad\finite_difference.py -> build\lib.win-amd64-cpython-313\calchem\grad
+copying calchem\grad\hf_grad.py -> build\lib.win-amd64-cpython-313\calchem\grad
+copying calchem\grad\__init__.py -> build\lib.win-amd64-cpython-313\calchem\grad
+creating build\lib.win-amd64-cpython-313\calchem\gui
+copying calchem\gui\main_window.py -> build\lib.win-amd64-cpython-313\calchem\gui
+copying calchem\gui\worker.py -> build\lib.win-amd64-cpython-313\calchem\gui
+copying calchem\gui\__init__.py -> build\lib.win-amd64-cpython-313\calchem\gui
+copying calchem\gui\__main__.py -> build\lib.win-amd64-cpython-313\calchem\gui
+creating build\lib.win-amd64-cpython-313\calchem\integrals
+copying calchem\integrals\direct_scf.py -> build\lib.win-amd64-cpython-313\calchem\integrals
+copying calchem\integrals\one_electron.py -> build\lib.win-amd64-cpython-313\calchem\integrals
+copying calchem\integrals\ri.py -> build\lib.win-amd64-cpython-313\calchem\integrals
+copying calchem\integrals\screening.py -> build\lib.win-amd64-cpython-313\calchem\integrals
+copying calchem\integrals\two_electron.py -> build\lib.win-amd64-cpython-313\calchem\integrals
+copying calchem\integrals\__init__.py -> build\lib.win-amd64-cpython-313\calchem\integrals
+creating build\lib.win-amd64-cpython-313\calchem\io
+copying calchem\io\checkpoint.py -> build\lib.win-amd64-cpython-313\calchem\io
+copying calchem\io\input.py -> build\lib.win-amd64-cpython-313\calchem\io
+copying calchem\io\output.py -> build\lib.win-amd64-cpython-313\calchem\io
+copying calchem\io\project.py -> build\lib.win-amd64-cpython-313\calchem\io
+copying calchem\io\__init__.py -> build\lib.win-amd64-cpython-313\calchem\io
+creating build\lib.win-amd64-cpython-313\calchem\jobs
+copying calchem\jobs\dispatcher.py -> build\lib.win-amd64-cpython-313\calchem\jobs
+copying calchem\jobs\global_lock.py -> build\lib.win-amd64-cpython-313\calchem\jobs
+copying calchem\jobs\models.py -> build\lib.win-amd64-cpython-313\calchem\jobs
+copying calchem\jobs\queue.py -> build\lib.win-amd64-cpython-313\calchem\jobs
+copying calchem\jobs\__init__.py -> build\lib.win-amd64-cpython-313\calchem\jobs
+creating build\lib.win-amd64-cpython-313\calchem\md
+copying calchem\md\ff_fit.py -> build\lib.win-amd64-cpython-313\calchem\md
+copying calchem\md\gromacs_io.py -> build\lib.win-amd64-cpython-313\calchem\md
+copying calchem\md\__init__.py -> build\lib.win-amd64-cpython-313\calchem\md
+creating build\lib.win-amd64-cpython-313\calchem\mol
+copying calchem\mol\geometry.py -> build\lib.win-amd64-cpython-313\calchem\mol
+copying calchem\mol\molecule.py -> build\lib.win-amd64-cpython-313\calchem\mol
+copying calchem\mol\symmetry.py -> build\lib.win-amd64-cpython-313\calchem\mol
+copying calchem\mol\__init__.py -> build\lib.win-amd64-cpython-313\calchem\mol
+creating build\lib.win-amd64-cpython-313\calchem\oniom
+copying calchem\oniom\__init__.py -> build\lib.win-amd64-cpython-313\calchem\oniom
+creating build\lib.win-amd64-cpython-313\calchem\opt
+copying calchem\opt\berny.py -> build\lib.win-amd64-cpython-313\calchem\opt
+copying calchem\opt\bfgs.py -> build\lib.win-amd64-cpython-313\calchem\opt
+copying calchem\opt\irc.py -> build\lib.win-amd64-cpython-313\calchem\opt
+copying calchem\opt\numeric_optimizer.py -> build\lib.win-amd64-cpython-313\calchem\opt
+copying calchem\opt\optimizer.py -> build\lib.win-amd64-cpython-313\calchem\opt
+copying calchem\opt\ts_search.py -> build\lib.win-amd64-cpython-313\calchem\opt
+copying calchem\opt\__init__.py -> build\lib.win-amd64-cpython-313\calchem\opt
+creating build\lib.win-amd64-cpython-313\calchem\post_hf
+copying calchem\post_hf\casscf.py -> build\lib.win-amd64-cpython-313\calchem\post_hf
+copying calchem\post_hf\ccd.py -> build\lib.win-amd64-cpython-313\calchem\post_hf
+copying calchem\post_hf\ccsd.py -> build\lib.win-amd64-cpython-313\calchem\post_hf
+copying calchem\post_hf\ccsd_t.py -> build\lib.win-amd64-cpython-313\calchem\post_hf
+copying calchem\post_hf\mp2.py -> build\lib.win-amd64-cpython-313\calchem\post_hf
+copying calchem\post_hf\mp4.py -> build\lib.win-amd64-cpython-313\calchem\post_hf
+copying calchem\post_hf\__init__.py -> build\lib.win-amd64-cpython-313\calchem\post_hf
+creating build\lib.win-amd64-cpython-313\calchem\props
+copying calchem\props\charges.py -> build\lib.win-amd64-cpython-313\calchem\props
+copying calchem\props\cube.py -> build\lib.win-amd64-cpython-313\calchem\props
+copying calchem\props\isosurface.py -> build\lib.win-amd64-cpython-313\calchem\props
+copying calchem\props\multipole.py -> build\lib.win-amd64-cpython-313\calchem\props
+copying calchem\props\multipole_native.py -> build\lib.win-amd64-cpython-313\calchem\props
+copying calchem\props\population.py -> build\lib.win-amd64-cpython-313\calchem\props
+copying calchem\props\__init__.py -> build\lib.win-amd64-cpython-313\calchem\props
+creating build\lib.win-amd64-cpython-313\calchem\scf
+copying calchem\scf\dft.py -> build\lib.win-amd64-cpython-313\calchem\scf
+copying calchem\scf\diis.py -> build\lib.win-amd64-cpython-313\calchem\scf
+copying calchem\scf\guess.py -> build\lib.win-amd64-cpython-313\calchem\scf
+copying calchem\scf\hf.py -> build\lib.win-amd64-cpython-313\calchem\scf
+copying calchem\scf\results.py -> build\lib.win-amd64-cpython-313\calchem\scf
+copying calchem\scf\__init__.py -> build\lib.win-amd64-cpython-313\calchem\scf
+creating build\lib.win-amd64-cpython-313\calchem\solvent
+copying calchem\solvent\pcm.py -> build\lib.win-amd64-cpython-313\calchem\solvent
+copying calchem\solvent\smd.py -> build\lib.win-amd64-cpython-313\calchem\solvent
+copying calchem\solvent\__init__.py -> build\lib.win-amd64-cpython-313\calchem\solvent
+creating build\lib.win-amd64-cpython-313\calchem\tests
+copying calchem\tests\test_debug.py -> build\lib.win-amd64-cpython-313\calchem\tests
+copying calchem\tests\test_h2_sto3g.py -> build\lib.win-amd64-cpython-313\calchem\tests
+copying calchem\tests\test_scf.py -> build\lib.win-amd64-cpython-313\calchem\tests
+copying calchem\tests\test_scf_direct.py -> build\lib.win-amd64-cpython-313\calchem\tests
+creating build\lib.win-amd64-cpython-313\calchem\utils
+copying calchem\utils\accelerate.py -> build\lib.win-amd64-cpython-313\calchem\utils
+copying calchem\utils\config.py -> build\lib.win-amd64-cpython-313\calchem\utils
+copying calchem\utils\constants.py -> build\lib.win-amd64-cpython-313\calchem\utils
+copying calchem\utils\exceptions.py -> build\lib.win-amd64-cpython-313\calchem\utils
+copying calchem\utils\logging_utils.py -> build\lib.win-amd64-cpython-313\calchem\utils
+copying calchem\utils\units.py -> build\lib.win-amd64-cpython-313\calchem\utils
+copying calchem\utils\__init__.py -> build\lib.win-amd64-cpython-313\calchem\utils
+creating build\lib.win-amd64-cpython-313\calchem\vib
+copying calchem\vib\frequency.py -> build\lib.win-amd64-cpython-313\calchem\vib
+copying calchem\vib\numeric_frequency.py -> build\lib.win-amd64-cpython-313\calchem\vib
+copying calchem\vib\__init__.py -> build\lib.win-amd64-cpython-313\calchem\vib
+creating build\lib.win-amd64-cpython-313\calchem\workflows
+copying calchem\workflows\opv.py -> build\lib.win-amd64-cpython-313\calchem\workflows
+copying calchem\workflows\__init__.py -> build\lib.win-amd64-cpython-313\calchem\workflows
+creating build\lib.win-amd64-cpython-313\calchem\backends\parsers
+copying calchem\backends\parsers\base.py -> build\lib.win-amd64-cpython-313\calchem\backends\parsers
+copying calchem\backends\parsers\__init__.py -> build\lib.win-amd64-cpython-313\calchem\backends\parsers
+running egg_info
+creating calchem_qc.egg-info
+writing calchem_qc.egg-info\PKG-INFO
+writing dependency_links to calchem_qc.egg-info\dependency_links.txt
+writing entry points to calchem_qc.egg-info\entry_points.txt
+writing requirements to calchem_qc.egg-info\requires.txt
+writing top-level names to calchem_qc.egg-info\top_level.txt
+writing manifest file 'calchem_qc.egg-info\SOURCES.txt'
+reading manifest file 'calchem_qc.egg-info\SOURCES.txt'
+reading manifest template 'MANIFEST.in'
+warning: no files found matching '*.dat' under directory 'calchem'
+warning: no previously-included files matching '*.pyc' found anywhere in distribution
+warning: no previously-included files matching '*.pyd' found anywhere in distribution
+warning: no previously-included files matching '*.so' found anywhere in distribution
+warning: no previously-included files matching '*.dll' found anywhere in distribution
+warning: no previously-included files matching '*.dylib' found anywhere in distribution
+no previously-included directories found matching 'build_target'
+no previously-included directories found matching 'docs\audits'
+adding license file 'LICENSE'
+writing manifest file 'calchem_qc.egg-info\SOURCES.txt'
+copying calchem\_core.pyi -> build\lib.win-amd64-cpython-313\calchem
+creating build\lib.win-amd64-cpython-313\calchem\data
+copying calchem\data\solvents.yaml -> build\lib.win-amd64-cpython-313\calchem\data
+copying calchem\data\default_config.json -> build\lib.win-amd64-cpython-313\calchem\data
+creating build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\c6.bin -> build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\COPYING -> build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\COPYING.LESSER -> build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\covrad.f90 -> build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\data_r4r2.f90 -> build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\data_vdwrad.f90 -> build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\NOTICE.md -> build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\parameters.toml -> build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\reference.f90 -> build\lib.win-amd64-cpython-313\calchem\data\d3
+copying calchem\data\d3\source_sha256.json -> build\lib.win-amd64-cpython-313\calchem\data\d3
+warning: build_py: byte-compiling is disabled, skipping.
+
+running build_ext
+warning: value assigned to `comm_norm` is never read
+   --> crates\calchem-scf\src\uhf.rs:253:25
+    |
+253 |     let mut comm_norm = comm_0;
+    |                         ^^^^^^ this value is reassigned later and never used
+...
+278 |             comm_norm = frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
+    |             ---------------------------------------------------------------------------------------- `comm_norm` is overwritten here before the previous value is read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `calchem-scf` (lib) generated 1 warning
+warning: unused variable: `e_solv_elec`
+   --> crates\calchem-solv\src\scrf.rs:304:9
+    |
+304 |     let e_solv_elec: f64 = 0.5 * q_converged.iter().zip(v_solute_converged.iter()).map(|(&qk, &vk)| qk * vk).sum::<f64>();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `e_solv_elec`
+   --> crates\calchem-solv\src\scrf.rs:509:9
+    |
+509 |     let e_solv_elec: f64 = 0.5 * q_converged.iter().zip(v_solute_converged.iter()).map(|(&qk, &vk)| qk * vk).sum::<f64>();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+
+warning: `calchem-solv` (lib) generated 2 warnings (run `cargo fix --lib -p calchem-solv` to apply 2 suggestions)
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:44:1
+   |
+44 | create_exception!(_core, RustCoreError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `calchem-py` (lib) generated 4 warnings (1 duplicate)
+    Finished `release` profile [optimized] target(s) in 0.17s
+installing to build\bdist.win-amd64\wheel
+running install
+running install_lib
+creating build\bdist.win-amd64\wheel
+creating build\bdist.win-amd64\wheel\calchem
+creating build\bdist.win-amd64\wheel\calchem\api
+copying build\lib.win-amd64-cpython-313\calchem\api\high_level.py -> build\bdist.win-amd64\wheel\.\calchem\api
+copying build\lib.win-amd64-cpython-313\calchem\api\service.py -> build\bdist.win-amd64\wheel\.\calchem\api
+copying build\lib.win-amd64-cpython-313\calchem\api\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\api
+creating build\bdist.win-amd64\wheel\calchem\backends
+copying build\lib.win-amd64-cpython-313\calchem\backends\external.py -> build\bdist.win-amd64\wheel\.\calchem\backends
+copying build\lib.win-amd64-cpython-313\calchem\backends\gaussian.py -> build\bdist.win-amd64\wheel\.\calchem\backends
+copying build\lib.win-amd64-cpython-313\calchem\backends\native.py -> build\bdist.win-amd64\wheel\.\calchem\backends
+copying build\lib.win-amd64-cpython-313\calchem\backends\orca.py -> build\bdist.win-amd64\wheel\.\calchem\backends
+creating build\bdist.win-amd64\wheel\calchem\backends\parsers
+copying build\lib.win-amd64-cpython-313\calchem\backends\parsers\base.py -> build\bdist.win-amd64\wheel\.\calchem\backends\parsers
+copying build\lib.win-amd64-cpython-313\calchem\backends\parsers\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\backends\parsers
+copying build\lib.win-amd64-cpython-313\calchem\backends\pyscf.py -> build\bdist.win-amd64\wheel\.\calchem\backends
+copying build\lib.win-amd64-cpython-313\calchem\backends\rest.py -> build\bdist.win-amd64\wheel\.\calchem\backends
+copying build\lib.win-amd64-cpython-313\calchem\backends\xtb.py -> build\bdist.win-amd64\wheel\.\calchem\backends
+copying build\lib.win-amd64-cpython-313\calchem\backends\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\backends
+creating build\bdist.win-amd64\wheel\calchem\basis
+copying build\lib.win-amd64-cpython-313\calchem\basis\basis_data.py -> build\bdist.win-amd64\wheel\.\calchem\basis
+copying build\lib.win-amd64-cpython-313\calchem\basis\basis_set.py -> build\bdist.win-amd64\wheel\.\calchem\basis
+copying build\lib.win-amd64-cpython-313\calchem\basis\gto.py -> build\bdist.win-amd64\wheel\.\calchem\basis
+copying build\lib.win-amd64-cpython-313\calchem\basis\library.py -> build\bdist.win-amd64\wheel\.\calchem\basis
+copying build\lib.win-amd64-cpython-313\calchem\basis\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\basis
+copying build\lib.win-amd64-cpython-313\calchem\cli.py -> build\bdist.win-amd64\wheel\.\calchem
+creating build\bdist.win-amd64\wheel\calchem\config
+copying build\lib.win-amd64-cpython-313\calchem\config\loader.py -> build\bdist.win-amd64\wheel\.\calchem\config
+copying build\lib.win-amd64-cpython-313\calchem\config\models.py -> build\bdist.win-amd64\wheel\.\calchem\config
+copying build\lib.win-amd64-cpython-313\calchem\config\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\config
+creating build\bdist.win-amd64\wheel\calchem\core
+copying build\lib.win-amd64-cpython-313\calchem\core\calculator.py -> build\bdist.win-amd64\wheel\.\calchem\core
+copying build\lib.win-amd64-cpython-313\calchem\core\capabilities.py -> build\bdist.win-amd64\wheel\.\calchem\core
+copying build\lib.win-amd64-cpython-313\calchem\core\errors.py -> build\bdist.win-amd64\wheel\.\calchem\core
+copying build\lib.win-amd64-cpython-313\calchem\core\periodic_table.py -> build\bdist.win-amd64\wheel\.\calchem\core
+copying build\lib.win-amd64-cpython-313\calchem\core\request.py -> build\bdist.win-amd64\wheel\.\calchem\core
+copying build\lib.win-amd64-cpython-313\calchem\core\result.py -> build\bdist.win-amd64\wheel\.\calchem\core
+copying build\lib.win-amd64-cpython-313\calchem\core\units.py -> build\bdist.win-amd64\wheel\.\calchem\core
+copying build\lib.win-amd64-cpython-313\calchem\core\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\core
+creating build\bdist.win-amd64\wheel\calchem\data
+creating build\bdist.win-amd64\wheel\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\c6.bin -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\COPYING -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\COPYING.LESSER -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\covrad.f90 -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\data_r4r2.f90 -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\data_vdwrad.f90 -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\NOTICE.md -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\parameters.toml -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\reference.f90 -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\d3\source_sha256.json -> build\bdist.win-amd64\wheel\.\calchem\data\d3
+copying build\lib.win-amd64-cpython-313\calchem\data\default_config.json -> build\bdist.win-amd64\wheel\.\calchem\data
+copying build\lib.win-amd64-cpython-313\calchem\data\solvents.yaml -> build\bdist.win-amd64\wheel\.\calchem\data
+creating build\bdist.win-amd64\wheel\calchem\dft
+copying build\lib.win-amd64-cpython-313\calchem\dft\d3.py -> build\bdist.win-amd64\wheel\.\calchem\dft
+copying build\lib.win-amd64-cpython-313\calchem\dft\dft.py -> build\bdist.win-amd64\wheel\.\calchem\dft
+copying build\lib.win-amd64-cpython-313\calchem\dft\fock.py -> build\bdist.win-amd64\wheel\.\calchem\dft
+copying build\lib.win-amd64-cpython-313\calchem\dft\functionals.py -> build\bdist.win-amd64\wheel\.\calchem\dft
+copying build\lib.win-amd64-cpython-313\calchem\dft\grid.py -> build\bdist.win-amd64\wheel\.\calchem\dft
+creating build\bdist.win-amd64\wheel\calchem\excited
+copying build\lib.win-amd64-cpython-313\calchem\excited\cis.py -> build\bdist.win-amd64\wheel\.\calchem\excited
+copying build\lib.win-amd64-cpython-313\calchem\excited\spectra.py -> build\bdist.win-amd64\wheel\.\calchem\excited
+copying build\lib.win-amd64-cpython-313\calchem\excited\tddft.py -> build\bdist.win-amd64\wheel\.\calchem\excited
+copying build\lib.win-amd64-cpython-313\calchem\excited\tddft_native.py -> build\bdist.win-amd64\wheel\.\calchem\excited
+copying build\lib.win-amd64-cpython-313\calchem\excited\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\excited
+creating build\bdist.win-amd64\wheel\calchem\gpu
+copying build\lib.win-amd64-cpython-313\calchem\gpu\fock.py -> build\bdist.win-amd64\wheel\.\calchem\gpu
+copying build\lib.win-amd64-cpython-313\calchem\gpu\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\gpu
+creating build\bdist.win-amd64\wheel\calchem\grad
+copying build\lib.win-amd64-cpython-313\calchem\grad\analytical.py -> build\bdist.win-amd64\wheel\.\calchem\grad
+copying build\lib.win-amd64-cpython-313\calchem\grad\dft_grad.py -> build\bdist.win-amd64\wheel\.\calchem\grad
+copying build\lib.win-amd64-cpython-313\calchem\grad\finite_difference.py -> build\bdist.win-amd64\wheel\.\calchem\grad
+copying build\lib.win-amd64-cpython-313\calchem\grad\hf_grad.py -> build\bdist.win-amd64\wheel\.\calchem\grad
+copying build\lib.win-amd64-cpython-313\calchem\grad\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\grad
+creating build\bdist.win-amd64\wheel\calchem\gui
+copying build\lib.win-amd64-cpython-313\calchem\gui\main_window.py -> build\bdist.win-amd64\wheel\.\calchem\gui
+copying build\lib.win-amd64-cpython-313\calchem\gui\worker.py -> build\bdist.win-amd64\wheel\.\calchem\gui
+copying build\lib.win-amd64-cpython-313\calchem\gui\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\gui
+copying build\lib.win-amd64-cpython-313\calchem\gui\__main__.py -> build\bdist.win-amd64\wheel\.\calchem\gui
+creating build\bdist.win-amd64\wheel\calchem\integrals
+copying build\lib.win-amd64-cpython-313\calchem\integrals\direct_scf.py -> build\bdist.win-amd64\wheel\.\calchem\integrals
+copying build\lib.win-amd64-cpython-313\calchem\integrals\one_electron.py -> build\bdist.win-amd64\wheel\.\calchem\integrals
+copying build\lib.win-amd64-cpython-313\calchem\integrals\ri.py -> build\bdist.win-amd64\wheel\.\calchem\integrals
+copying build\lib.win-amd64-cpython-313\calchem\integrals\screening.py -> build\bdist.win-amd64\wheel\.\calchem\integrals
+copying build\lib.win-amd64-cpython-313\calchem\integrals\two_electron.py -> build\bdist.win-amd64\wheel\.\calchem\integrals
+copying build\lib.win-amd64-cpython-313\calchem\integrals\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\integrals
+creating build\bdist.win-amd64\wheel\calchem\io
+copying build\lib.win-amd64-cpython-313\calchem\io\checkpoint.py -> build\bdist.win-amd64\wheel\.\calchem\io
+copying build\lib.win-amd64-cpython-313\calchem\io\input.py -> build\bdist.win-amd64\wheel\.\calchem\io
+copying build\lib.win-amd64-cpython-313\calchem\io\output.py -> build\bdist.win-amd64\wheel\.\calchem\io
+copying build\lib.win-amd64-cpython-313\calchem\io\project.py -> build\bdist.win-amd64\wheel\.\calchem\io
+copying build\lib.win-amd64-cpython-313\calchem\io\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\io
+creating build\bdist.win-amd64\wheel\calchem\jobs
+copying build\lib.win-amd64-cpython-313\calchem\jobs\dispatcher.py -> build\bdist.win-amd64\wheel\.\calchem\jobs
+copying build\lib.win-amd64-cpython-313\calchem\jobs\global_lock.py -> build\bdist.win-amd64\wheel\.\calchem\jobs
+copying build\lib.win-amd64-cpython-313\calchem\jobs\models.py -> build\bdist.win-amd64\wheel\.\calchem\jobs
+copying build\lib.win-amd64-cpython-313\calchem\jobs\queue.py -> build\bdist.win-amd64\wheel\.\calchem\jobs
+copying build\lib.win-amd64-cpython-313\calchem\jobs\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\jobs
+creating build\bdist.win-amd64\wheel\calchem\md
+copying build\lib.win-amd64-cpython-313\calchem\md\ff_fit.py -> build\bdist.win-amd64\wheel\.\calchem\md
+copying build\lib.win-amd64-cpython-313\calchem\md\gromacs_io.py -> build\bdist.win-amd64\wheel\.\calchem\md
+copying build\lib.win-amd64-cpython-313\calchem\md\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\md
+creating build\bdist.win-amd64\wheel\calchem\mol
+copying build\lib.win-amd64-cpython-313\calchem\mol\geometry.py -> build\bdist.win-amd64\wheel\.\calchem\mol
+copying build\lib.win-amd64-cpython-313\calchem\mol\molecule.py -> build\bdist.win-amd64\wheel\.\calchem\mol
+copying build\lib.win-amd64-cpython-313\calchem\mol\symmetry.py -> build\bdist.win-amd64\wheel\.\calchem\mol
+copying build\lib.win-amd64-cpython-313\calchem\mol\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\mol
+copying build\lib.win-amd64-cpython-313\calchem\molforge_bridge.py -> build\bdist.win-amd64\wheel\.\calchem
+creating build\bdist.win-amd64\wheel\calchem\oniom
+copying build\lib.win-amd64-cpython-313\calchem\oniom\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\oniom
+creating build\bdist.win-amd64\wheel\calchem\opt
+copying build\lib.win-amd64-cpython-313\calchem\opt\berny.py -> build\bdist.win-amd64\wheel\.\calchem\opt
+copying build\lib.win-amd64-cpython-313\calchem\opt\bfgs.py -> build\bdist.win-amd64\wheel\.\calchem\opt
+copying build\lib.win-amd64-cpython-313\calchem\opt\irc.py -> build\bdist.win-amd64\wheel\.\calchem\opt
+copying build\lib.win-amd64-cpython-313\calchem\opt\numeric_optimizer.py -> build\bdist.win-amd64\wheel\.\calchem\opt
+copying build\lib.win-amd64-cpython-313\calchem\opt\optimizer.py -> build\bdist.win-amd64\wheel\.\calchem\opt
+copying build\lib.win-amd64-cpython-313\calchem\opt\ts_search.py -> build\bdist.win-amd64\wheel\.\calchem\opt
+copying build\lib.win-amd64-cpython-313\calchem\opt\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\opt
+creating build\bdist.win-amd64\wheel\calchem\post_hf
+copying build\lib.win-amd64-cpython-313\calchem\post_hf\casscf.py -> build\bdist.win-amd64\wheel\.\calchem\post_hf
+copying build\lib.win-amd64-cpython-313\calchem\post_hf\ccd.py -> build\bdist.win-amd64\wheel\.\calchem\post_hf
+copying build\lib.win-amd64-cpython-313\calchem\post_hf\ccsd.py -> build\bdist.win-amd64\wheel\.\calchem\post_hf
+copying build\lib.win-amd64-cpython-313\calchem\post_hf\ccsd_t.py -> build\bdist.win-amd64\wheel\.\calchem\post_hf
+copying build\lib.win-amd64-cpython-313\calchem\post_hf\mp2.py -> build\bdist.win-amd64\wheel\.\calchem\post_hf
+copying build\lib.win-amd64-cpython-313\calchem\post_hf\mp4.py -> build\bdist.win-amd64\wheel\.\calchem\post_hf
+copying build\lib.win-amd64-cpython-313\calchem\post_hf\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\post_hf
+creating build\bdist.win-amd64\wheel\calchem\props
+copying build\lib.win-amd64-cpython-313\calchem\props\charges.py -> build\bdist.win-amd64\wheel\.\calchem\props
+copying build\lib.win-amd64-cpython-313\calchem\props\cube.py -> build\bdist.win-amd64\wheel\.\calchem\props
+copying build\lib.win-amd64-cpython-313\calchem\props\isosurface.py -> build\bdist.win-amd64\wheel\.\calchem\props
+copying build\lib.win-amd64-cpython-313\calchem\props\multipole.py -> build\bdist.win-amd64\wheel\.\calchem\props
+copying build\lib.win-amd64-cpython-313\calchem\props\multipole_native.py -> build\bdist.win-amd64\wheel\.\calchem\props
+copying build\lib.win-amd64-cpython-313\calchem\props\population.py -> build\bdist.win-amd64\wheel\.\calchem\props
+copying build\lib.win-amd64-cpython-313\calchem\props\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\props
+creating build\bdist.win-amd64\wheel\calchem\scf
+copying build\lib.win-amd64-cpython-313\calchem\scf\dft.py -> build\bdist.win-amd64\wheel\.\calchem\scf
+copying build\lib.win-amd64-cpython-313\calchem\scf\diis.py -> build\bdist.win-amd64\wheel\.\calchem\scf
+copying build\lib.win-amd64-cpython-313\calchem\scf\guess.py -> build\bdist.win-amd64\wheel\.\calchem\scf
+copying build\lib.win-amd64-cpython-313\calchem\scf\hf.py -> build\bdist.win-amd64\wheel\.\calchem\scf
+copying build\lib.win-amd64-cpython-313\calchem\scf\results.py -> build\bdist.win-amd64\wheel\.\calchem\scf
+copying build\lib.win-amd64-cpython-313\calchem\scf\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\scf
+creating build\bdist.win-amd64\wheel\calchem\solvent
+copying build\lib.win-amd64-cpython-313\calchem\solvent\pcm.py -> build\bdist.win-amd64\wheel\.\calchem\solvent
+copying build\lib.win-amd64-cpython-313\calchem\solvent\smd.py -> build\bdist.win-amd64\wheel\.\calchem\solvent
+copying build\lib.win-amd64-cpython-313\calchem\solvent\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\solvent
+creating build\bdist.win-amd64\wheel\calchem\tests
+copying build\lib.win-amd64-cpython-313\calchem\tests\test_debug.py -> build\bdist.win-amd64\wheel\.\calchem\tests
+copying build\lib.win-amd64-cpython-313\calchem\tests\test_h2_sto3g.py -> build\bdist.win-amd64\wheel\.\calchem\tests
+copying build\lib.win-amd64-cpython-313\calchem\tests\test_scf.py -> build\bdist.win-amd64\wheel\.\calchem\tests
+copying build\lib.win-amd64-cpython-313\calchem\tests\test_scf_direct.py -> build\bdist.win-amd64\wheel\.\calchem\tests
+creating build\bdist.win-amd64\wheel\calchem\utils
+copying build\lib.win-amd64-cpython-313\calchem\utils\accelerate.py -> build\bdist.win-amd64\wheel\.\calchem\utils
+copying build\lib.win-amd64-cpython-313\calchem\utils\config.py -> build\bdist.win-amd64\wheel\.\calchem\utils
+copying build\lib.win-amd64-cpython-313\calchem\utils\constants.py -> build\bdist.win-amd64\wheel\.\calchem\utils
+copying build\lib.win-amd64-cpython-313\calchem\utils\exceptions.py -> build\bdist.win-amd64\wheel\.\calchem\utils
+copying build\lib.win-amd64-cpython-313\calchem\utils\logging_utils.py -> build\bdist.win-amd64\wheel\.\calchem\utils
+copying build\lib.win-amd64-cpython-313\calchem\utils\units.py -> build\bdist.win-amd64\wheel\.\calchem\utils
+copying build\lib.win-amd64-cpython-313\calchem\utils\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\utils
+creating build\bdist.win-amd64\wheel\calchem\vib
+copying build\lib.win-amd64-cpython-313\calchem\vib\frequency.py -> build\bdist.win-amd64\wheel\.\calchem\vib
+copying build\lib.win-amd64-cpython-313\calchem\vib\numeric_frequency.py -> build\bdist.win-amd64\wheel\.\calchem\vib
+copying build\lib.win-amd64-cpython-313\calchem\vib\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\vib
+creating build\bdist.win-amd64\wheel\calchem\workflows
+copying build\lib.win-amd64-cpython-313\calchem\workflows\opv.py -> build\bdist.win-amd64\wheel\.\calchem\workflows
+copying build\lib.win-amd64-cpython-313\calchem\workflows\__init__.py -> build\bdist.win-amd64\wheel\.\calchem\workflows
+copying build\lib.win-amd64-cpython-313\calchem\_core.pyd -> build\bdist.win-amd64\wheel\.\calchem
+copying build\lib.win-amd64-cpython-313\calchem\_core.pyi -> build\bdist.win-amd64\wheel\.\calchem
+copying build\lib.win-amd64-cpython-313\calchem\__init__.py -> build\bdist.win-amd64\wheel\.\calchem
+copying build\lib.win-amd64-cpython-313\calchem\__main__.py -> build\bdist.win-amd64\wheel\.\calchem
+warning: install_lib: byte-compiling is disabled, skipping.
+
+running install_egg_info
+Copying calchem_qc.egg-info to build\bdist.win-amd64\wheel\.\calchem_qc-0.2.0-py3.13.egg-info
+running install_scripts
+creating build\bdist.win-amd64\wheel\calchem_qc-0.2.0.dist-info\WHEEL
+creating 'E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\round2_20261110\\package_stage\\dist\\.tmp-3p5g59_i\\calchem_qc-0.2.0-cp310-abi3-win_amd64.whl' and adding 'build\\bdist.win-amd64\\wheel' to it
+adding 'calchem/__init__.py'
+adding 'calchem/__main__.py'
+adding 'calchem/_core.pyd'
+adding 'calchem/_core.pyi'
+adding 'calchem/cli.py'
+adding 'calchem/molforge_bridge.py'
+adding 'calchem/api/__init__.py'
+adding 'calchem/api/high_level.py'
+adding 'calchem/api/service.py'
+adding 'calchem/backends/__init__.py'
+adding 'calchem/backends/external.py'
+adding 'calchem/backends/gaussian.py'
+adding 'calchem/backends/native.py'
+adding 'calchem/backends/orca.py'
+adding 'calchem/backends/pyscf.py'
+adding 'calchem/backends/rest.py'
+adding 'calchem/backends/xtb.py'
+adding 'calchem/backends/parsers/__init__.py'
+adding 'calchem/backends/parsers/base.py'
+adding 'calchem/basis/__init__.py'
+adding 'calchem/basis/basis_data.py'
+adding 'calchem/basis/basis_set.py'
+adding 'calchem/basis/gto.py'
+adding 'calchem/basis/library.py'
+adding 'calchem/config/__init__.py'
+adding 'calchem/config/loader.py'
+adding 'calchem/config/models.py'
+adding 'calchem/core/__init__.py'
+adding 'calchem/core/calculator.py'
+adding 'calchem/core/capabilities.py'
+adding 'calchem/core/errors.py'
+adding 'calchem/core/periodic_table.py'
+adding 'calchem/core/request.py'
+adding 'calchem/core/result.py'
+adding 'calchem/core/units.py'
+adding 'calchem/data/default_config.json'
+adding 'calchem/data/solvents.yaml'
+adding 'calchem/data/d3/COPYING'
+adding 'calchem/data/d3/COPYING.LESSER'
+adding 'calchem/data/d3/NOTICE.md'
+adding 'calchem/data/d3/c6.bin'
+adding 'calchem/data/d3/covrad.f90'
+adding 'calchem/data/d3/data_r4r2.f90'
+adding 'calchem/data/d3/data_vdwrad.f90'
+adding 'calchem/data/d3/parameters.toml'
+adding 'calchem/data/d3/reference.f90'
+adding 'calchem/data/d3/source_sha256.json'
+adding 'calchem/dft/d3.py'
+adding 'calchem/dft/dft.py'
+adding 'calchem/dft/fock.py'
+adding 'calchem/dft/functionals.py'
+adding 'calchem/dft/grid.py'
+adding 'calchem/excited/__init__.py'
+adding 'calchem/excited/cis.py'
+adding 'calchem/excited/spectra.py'
+adding 'calchem/excited/tddft.py'
+adding 'calchem/excited/tddft_native.py'
+adding 'calchem/gpu/__init__.py'
+adding 'calchem/gpu/fock.py'
+adding 'calchem/grad/__init__.py'
+adding 'calchem/grad/analytical.py'
+adding 'calchem/grad/dft_grad.py'
+adding 'calchem/grad/finite_difference.py'
+adding 'calchem/grad/hf_grad.py'
+adding 'calchem/gui/__init__.py'
+adding 'calchem/gui/__main__.py'
+adding 'calchem/gui/main_window.py'
+adding 'calchem/gui/worker.py'
+adding 'calchem/integrals/__init__.py'
+adding 'calchem/integrals/direct_scf.py'
+adding 'calchem/integrals/one_electron.py'
+adding 'calchem/integrals/ri.py'
+adding 'calchem/integrals/screening.py'
+adding 'calchem/integrals/two_electron.py'
+adding 'calchem/io/__init__.py'
+adding 'calchem/io/checkpoint.py'
+adding 'calchem/io/input.py'
+adding 'calchem/io/output.py'
+adding 'calchem/io/project.py'
+adding 'calchem/jobs/__init__.py'
+adding 'calchem/jobs/dispatcher.py'
+adding 'calchem/jobs/global_lock.py'
+adding 'calchem/jobs/models.py'
+adding 'calchem/jobs/queue.py'
+adding 'calchem/md/__init__.py'
+adding 'calchem/md/ff_fit.py'
+adding 'calchem/md/gromacs_io.py'
+adding 'calchem/mol/__init__.py'
+adding 'calchem/mol/geometry.py'
+adding 'calchem/mol/molecule.py'
+adding 'calchem/mol/symmetry.py'
+adding 'calchem/oniom/__init__.py'
+adding 'calchem/opt/__init__.py'
+adding 'calchem/opt/berny.py'
+adding 'calchem/opt/bfgs.py'
+adding 'calchem/opt/irc.py'
+adding 'calchem/opt/numeric_optimizer.py'
+adding 'calchem/opt/optimizer.py'
+adding 'calchem/opt/ts_search.py'
+adding 'calchem/post_hf/__init__.py'
+adding 'calchem/post_hf/casscf.py'
+adding 'calchem/post_hf/ccd.py'
+adding 'calchem/post_hf/ccsd.py'
+adding 'calchem/post_hf/ccsd_t.py'
+adding 'calchem/post_hf/mp2.py'
+adding 'calchem/post_hf/mp4.py'
+adding 'calchem/props/__init__.py'
+adding 'calchem/props/charges.py'
+adding 'calchem/props/cube.py'
+adding 'calchem/props/isosurface.py'
+adding 'calchem/props/multipole.py'
+adding 'calchem/props/multipole_native.py'
+adding 'calchem/props/population.py'
+adding 'calchem/scf/__init__.py'
+adding 'calchem/scf/dft.py'
+adding 'calchem/scf/diis.py'
+adding 'calchem/scf/guess.py'
+adding 'calchem/scf/hf.py'
+adding 'calchem/scf/results.py'
+adding 'calchem/solvent/__init__.py'
+adding 'calchem/solvent/pcm.py'
+adding 'calchem/solvent/smd.py'
+adding 'calchem/tests/test_debug.py'
+adding 'calchem/tests/test_h2_sto3g.py'
+adding 'calchem/tests/test_scf.py'
+adding 'calchem/tests/test_scf_direct.py'
+adding 'calchem/utils/__init__.py'
+adding 'calchem/utils/accelerate.py'
+adding 'calchem/utils/config.py'
+adding 'calchem/utils/constants.py'
+adding 'calchem/utils/exceptions.py'
+adding 'calchem/utils/logging_utils.py'
+adding 'calchem/utils/units.py'
+adding 'calchem/vib/__init__.py'
+adding 'calchem/vib/frequency.py'
+adding 'calchem/vib/numeric_frequency.py'
+adding 'calchem/workflows/__init__.py'
+adding 'calchem/workflows/opv.py'
+adding 'calchem_qc-0.2.0.dist-info/licenses/LICENSE'
+adding 'calchem_qc-0.2.0.dist-info/METADATA'
+adding 'calchem_qc-0.2.0.dist-info/WHEEL'
+adding 'calchem_qc-0.2.0.dist-info/entry_points.txt'
+adding 'calchem_qc-0.2.0.dist-info/top_level.txt'
+adding 'calchem_qc-0.2.0.dist-info/RECORD'
+removing build\bdist.win-amd64\wheel
+D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\setuptools\config\_apply_pyprojecttoml.py:82: SetuptoolsDeprecationWarning: `project.license` as a TOML table is deprecated
+!!
+
+        ********************************************************************************
+        Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+
+        By 2027-Feb-18, you need to update your project and remove deprecated calls
+        or your builds will no longer be supported.
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  corresp(dist, value, root_dir)
+D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\setuptools\config\_apply_pyprojecttoml.py:61: SetuptoolsDeprecationWarning: License classifiers are deprecated.
+!!
+
+        ********************************************************************************
+        Please consider removing the following classifiers in favor of a SPDX license expression:
+
+        License :: OSI Approved :: Apache Software License
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  dist._finalize_license_expression()
+D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\setuptools\dist.py:765: SetuptoolsDeprecationWarning: License classifiers are deprecated.
+!!
+
+        ********************************************************************************
+        Please consider removing the following classifiers in favor of a SPDX license expression:
+
+        License :: OSI Approved :: Apache Software License
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  self._finalize_license_expression()
+calchem_qc-0.2.0-cp310-abi3-win_amd64.whl
+running sdist
+running egg_info
+writing calchem_qc.egg-info\PKG-INFO
+writing dependency_links to calchem_qc.egg-info\dependency_links.txt
+writing entry points to calchem_qc.egg-info\entry_points.txt
+writing requirements to calchem_qc.egg-info\requires.txt
+writing top-level names to calchem_qc.egg-info\top_level.txt
+reading manifest file 'calchem_qc.egg-info\SOURCES.txt'
+reading manifest template 'MANIFEST.in'
+warning: no files found matching '*.dat' under directory 'calchem'
+warning: no previously-included files matching '*.pyc' found anywhere in distribution
+warning: no previously-included files matching '*.pyd' found anywhere in distribution
+warning: no previously-included files matching '*.so' found anywhere in distribution
+warning: no previously-included files matching '*.dll' found anywhere in distribution
+warning: no previously-included files matching '*.dylib' found anywhere in distribution
+no previously-included directories found matching 'build_target'
+no previously-included directories found matching 'docs\audits'
+adding license file 'LICENSE'
+writing manifest file 'calchem_qc.egg-info\SOURCES.txt'
+running check
+creating calchem_qc-0.2.0
+creating calchem_qc-0.2.0\calchem
+creating calchem_qc-0.2.0\calchem\api
+creating calchem_qc-0.2.0\calchem\backends
+creating calchem_qc-0.2.0\calchem\backends\parsers
+creating calchem_qc-0.2.0\calchem\basis
+creating calchem_qc-0.2.0\calchem\config
+creating calchem_qc-0.2.0\calchem\core
+creating calchem_qc-0.2.0\calchem\data
+creating calchem_qc-0.2.0\calchem\data\d3
+creating calchem_qc-0.2.0\calchem\dft
+creating calchem_qc-0.2.0\calchem\excited
+creating calchem_qc-0.2.0\calchem\gpu
+creating calchem_qc-0.2.0\calchem\grad
+creating calchem_qc-0.2.0\calchem\gui
+creating calchem_qc-0.2.0\calchem\integrals
+creating calchem_qc-0.2.0\calchem\io
+creating calchem_qc-0.2.0\calchem\jobs
+creating calchem_qc-0.2.0\calchem\md
+creating calchem_qc-0.2.0\calchem\mol
+creating calchem_qc-0.2.0\calchem\oniom
+creating calchem_qc-0.2.0\calchem\opt
+creating calchem_qc-0.2.0\calchem\post_hf
+creating calchem_qc-0.2.0\calchem\props
+creating calchem_qc-0.2.0\calchem\scf
+creating calchem_qc-0.2.0\calchem\solvent
+creating calchem_qc-0.2.0\calchem\tests
+creating calchem_qc-0.2.0\calchem\utils
+creating calchem_qc-0.2.0\calchem\vib
+creating calchem_qc-0.2.0\calchem\workflows
+creating calchem_qc-0.2.0\calchem_qc.egg-info
+creating calchem_qc-0.2.0\crates\calchem-basis
+creating calchem_qc-0.2.0\crates\calchem-basis\data
+creating calchem_qc-0.2.0\crates\calchem-basis\src
+creating calchem_qc-0.2.0\crates\calchem-basis\tests
+creating calchem_qc-0.2.0\crates\calchem-dft
+creating calchem_qc-0.2.0\crates\calchem-dft\data\d3
+creating calchem_qc-0.2.0\crates\calchem-dft\src
+creating calchem_qc-0.2.0\crates\calchem-dft\tests
+creating calchem_qc-0.2.0\crates\calchem-grad
+creating calchem_qc-0.2.0\crates\calchem-grad\src
+creating calchem_qc-0.2.0\crates\calchem-grad\tests
+creating calchem_qc-0.2.0\crates\calchem-int
+creating calchem_qc-0.2.0\crates\calchem-int\src
+creating calchem_qc-0.2.0\crates\calchem-int\tests
+creating calchem_qc-0.2.0\crates\calchem-model
+creating calchem_qc-0.2.0\crates\calchem-model\src
+creating calchem_qc-0.2.0\crates\calchem-opt
+creating calchem_qc-0.2.0\crates\calchem-opt\src
+creating calchem_qc-0.2.0\crates\calchem-opt\tests
+creating calchem_qc-0.2.0\crates\calchem-prop
+creating calchem_qc-0.2.0\crates\calchem-prop\src
+creating calchem_qc-0.2.0\crates\calchem-prop\tests
+creating calchem_qc-0.2.0\crates\calchem-py
+creating calchem_qc-0.2.0\crates\calchem-py\src
+creating calchem_qc-0.2.0\crates\calchem-scf
+creating calchem_qc-0.2.0\crates\calchem-scf\src
+creating calchem_qc-0.2.0\crates\calchem-scf\tests
+creating calchem_qc-0.2.0\crates\calchem-solv
+creating calchem_qc-0.2.0\crates\calchem-solv\src
+creating calchem_qc-0.2.0\crates\calchem-solv\tests
+creating calchem_qc-0.2.0\crates\calchem-tddft
+creating calchem_qc-0.2.0\crates\calchem-tddft\src
+creating calchem_qc-0.2.0\crates\calchem-tddft\tests
+creating calchem_qc-0.2.0\crates\calchem-tensor
+creating calchem_qc-0.2.0\crates\calchem-tensor\src
+creating calchem_qc-0.2.0\crates\calchem-vib
+creating calchem_qc-0.2.0\crates\calchem-vib\src
+creating calchem_qc-0.2.0\crates\calchem-vib\tests
+copying files to calchem_qc-0.2.0...
+copying Cargo.lock -> calchem_qc-0.2.0
+copying Cargo.toml -> calchem_qc-0.2.0
+copying LICENSE -> calchem_qc-0.2.0
+copying MANIFEST.in -> calchem_qc-0.2.0
+copying README.md -> calchem_qc-0.2.0
+copying pyproject.toml -> calchem_qc-0.2.0
+copying setup.py -> calchem_qc-0.2.0
+copying calchem\__init__.py -> calchem_qc-0.2.0\calchem
+copying calchem\__main__.py -> calchem_qc-0.2.0\calchem
+copying calchem\_core.pyi -> calchem_qc-0.2.0\calchem
+copying calchem\cli.py -> calchem_qc-0.2.0\calchem
+copying calchem\molforge_bridge.py -> calchem_qc-0.2.0\calchem
+copying calchem\api\__init__.py -> calchem_qc-0.2.0\calchem\api
+copying calchem\api\high_level.py -> calchem_qc-0.2.0\calchem\api
+copying calchem\api\service.py -> calchem_qc-0.2.0\calchem\api
+copying calchem\backends\__init__.py -> calchem_qc-0.2.0\calchem\backends
+copying calchem\backends\external.py -> calchem_qc-0.2.0\calchem\backends
+copying calchem\backends\gaussian.py -> calchem_qc-0.2.0\calchem\backends
+copying calchem\backends\native.py -> calchem_qc-0.2.0\calchem\backends
+copying calchem\backends\orca.py -> calchem_qc-0.2.0\calchem\backends
+copying calchem\backends\pyscf.py -> calchem_qc-0.2.0\calchem\backends
+copying calchem\backends\rest.py -> calchem_qc-0.2.0\calchem\backends
+copying calchem\backends\xtb.py -> calchem_qc-0.2.0\calchem\backends
+copying calchem\backends\parsers\__init__.py -> calchem_qc-0.2.0\calchem\backends\parsers
+copying calchem\backends\parsers\base.py -> calchem_qc-0.2.0\calchem\backends\parsers
+copying calchem\basis\__init__.py -> calchem_qc-0.2.0\calchem\basis
+copying calchem\basis\basis_data.py -> calchem_qc-0.2.0\calchem\basis
+copying calchem\basis\basis_set.py -> calchem_qc-0.2.0\calchem\basis
+copying calchem\basis\gto.py -> calchem_qc-0.2.0\calchem\basis
+copying calchem\basis\library.py -> calchem_qc-0.2.0\calchem\basis
+copying calchem\config\__init__.py -> calchem_qc-0.2.0\calchem\config
+copying calchem\config\loader.py -> calchem_qc-0.2.0\calchem\config
+copying calchem\config\models.py -> calchem_qc-0.2.0\calchem\config
+copying calchem\core\__init__.py -> calchem_qc-0.2.0\calchem\core
+copying calchem\core\calculator.py -> calchem_qc-0.2.0\calchem\core
+copying calchem\core\capabilities.py -> calchem_qc-0.2.0\calchem\core
+copying calchem\core\errors.py -> calchem_qc-0.2.0\calchem\core
+copying calchem\core\periodic_table.py -> calchem_qc-0.2.0\calchem\core
+copying calchem\core\request.py -> calchem_qc-0.2.0\calchem\core
+copying calchem\core\result.py -> calchem_qc-0.2.0\calchem\core
+copying calchem\core\units.py -> calchem_qc-0.2.0\calchem\core
+copying calchem\data\default_config.json -> calchem_qc-0.2.0\calchem\data
+copying calchem\data\solvents.yaml -> calchem_qc-0.2.0\calchem\data
+copying calchem\data\d3\COPYING -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\data\d3\COPYING.LESSER -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\data\d3\NOTICE.md -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\data\d3\c6.bin -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\data\d3\covrad.f90 -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\data\d3\data_r4r2.f90 -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\data\d3\data_vdwrad.f90 -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\data\d3\parameters.toml -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\data\d3\reference.f90 -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\data\d3\source_sha256.json -> calchem_qc-0.2.0\calchem\data\d3
+copying calchem\dft\d3.py -> calchem_qc-0.2.0\calchem\dft
+copying calchem\dft\dft.py -> calchem_qc-0.2.0\calchem\dft
+copying calchem\dft\fock.py -> calchem_qc-0.2.0\calchem\dft
+copying calchem\dft\functionals.py -> calchem_qc-0.2.0\calchem\dft
+copying calchem\dft\grid.py -> calchem_qc-0.2.0\calchem\dft
+copying calchem\excited\__init__.py -> calchem_qc-0.2.0\calchem\excited
+copying calchem\excited\cis.py -> calchem_qc-0.2.0\calchem\excited
+copying calchem\excited\spectra.py -> calchem_qc-0.2.0\calchem\excited
+copying calchem\excited\tddft.py -> calchem_qc-0.2.0\calchem\excited
+copying calchem\excited\tddft_native.py -> calchem_qc-0.2.0\calchem\excited
+copying calchem\gpu\__init__.py -> calchem_qc-0.2.0\calchem\gpu
+copying calchem\gpu\fock.py -> calchem_qc-0.2.0\calchem\gpu
+copying calchem\grad\__init__.py -> calchem_qc-0.2.0\calchem\grad
+copying calchem\grad\analytical.py -> calchem_qc-0.2.0\calchem\grad
+copying calchem\grad\dft_grad.py -> calchem_qc-0.2.0\calchem\grad
+copying calchem\grad\finite_difference.py -> calchem_qc-0.2.0\calchem\grad
+copying calchem\grad\hf_grad.py -> calchem_qc-0.2.0\calchem\grad
+copying calchem\gui\__init__.py -> calchem_qc-0.2.0\calchem\gui
+copying calchem\gui\__main__.py -> calchem_qc-0.2.0\calchem\gui
+copying calchem\gui\main_window.py -> calchem_qc-0.2.0\calchem\gui
+copying calchem\gui\worker.py -> calchem_qc-0.2.0\calchem\gui
+copying calchem\integrals\__init__.py -> calchem_qc-0.2.0\calchem\integrals
+copying calchem\integrals\direct_scf.py -> calchem_qc-0.2.0\calchem\integrals
+copying calchem\integrals\one_electron.py -> calchem_qc-0.2.0\calchem\integrals
+copying calchem\integrals\ri.py -> calchem_qc-0.2.0\calchem\integrals
+copying calchem\integrals\screening.py -> calchem_qc-0.2.0\calchem\integrals
+copying calchem\integrals\two_electron.py -> calchem_qc-0.2.0\calchem\integrals
+copying calchem\io\__init__.py -> calchem_qc-0.2.0\calchem\io
+copying calchem\io\checkpoint.py -> calchem_qc-0.2.0\calchem\io
+copying calchem\io\input.py -> calchem_qc-0.2.0\calchem\io
+copying calchem\io\output.py -> calchem_qc-0.2.0\calchem\io
+copying calchem\io\project.py -> calchem_qc-0.2.0\calchem\io
+copying calchem\jobs\__init__.py -> calchem_qc-0.2.0\calchem\jobs
+copying calchem\jobs\dispatcher.py -> calchem_qc-0.2.0\calchem\jobs
+copying calchem\jobs\global_lock.py -> calchem_qc-0.2.0\calchem\jobs
+copying calchem\jobs\models.py -> calchem_qc-0.2.0\calchem\jobs
+copying calchem\jobs\queue.py -> calchem_qc-0.2.0\calchem\jobs
+copying calchem\md\__init__.py -> calchem_qc-0.2.0\calchem\md
+copying calchem\md\ff_fit.py -> calchem_qc-0.2.0\calchem\md
+copying calchem\md\gromacs_io.py -> calchem_qc-0.2.0\calchem\md
+copying calchem\mol\__init__.py -> calchem_qc-0.2.0\calchem\mol
+copying calchem\mol\geometry.py -> calchem_qc-0.2.0\calchem\mol
+copying calchem\mol\molecule.py -> calchem_qc-0.2.0\calchem\mol
+copying calchem\mol\symmetry.py -> calchem_qc-0.2.0\calchem\mol
+copying calchem\oniom\__init__.py -> calchem_qc-0.2.0\calchem\oniom
+copying calchem\opt\__init__.py -> calchem_qc-0.2.0\calchem\opt
+copying calchem\opt\berny.py -> calchem_qc-0.2.0\calchem\opt
+copying calchem\opt\bfgs.py -> calchem_qc-0.2.0\calchem\opt
+copying calchem\opt\irc.py -> calchem_qc-0.2.0\calchem\opt
+copying calchem\opt\numeric_optimizer.py -> calchem_qc-0.2.0\calchem\opt
+copying calchem\opt\optimizer.py -> calchem_qc-0.2.0\calchem\opt
+copying calchem\opt\ts_search.py -> calchem_qc-0.2.0\calchem\opt
+copying calchem\post_hf\__init__.py -> calchem_qc-0.2.0\calchem\post_hf
+copying calchem\post_hf\casscf.py -> calchem_qc-0.2.0\calchem\post_hf
+copying calchem\post_hf\ccd.py -> calchem_qc-0.2.0\calchem\post_hf
+copying calchem\post_hf\ccsd.py -> calchem_qc-0.2.0\calchem\post_hf
+copying calchem\post_hf\ccsd_t.py -> calchem_qc-0.2.0\calchem\post_hf
+copying calchem\post_hf\mp2.py -> calchem_qc-0.2.0\calchem\post_hf
+copying calchem\post_hf\mp4.py -> calchem_qc-0.2.0\calchem\post_hf
+copying calchem\props\__init__.py -> calchem_qc-0.2.0\calchem\props
+copying calchem\props\charges.py -> calchem_qc-0.2.0\calchem\props
+copying calchem\props\cube.py -> calchem_qc-0.2.0\calchem\props
+copying calchem\props\isosurface.py -> calchem_qc-0.2.0\calchem\props
+copying calchem\props\multipole.py -> calchem_qc-0.2.0\calchem\props
+copying calchem\props\multipole_native.py -> calchem_qc-0.2.0\calchem\props
+copying calchem\props\population.py -> calchem_qc-0.2.0\calchem\props
+copying calchem\scf\__init__.py -> calchem_qc-0.2.0\calchem\scf
+copying calchem\scf\dft.py -> calchem_qc-0.2.0\calchem\scf
+copying calchem\scf\diis.py -> calchem_qc-0.2.0\calchem\scf
+copying calchem\scf\guess.py -> calchem_qc-0.2.0\calchem\scf
+copying calchem\scf\hf.py -> calchem_qc-0.2.0\calchem\scf
+copying calchem\scf\results.py -> calchem_qc-0.2.0\calchem\scf
+copying calchem\solvent\__init__.py -> calchem_qc-0.2.0\calchem\solvent
+copying calchem\solvent\pcm.py -> calchem_qc-0.2.0\calchem\solvent
+copying calchem\solvent\smd.py -> calchem_qc-0.2.0\calchem\solvent
+copying calchem\tests\test_debug.py -> calchem_qc-0.2.0\calchem\tests
+copying calchem\tests\test_h2_sto3g.py -> calchem_qc-0.2.0\calchem\tests
+copying calchem\tests\test_scf.py -> calchem_qc-0.2.0\calchem\tests
+copying calchem\tests\test_scf_direct.py -> calchem_qc-0.2.0\calchem\tests
+copying calchem\utils\__init__.py -> calchem_qc-0.2.0\calchem\utils
+copying calchem\utils\accelerate.py -> calchem_qc-0.2.0\calchem\utils
+copying calchem\utils\config.py -> calchem_qc-0.2.0\calchem\utils
+copying calchem\utils\constants.py -> calchem_qc-0.2.0\calchem\utils
+copying calchem\utils\exceptions.py -> calchem_qc-0.2.0\calchem\utils
+copying calchem\utils\logging_utils.py -> calchem_qc-0.2.0\calchem\utils
+copying calchem\utils\units.py -> calchem_qc-0.2.0\calchem\utils
+copying calchem\vib\__init__.py -> calchem_qc-0.2.0\calchem\vib
+copying calchem\vib\frequency.py -> calchem_qc-0.2.0\calchem\vib
+copying calchem\vib\numeric_frequency.py -> calchem_qc-0.2.0\calchem\vib
+copying calchem\workflows\__init__.py -> calchem_qc-0.2.0\calchem\workflows
+copying calchem\workflows\opv.py -> calchem_qc-0.2.0\calchem\workflows
+copying calchem_qc.egg-info\PKG-INFO -> calchem_qc-0.2.0\calchem_qc.egg-info
+copying calchem_qc.egg-info\SOURCES.txt -> calchem_qc-0.2.0\calchem_qc.egg-info
+copying calchem_qc.egg-info\dependency_links.txt -> calchem_qc-0.2.0\calchem_qc.egg-info
+copying calchem_qc.egg-info\entry_points.txt -> calchem_qc-0.2.0\calchem_qc.egg-info
+copying calchem_qc.egg-info\requires.txt -> calchem_qc-0.2.0\calchem_qc.egg-info
+copying calchem_qc.egg-info\top_level.txt -> calchem_qc-0.2.0\calchem_qc.egg-info
+copying crates\calchem-basis\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-basis
+copying crates\calchem-basis\data\6-31g.json -> calchem_qc-0.2.0\crates\calchem-basis\data
+copying crates\calchem-basis\data\6-31gd.json -> calchem_qc-0.2.0\crates\calchem-basis\data
+copying crates\calchem-basis\data\6-31gdp.json -> calchem_qc-0.2.0\crates\calchem-basis\data
+copying crates\calchem-basis\data\lanl2dz.json -> calchem_qc-0.2.0\crates\calchem-basis\data
+copying crates\calchem-basis\data\lanl2dzdp.json -> calchem_qc-0.2.0\crates\calchem-basis\data
+copying crates\calchem-basis\data\sto-3g.json -> calchem_qc-0.2.0\crates\calchem-basis\data
+copying crates\calchem-basis\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-basis\src
+copying crates\calchem-basis\src\normalization.rs -> calchem_qc-0.2.0\crates\calchem-basis\src
+copying crates\calchem-basis\tests\basis_normalization.rs -> calchem_qc-0.2.0\crates\calchem-basis\tests
+copying crates\calchem-dft\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-dft
+copying crates\calchem-dft\data\d3\COPYING -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\data\d3\COPYING.LESSER -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\data\d3\NOTICE.md -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\data\d3\c6.bin -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\data\d3\covrad.f90 -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\data\d3\data_r4r2.f90 -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\data\d3\data_vdwrad.f90 -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\data\d3\parameters.toml -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\data\d3\reference.f90 -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\data\d3\source_sha256.json -> calchem_qc-0.2.0\crates\calchem-dft\data\d3
+copying crates\calchem-dft\src\ao_grid.rs -> calchem_qc-0.2.0\crates\calchem-dft\src
+copying crates\calchem-dft\src\d3.rs -> calchem_qc-0.2.0\crates\calchem-dft\src
+copying crates\calchem-dft\src\d3_data.rs -> calchem_qc-0.2.0\crates\calchem-dft\src
+copying crates\calchem-dft\src\fxc.rs -> calchem_qc-0.2.0\crates\calchem-dft\src
+copying crates\calchem-dft\src\grid.rs -> calchem_qc-0.2.0\crates\calchem-dft\src
+copying crates\calchem-dft\src\lebedev.rs -> calchem_qc-0.2.0\crates\calchem-dft\src
+copying crates\calchem-dft\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-dft\src
+copying crates\calchem-dft\src\vxc.rs -> calchem_qc-0.2.0\crates\calchem-dft\src
+copying crates\calchem-dft\src\xc.rs -> calchem_qc-0.2.0\crates\calchem-dft\src
+copying crates\calchem-dft\tests\d3_dispersion.rs -> calchem_qc-0.2.0\crates\calchem-dft\tests
+copying crates\calchem-dft\tests\redteam_diffuse.rs -> calchem_qc-0.2.0\crates\calchem-dft\tests
+copying crates\calchem-grad\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-grad
+copying crates\calchem-grad\src\derivatives.rs -> calchem_qc-0.2.0\crates\calchem-grad\src
+copying crates\calchem-grad\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-grad\src
+copying crates\calchem-grad\tests\dft_gradient.rs -> calchem_qc-0.2.0\crates\calchem-grad\tests
+copying crates\calchem-grad\tests\polarization_and_ecp_gradient.rs -> calchem_qc-0.2.0\crates\calchem-grad\tests
+copying crates\calchem-grad\tests\rhf_gradient.rs -> calchem_qc-0.2.0\crates\calchem-grad\tests
+copying crates\calchem-grad\tests\uhf_gradient.rs -> calchem_qc-0.2.0\crates\calchem-grad\tests
+copying crates\calchem-int\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-int
+copying crates\calchem-int\src\boys.rs -> calchem_qc-0.2.0\crates\calchem-int\src
+copying crates\calchem-int\src\ecp.rs -> calchem_qc-0.2.0\crates\calchem-int\src
+copying crates\calchem-int\src\eri.rs -> calchem_qc-0.2.0\crates\calchem-int\src
+copying crates\calchem-int\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-int\src
+copying crates\calchem-int\src\one_electron.rs -> calchem_qc-0.2.0\crates\calchem-int\src
+copying crates\calchem-int\src\primitive.rs -> calchem_qc-0.2.0\crates\calchem-int\src
+copying crates\calchem-int\src\screening.rs -> calchem_qc-0.2.0\crates\calchem-int\src
+copying crates\calchem-int\src\symmetry.rs -> calchem_qc-0.2.0\crates\calchem-int\src
+copying crates\calchem-int\tests\boys.rs -> calchem_qc-0.2.0\crates\calchem-int\tests
+copying crates\calchem-int\tests\eri_reference.rs -> calchem_qc-0.2.0\crates\calchem-int\tests
+copying crates\calchem-int\tests\eri_symmetry.rs -> calchem_qc-0.2.0\crates\calchem-int\tests
+copying crates\calchem-int\tests\one_electron.rs -> calchem_qc-0.2.0\crates\calchem-int\tests
+copying crates\calchem-int\tests\redteam_quartets.rs -> calchem_qc-0.2.0\crates\calchem-int\tests
+copying crates\calchem-int\tests\screening_and_parallel.rs -> calchem_qc-0.2.0\crates\calchem-int\tests
+copying crates\calchem-model\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-model
+copying crates\calchem-model\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-model\src
+copying crates\calchem-opt\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-opt
+copying crates\calchem-opt\src\irc.rs -> calchem_qc-0.2.0\crates\calchem-opt\src
+copying crates\calchem-opt\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-opt\src
+copying crates\calchem-opt\src\prfo.rs -> calchem_qc-0.2.0\crates\calchem-opt\src
+copying crates\calchem-opt\tests\dft_optimization.rs -> calchem_qc-0.2.0\crates\calchem-opt\tests
+copying crates\calchem-opt\tests\ecp_optimization.rs -> calchem_qc-0.2.0\crates\calchem-opt\tests
+copying crates\calchem-opt\tests\optimization.rs -> calchem_qc-0.2.0\crates\calchem-opt\tests
+copying crates\calchem-opt\tests\redteam_certificates.rs -> calchem_qc-0.2.0\crates\calchem-opt\tests
+copying crates\calchem-opt\tests\ts_and_irc.rs -> calchem_qc-0.2.0\crates\calchem-opt\tests
+copying crates\calchem-opt\tests\uhf_optimization.rs -> calchem_qc-0.2.0\crates\calchem-opt\tests
+copying crates\calchem-prop\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-prop
+copying crates\calchem-prop\src\esp.rs -> calchem_qc-0.2.0\crates\calchem-prop\src
+copying crates\calchem-prop\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-prop\src
+copying crates\calchem-prop\src\marching_cubes.rs -> calchem_qc-0.2.0\crates\calchem-prop\src
+copying crates\calchem-prop\tests\esp_and_population.rs -> calchem_qc-0.2.0\crates\calchem-prop\tests
+copying crates\calchem-prop\tests\isosurface_and_cube.rs -> calchem_qc-0.2.0\crates\calchem-prop\tests
+copying crates\calchem-py\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-py
+copying crates\calchem-py\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-py\src
+copying crates\calchem-scf\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-scf
+copying crates\calchem-scf\src\diis.rs -> calchem_qc-0.2.0\crates\calchem-scf\src
+copying crates\calchem-scf\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-scf\src
+copying crates\calchem-scf\src\rhf.rs -> calchem_qc-0.2.0\crates\calchem-scf\src
+copying crates\calchem-scf\src\rks.rs -> calchem_qc-0.2.0\crates\calchem-scf\src
+copying crates\calchem-scf\src\uhf.rs -> calchem_qc-0.2.0\crates\calchem-scf\src
+copying crates\calchem-scf\src\uks.rs -> calchem_qc-0.2.0\crates\calchem-scf\src
+copying crates\calchem-scf\tests\kohn_sham_dft.rs -> calchem_qc-0.2.0\crates\calchem-scf\tests
+copying crates\calchem-scf\tests\polarization_and_ecp.rs -> calchem_qc-0.2.0\crates\calchem-scf\tests
+copying crates\calchem-scf\tests\redteam_boundaries.rs -> calchem_qc-0.2.0\crates\calchem-scf\tests
+copying crates\calchem-scf\tests\rhf_631g.rs -> calchem_qc-0.2.0\crates\calchem-scf\tests
+copying crates\calchem-scf\tests\rhf_sto3g.rs -> calchem_qc-0.2.0\crates\calchem-scf\tests
+copying crates\calchem-scf\tests\uhf.rs -> calchem_qc-0.2.0\crates\calchem-scf\tests
+copying crates\calchem-solv\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-solv
+copying crates\calchem-solv\src\cavity.rs -> calchem_qc-0.2.0\crates\calchem-solv\src
+copying crates\calchem-solv\src\gradient.rs -> calchem_qc-0.2.0\crates\calchem-solv\src
+copying crates\calchem-solv\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-solv\src
+copying crates\calchem-solv\src\matrix.rs -> calchem_qc-0.2.0\crates\calchem-solv\src
+copying crates\calchem-solv\src\potential.rs -> calchem_qc-0.2.0\crates\calchem-solv\src
+copying crates\calchem-solv\src\scrf.rs -> calchem_qc-0.2.0\crates\calchem-solv\src
+copying crates\calchem-solv\src\solvent.rs -> calchem_qc-0.2.0\crates\calchem-solv\src
+copying crates\calchem-solv\tests\pcm_and_scrf.rs -> calchem_qc-0.2.0\crates\calchem-solv\tests
+copying crates\calchem-tddft\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-tddft
+copying crates\calchem-tddft\src\davidson.rs -> calchem_qc-0.2.0\crates\calchem-tddft\src
+copying crates\calchem-tddft\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-tddft\src
+copying crates\calchem-tddft\tests\tddft_and_cis.rs -> calchem_qc-0.2.0\crates\calchem-tddft\tests
+copying crates\calchem-tensor\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-tensor
+copying crates\calchem-tensor\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-tensor\src
+copying crates\calchem-vib\Cargo.toml -> calchem_qc-0.2.0\crates\calchem-vib
+copying crates\calchem-vib\src\hessian.rs -> calchem_qc-0.2.0\crates\calchem-vib\src
+copying crates\calchem-vib\src\lib.rs -> calchem_qc-0.2.0\crates\calchem-vib\src
+copying crates\calchem-vib\src\masses.rs -> calchem_qc-0.2.0\crates\calchem-vib\src
+copying crates\calchem-vib\src\modes.rs -> calchem_qc-0.2.0\crates\calchem-vib\src
+copying crates\calchem-vib\src\thermo.rs -> calchem_qc-0.2.0\crates\calchem-vib\src
+copying crates\calchem-vib\tests\frequencies_and_thermo.rs -> calchem_qc-0.2.0\crates\calchem-vib\tests
+Writing calchem_qc-0.2.0\setup.cfg
+Creating tar archive
+removing 'calchem_qc-0.2.0' (and everything under it)
+calchem_qc-0.2.0.tar.gz

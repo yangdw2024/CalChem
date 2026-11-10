@@ -227,8 +227,8 @@ pub fn rks_with_grid(
     let mut final_eps = Vec::new();
     let mut final_c = Matrix2D::zeros(n, n);
     let mut final_p = p.clone();
-    let fp_density_tol = opts.conv_density.min(1e-9);
-    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-7);
+    let fp_density_tol = opts.conv_density.min(1e-10);
+    let fp_comm_tol = 1e-8;
     let mut fp_diis = DiisState::new(opts.diis_max_vecs.max(6));
     let max_fp_steps = 50;
 
