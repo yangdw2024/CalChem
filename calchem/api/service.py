@@ -7,37 +7,38 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from ..config.loader import load_config
+from ..config.models import AppConfig
 from ..core.calculator import get_backend_class
 from ..core.errors import CalChemError
 from ..core.request import CalculationRequest
 from ..core.result import Result
-from ..config.models import AppConfig
+from ..jobs.dispatcher import JobDispatcher
+from ..jobs.global_lock import acquire_heavy_lock
 from ..jobs.models import Job
 from ..jobs.queue import JobQueue
-from ..jobs.global_lock import acquire_heavy_lock
 
 
 class TaskService:
     """统一任务服务。验证请求、选择后端、执行、保存结果。"""
 
     def __init__(self, data_root: Optional[str] = None, config: Optional[AppConfig] = None):
-        self.config = config or AppConfig()
+        self.config = config or load_config()
         self.data_root = Path(
             data_root
-            or self.config.data_root
             or os.environ.get("CALCHEM_DATA")
-            or r"D:\CalChemData"
+            or self.config.data_root
         )
         self.run_root = self.data_root / "runs"
         self.projects_root = self.data_root / "projects"
         self.run_root.mkdir(parents=True, exist_ok=True)
         self.projects_root.mkdir(parents=True, exist_ok=True)
         self.queue = JobQueue()
+        self.dispatcher = JobDispatcher(self, queue=self.queue)
 
     def _create_backend(self, name: str):
         """根据 AppConfig 创建后端实例，注入 executable 路径。"""
@@ -58,6 +59,8 @@ class TaskService:
         """
         backend = self._create_backend(request.backend)
         job_id = request.job_id or f"inline_{datetime.now().strftime('%H%M%S_%f')}"
+        if request.job_id is None:
+            request.job_id = job_id
         lock_file = self.data_root / "heavy.lock"
 
         try:
@@ -65,6 +68,7 @@ class TaskService:
                 result = backend.run(request)
         except CalChemError as e:
             result = Result(
+                job_id=job_id,
                 backend=request.backend,
                 task=request.task,
                 method=request.method,
@@ -78,6 +82,7 @@ class TaskService:
         except RuntimeError as e:
             # 锁获取失败
             result = Result(
+                job_id=job_id,
                 backend=request.backend,
                 task=request.task,
                 method=request.method,
@@ -89,29 +94,68 @@ class TaskService:
                 errors=[f"Lock acquisition failed: {e}"],
             )
 
+        if result.job_id is None:
+            result.job_id = job_id
+
         return result
 
     def submit(self, request: CalculationRequest) -> Job:
         """提交到队列（异步）。返回 Job 对象。"""
-        request_json = request.model_dump_json()
-        return self.queue.submit(request_json, request.project_id)
+        if not request.job_id:
+            request.job_id = f"job_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        return self.dispatcher.submit(request)
 
     def list_backends(self):
         """列出所有后端能力。"""
         from ..core.calculator import list_backend_capabilities
         return list_backend_capabilities()
 
-    def save_result(self, result: Result, job_id: Optional[str] = None) -> Path:
-        """把 Result 保存到磁盘。"""
-        job_id = job_id or result.job_id or f"result_{int(datetime.now().timestamp())}"
-        job_dir = self.run_root / job_id
+    def save_result(
+        self,
+        result: Result,
+        job_id: Optional[str] = None,
+        request: Optional[CalculationRequest] = None,
+    ) -> Path:
+        """把 Result、对应的 Request 以及 Manifest 保存到磁盘。"""
+        jid = job_id or result.job_id or f"result_{int(datetime.now().timestamp())}"
+        if result.job_id is None:
+            result.job_id = jid
+        job_dir = self.run_root / jid
         job_dir.mkdir(parents=True, exist_ok=True)
+
         result_path = job_dir / "result.json"
-        result_path.write_text(result.model_dump_json(indent=2))
+        result_path.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+
+        if request is not None:
+            if request.job_id is None:
+                request.job_id = jid
+            req_path = job_dir / "request.json"
+            req_path.write_text(request.model_dump_json(indent=2), encoding="utf-8")
+
+        manifest = {
+            "job_id": jid,
+            "project_id": result.project_id,
+            "backend": result.backend,
+            "backend_version": result.backend_version,
+            "task": result.task,
+            "method": result.method,
+            "actual_method": result.actual_method,
+            "basis": result.basis,
+            "status": result.status,
+            "started_at": result.started_at.isoformat() if result.started_at else None,
+            "finished_at": result.finished_at.isoformat() if result.finished_at else None,
+            "walltime_seconds": result.walltime_seconds,
+            "saved_at": datetime.now().isoformat(),
+        }
+        (job_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         return result_path
 
     def run_and_save(self, request: CalculationRequest) -> Result:
-        """执行计算并保存结果。"""
+        """执行计算并保存完整的 request/result/manifest。"""
+        if not request.job_id:
+            request.job_id = f"job_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
         result = self.run(request)
-        self.save_result(result, request.job_id)
+        if result.job_id is None:
+            result.job_id = request.job_id
+        self.save_result(result, request.job_id, request=request)
         return result

@@ -51,7 +51,7 @@ fn test_h2o_sto3g_eri_reference_quartets() {
         let got = eri.get(i, j, k, l);
         assert!(
             (got - expected).abs() < 1e-12,
-            "ERI({i},{j},{k},{l}): got {got:.15f}, expected {expected:.15f}"
+            "ERI({i},{j},{k},{l}): got {got:.15}, expected {expected:.15}"
         );
     }
 }

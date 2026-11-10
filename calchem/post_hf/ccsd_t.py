@@ -22,6 +22,28 @@ class CCSD_T:
         self.frozen_core = frozen_core
         self._ccsd = None
         self._e_t = None
+        self.e_corr = 0.0
+        self.e_tot = 0.0
+        self.converged = False
+
+    @property
+    def energy(self) -> float:
+        return self.e_tot
+
+    @property
+    def e_t(self) -> float | None:
+        return self._e_t
+
+    @property
+    def mo_energy(self):
+        return getattr(self.hf, "mo_energy", None)
+
+    @property
+    def mo_occ(self):
+        return getattr(self.hf, "mo_occ", None)
+
+    def kernel(self) -> float:
+        return self.run()
 
     def run(self) -> float:
         print(f"\n{'='*60}")
@@ -33,12 +55,18 @@ class CCSD_T:
 
         if not self._ccsd.converged:
             print("  CCSD 未收敛，跳过 (T) 修正")
+            self.converged = False
+            self.e_corr = self._ccsd.e_corr
+            self.e_tot = e_ccsd
             return e_ccsd
 
         e_t = self._compute_triples_correction()
         self._e_t = e_t
 
         e_total = e_ccsd + e_t
+        self.converged = True
+        self.e_corr = self._ccsd.e_corr + e_t
+        self.e_tot = e_total
 
         print(f"\n  (T) 修正: {e_t:.12f} Eh")
         print(f"  CCSD(T) 总能量: {e_total:.12f} Eh")
@@ -94,3 +122,6 @@ class CCSD_T:
         val += 0.5 * eri[i, j, b, c] * t1[k, a] * t1[k, a]
 
         return val
+
+
+CCSDT = CCSD_T

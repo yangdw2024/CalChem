@@ -1,0 +1,87 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pytest\__main__.py", line 9, in <module>
+    raise SystemExit(_console_main())
+                     ~~~~~~~~~~~~~^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\config\__init__.py", line 253, in _console_main
+    code = _main(prog=_get_prog_name(sys.argv))
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\config\__init__.py", line 223, in _main
+    config = _prepareconfig(new_args, plugins, prog=prog)
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\config\__init__.py", line 410, in _prepareconfig
+    config: Config = pluginmanager.hook.pytest_cmdline_parse(
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        pluginmanager=pluginmanager, args=args
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_callers.py", line 167, in _multicall
+    raise exception
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\helpconfig.py", line 124, in pytest_cmdline_parse
+    config = yield
+             ^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\config\__init__.py", line 1232, in pytest_cmdline_parse
+    self.parse(args)
+    ~~~~~~~~~~^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\config\__init__.py", line 1605, in parse
+    self.hook.pytest_load_initial_conftests(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        early_config=self, args=args, parser=self._parser
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_callers.py", line 167, in _multicall
+    raise exception
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\warnings.py", line 129, in pytest_load_initial_conftests
+    return (yield)
+            ^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\pluggy\_callers.py", line 116, in _multicall
+    next(function_gen)  # first yield
+    ~~~~^^^^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\capture.py", line 170, in pytest_load_initial_conftests
+    capman.start_global_capturing()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\capture.py", line 773, in start_global_capturing
+    self._global_capturing = _get_multicapture(self._method)
+                             ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\capture.py", line 714, in _get_multicapture
+    return MultiCapture(in_=FDCapture(0), out=FDCapture(1), err=FDCapture(2))
+                                              ~~~~~~~~~^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\site-packages\_pytest\capture.py", line 493, in __init__
+    TemporaryFile(buffering=0),
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\tempfile.py", line 565, in NamedTemporaryFile
+    prefix, suffix, dir, output_type = _sanitize_params(prefix, suffix, dir)
+                                       ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\tempfile.py", line 127, in _sanitize_params
+    dir = gettempdir()
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\tempfile.py", line 312, in gettempdir
+    return _os.fsdecode(_gettempdir())
+                        ~~~~~~~~~~~^^
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\tempfile.py", line 305, in _gettempdir
+    tempdir = _get_default_tempdir()
+  File "D:\YDW\Trae_Gromacs\miniconda3\Lib\tempfile.py", line 222, in _get_default_tempdir
+    raise FileNotFoundError(_errno.ENOENT,
+                            "No usable temporary directory found in %s" %
+                            dirlist)
+FileNotFoundError: [Errno 2] No usable temporary directory found in ['E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-09_redteam\\runtime\\temp', 'E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-09_redteam\\runtime\\temp', 'C:\\Users\\Administrator\\AppData\\Local\\Temp', 'C:\\Windows\\Temp', 'c:\\temp', 'c:\\tmp', '\\temp', '\\tmp', 'E:\\YDW\\Trae_Gaussian']

@@ -28,7 +28,9 @@ _TRANSITIONS: dict[JobState, set[JobState]] = {
         JobState.SUCCEEDED, JobState.FAILED,
         JobState.NOT_CONVERGED, JobState.CANCEL_REQUESTED,
     },
-    JobState.CANCEL_REQUESTED: {JobState.CANCELLED, JobState.FAILED},
+    JobState.CANCEL_REQUESTED: {
+        JobState.CANCELLED, JobState.FAILED, JobState.SUCCEEDED, JobState.NOT_CONVERGED
+    },
     JobState.SUCCEEDED: set(),
     JobState.FAILED: set(),
     JobState.NOT_CONVERGED: {JobState.RUNNING},  # 允许重试

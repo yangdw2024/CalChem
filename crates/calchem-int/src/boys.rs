@@ -102,14 +102,10 @@ pub fn erf_approx(x: f64) -> f64 {
 /// Evaluates the Boys function batch `F_0(t), F_1(t), ..., F_{max_n}(t)` into `out[0..=max_n]`:
 /// `F_n(t) = \int_0^1 u^{2n} \exp(-t u^2) du`
 ///
-/// Numerical strategy:
-/// - `t < 1e-14`: 3-term Maclaurin expansion `1/(2n+1) - t/(2n+3) + t^2/(2(2n+5))`.
-/// - `1e-14 <= t <= 35.0`: computes `F_{max_n}(t)` via the strictly positive Kummer confluent
-///   hypergeometric series `F_n(t) = \frac{e^{-t}}{2n+1} \sum_{k=0}^\infty \prod_{j=1}^k \frac{t}{n + j + 1/2}`
-///   (completely free of alternating-sign cancellation), followed by unconditionally stable
-///   downward recursion `F_{n-1}(t) = (2 t F_n(t) + e^{-t}) / (2n - 1)`.
-/// - `t > 35.0`: computes `F_0(t) = \frac{1}{2}\sqrt{\pi/t}\operatorname{erf}(\sqrt{t})` and
-///   upward recursion `F_n(t) = ((2n - 1) F_{n-1}(t) - e^{-t}) / (2t)`.
+/// Positive Kummer series plus downward recurrence where upward recurrence
+/// would subtract comparable numbers. At large T, upward recursion is used
+/// only through n <= T; higher orders are evaluated by a positive series.
+/// Batch evaluation allocates no auxiliary vector.
 pub fn boys_batch(max_n: usize, t: f64, out: &mut [f64]) {
     assert!(out.len() > max_n, "boys_batch output slice too short");
     assert!(t >= 0.0, "Boys function argument t must be >= 0, got {t}");
@@ -123,33 +119,44 @@ pub fn boys_batch(max_n: usize, t: f64, out: &mut [f64]) {
         return;
     }
 
-    if t <= 35.0 {
-        let exp_neg_t = (-t).exp();
-        let nf = max_n as f64;
-        let mut term = 1.0 / (2.0 * nf + 1.0);
-        let mut acc = term;
-        for k in 1..200 {
-            term *= t / (nf + (k as f64) + 0.5);
-            acc += term;
-            if term <= acc * 1e-16 {
-                break;
-            }
+    if t.is_infinite() {
+        out[..=max_n].fill(0.0);
+        return;
+    }
+    let et = (-t).exp();
+    if t > max_n as f64 + 40.0 || t >= 700.0 {
+        out[0] = 0.5 * (PI / t).sqrt() * erf_approx(t.sqrt());
+        let last_up = max_n.min(t as usize);
+        for n in 1..=last_up {
+            out[n] = ((2*n-1) as f64 * out[n-1] - et) * (0.5 / t);
         }
-        out[max_n] = exp_neg_t * acc;
-        for n in (1..=max_n).rev() {
-            let nf = n as f64;
-            out[n - 1] = (2.0 * t * out[n] + exp_neg_t) / (2.0 * nf - 1.0);
+        // For n>T the Gaussian tail is not negligible, even if exp(-T) is
+        // tiny. The old asymptotic-only branch produced unbounded relative error.
+        for n in last_up+1..=max_n {
+            out[n] = et * kummer_scaled(n,t);
         }
         return;
     }
-
-    let sqrt_t = t.sqrt();
-    out[0] = 0.5 * (PI / t).sqrt() * erf_approx(sqrt_t);
-    let exp_neg_t = (-t).exp();
-    for n in 1..=max_n {
-        let nf = n as f64;
-        out[n] = ((2.0 * nf - 1.0) * out[n - 1] - exp_neg_t) / (2.0 * t);
+    out[max_n] = et * kummer_scaled(max_n,t);
+    for n in (1..=max_n).rev() {
+        out[n-1] = (2.0*t*out[n] + et)/(2*n-1) as f64;
     }
+}
+
+/// exp(T) F_n(T), evaluated only where T <= n+40 and T < 700,
+/// or n >= T. Kahan summation avoids loss in the positive series tail.
+fn kummer_scaled(n:usize,t:f64)->f64 {
+    let mut term=1.0/(2.0*n as f64+1.0);
+    let mut sum=term; let mut correction=0.0;
+    for k in 1..10000 {
+        term *= t/(n as f64+k as f64+0.5);
+        let y=term-correction;
+        let next=sum+y;
+        correction=(next-sum)-y;
+        sum=next;
+        if term<=sum*5e-17 {break;}
+    }
+    sum
 }
 
 /// Evaluates the single Boys function value `F_n(t)`.

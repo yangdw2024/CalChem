@@ -1,0 +1,131 @@
+   Compiling libm v0.2.16
+   Compiling bytemuck v1.25.2
+   Compiling rand_core v0.6.4
+   Compiling cfg-if v1.0.5
+   Compiling reborrow v0.5.5
+   Compiling crossbeam-utils v0.8.23
+   Compiling libc v0.2.191
+   Compiling once_cell v1.21.4
+   Compiling either v1.19.0
+   Compiling bitflags v2.13.2
+   Compiling windows-link v0.2.1
+   Compiling psm v0.1.24
+   Compiling memchr v2.8.3
+   Compiling nano-gemm-core v0.1.0
+   Compiling serde_core v1.0.229
+   Compiling typenum v1.20.1
+   Compiling rand v0.8.8
+   Compiling dyn-stack v0.13.2
+   Compiling ucd-trie v0.1.7
+   Compiling equator v0.2.2
+   Compiling thiserror v1.0.69
+   Compiling nano-gemm-f32 v0.1.0
+   Compiling windows-sys v0.61.2
+   Compiling nano-gemm-f64 v0.1.0
+   Compiling byteorder v1.5.0
+   Compiling raw-cpuid v11.6.0
+   Compiling crossbeam-epoch v0.9.21
+   Compiling matrixcompare-core v0.1.0
+   Compiling coe-rs v0.1.2
+   Compiling equator v0.4.2
+   Compiling zmij v1.0.23
+   Compiling dyn-stack v0.11.0
+   Compiling itoa v1.0.18
+   Compiling cpufeatures v0.2.17
+   Compiling crossbeam-deque v0.8.8
+   Compiling dbgf v0.1.2
+   Compiling num-traits v0.2.19
+   Compiling generic-array v0.14.7
+   Compiling generativity v1.2.1
+   Compiling rawpointer v0.2.1
+   Compiling memoffset v0.9.1
+   Compiling pyo3-ffi v0.22.6
+   Compiling unindent v0.2.4
+   Compiling stacker v0.1.25
+   Compiling rayon-core v1.13.0
+   Compiling matrixmultiply v0.3.11
+   Compiling rustc-hash v1.1.0
+   Compiling pest_stack_guard v1.0.0
+   Compiling pyo3 v0.22.6
+   Compiling pest v2.9.5
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling rayon v1.12.0
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.47
+   Compiling rand_distr v0.4.3
+   Compiling matrixcompare v0.3.0
+   Compiling digest v0.10.7
+   Compiling num-bigint v0.4.8
+   Compiling sha2 v0.10.9
+   Compiling pulp v0.21.5
+   Compiling pulp v0.18.22
+   Compiling serde v1.0.229
+   Compiling nano-gemm-c32 v0.1.0
+   Compiling nano-gemm-c64 v0.1.0
+   Compiling serde_json v1.0.154
+   Compiling ndarray v0.16.1
+   Compiling calchem-model v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-model)
+   Compiling py_literal v0.4.0
+   Compiling faer-entity v0.20.1
+   Compiling calchem-basis v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-basis)
+   Compiling npyz v0.8.4
+   Compiling gemm-common v0.18.2
+   Compiling gemm-c32 v0.18.2
+   Compiling gemm-c64 v0.18.2
+   Compiling gemm-f64 v0.18.2
+   Compiling gemm-f32 v0.18.2
+   Compiling gemm v0.18.2
+   Compiling numpy v0.22.1
+   Compiling nano-gemm v0.1.3
+   Compiling faer v0.20.2
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+   Compiling calchem-prop v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-prop)
+   Compiling calchem-grad v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-grad)
+   Compiling calchem-tddft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tddft)
+   Compiling calchem-solv v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-solv)
+   Compiling calchem-vib v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-vib)
+   Compiling calchem-opt v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-opt)
+   Compiling calchem-py v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-py)
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:44:1
+   |
+44 | create_exception!(_core, RustCoreError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `calchem-py` (lib) generated 4 warnings (1 duplicate)
+    Finished `release` profile [optimized] target(s) in 1m 09s

@@ -192,7 +192,28 @@ class CCSD:
         
         return e_corr
 
+    @property
+    def energy(self) -> float:
+        return self.e_tot
+
+    @property
+    def n_cycles(self) -> int:
+        return self._n_iter
+
+    @property
+    def mo_energy(self):
+        return getattr(self.hf, "mo_energy", None)
+
+    @property
+    def mo_occ(self):
+        return getattr(self.hf, "mo_occ", None)
+
+    def kernel(self) -> float:
+        return self.run()
+
     def run(self) -> float:
+        if getattr(self.hf, "mo_coeff", None) is None or not getattr(self.hf, "converged", False):
+            self.hf.kernel()
         self._setup()  # 先初始化所有参数
         
         print(f"\n{'='*60}")

@@ -1,0 +1,6 @@
+include Cargo.toml Cargo.lock README.md LICENSE setup.py pyproject.toml
+recursive-include crates *.toml *.rs *.json *.bin *.f90 *.md COPYING COPYING.LESSER
+recursive-include calchem *.py *.pyi *.dat *.json *.yaml
+global-exclude *.pyc *.pyd *.so *.dll *.dylib
+prune build_target
+prune docs/audits

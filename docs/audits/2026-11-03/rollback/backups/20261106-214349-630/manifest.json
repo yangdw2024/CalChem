@@ -1,0 +1,20 @@
+﻿[
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\calchem\\workflows\\opv.py",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-214349-630\\files\\calchem\\workflows\\opv.py",
+        "SHA256":  "38AE8CE4247246A359068656E0BA1DB3DFD09FC708EE8DEE157B3FF6731455CB",
+        "LastWriteTimeUtc":  "2026-11-06T12:59:48.5945092Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\tools\\dev\\benchmark_opv_pv.py",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-214349-630\\files\\tools\\dev\\benchmark_opv_pv.py",
+        "SHA256":  "EB49DD4FD819ACDB36273D19CE5C66BE08E4990D470FA72A0617F2EE22953197",
+        "LastWriteTimeUtc":  "2026-11-06T13:08:32.9796401Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\tests\\unit\\test_opv_cam_b3lyp_and_dimer.py",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-214349-630\\files\\tests\\unit\\test_opv_cam_b3lyp_and_dimer.py",
+        "SHA256":  "C2350AEE59F4BE90AE99AB10B46C3D298596DCDD1D7F9CA5B5E575C98D8EC88A",
+        "LastWriteTimeUtc":  "2026-11-06T12:59:08.8479241Z"
+    }
+]

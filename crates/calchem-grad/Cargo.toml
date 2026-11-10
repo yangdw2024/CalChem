@@ -8,3 +8,6 @@ calchem-model = { path = "../calchem-model" }
 calchem-basis = { path = "../calchem-basis" }
 calchem-int = { path = "../calchem-int" }
 calchem-scf = { path = "../calchem-scf" }
+calchem-tensor = { path = "../calchem-tensor" }
+calchem-dft = { path = "../calchem-dft" }
+rayon = { workspace = true }

@@ -1,0 +1,26 @@
+﻿[
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-int\\Cargo.toml",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-103928-658\\files\\crates\\calchem-int\\Cargo.toml",
+        "SHA256":  "C62DC58B9C4487C72A3C923BB118A077416BD2E6B613F869BC323797977588AC",
+        "LastWriteTimeUtc":  "2026-10-29T19:25:54.0000000Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-int\\src\\lib.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-103928-658\\files\\crates\\calchem-int\\src\\lib.rs",
+        "SHA256":  "3CA859EECF293B6F7165E16BDA4BE6DD8A5957D12603E3E17EAED92949FEE57C",
+        "LastWriteTimeUtc":  "2026-10-29T19:41:26.0000000Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-int\\src\\eri.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-103928-658\\files\\crates\\calchem-int\\src\\eri.rs",
+        "SHA256":  "DDA55BB04CA6CA9398D2AE4161ACD8AD845971AFAEA18DA54FB80C5F7A99A550",
+        "LastWriteTimeUtc":  "2026-10-29T19:41:24.0000000Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-scf\\Cargo.toml",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-103928-658\\files\\crates\\calchem-scf\\Cargo.toml",
+        "SHA256":  "22EF7A779A997CFA0BEB45D9CDC3423F7B5704E95A09EF52E9DBB506A0F65964",
+        "LastWriteTimeUtc":  "2026-10-29T19:25:54.0000000Z"
+    }
+]

@@ -31,10 +31,14 @@ fn test_boys_known_values_and_stability() {
         (0usize, 1.0_f64, 0.7468241328124271_f64),
         (1usize, 1.0_f64, 0.18947234582049235_f64),
         (2usize, 1.0_f64, 0.10026879814501737_f64),
-        // Critical medium-T regime (15 <= T <= 35) where alternating Taylor series fails:
-        (0usize, 25.0_f64, 0.1772453850905516_f64),
-        (4usize, 25.0_f64, 0.0002555074603299322_f64),
-        (0usize, 29.34071349_f64, 0.16360991294575365_f64),
+        // Critical medium-T regime (15 <= T <= 35) where alternating Taylor series fails.
+        // References regenerated 2026-11-03 by tools/reference/gen_integral_refs.py
+        // (mpmath dps=50 quadrature of the defining integral). The previous values
+        // 0.1772453850905516 (= sqrt(pi)/10, i.e. erf(5) taken as 1), 2.555e-4 and
+        // 0.16360991294575365 were wrong; see docs/audits/2026-11-03/evidence.
+        (0usize, 25.0_f64, 0.17724538509027909508_f64),
+        (4usize, 25.0_f64, 2.977722148749626937e-6_f64),
+        (0usize, 29.34071349_f64, 0.16360990987453259531_f64),
         (0usize, 50.0_f64, 0.12533141373155003_f64),
     ];
 
@@ -64,4 +68,18 @@ fn test_boys_batch_recurrence_consistency() {
             assert!(out[n] > 0.0 && out[n] < out[n - 1]);
         }
     }
+}
+
+#[test]
+fn test_boys_high_n_stability_audit_probe() {
+    // Audit Red-team Probe Verification:
+    // At n=128, t=35.000001, upward recursion previously produced -3.90157.
+    // Unconditionally stable downward recursion must yield +3.35851444e-18 with rel error < 1e-14.
+    let n = 128;
+    let t = 35.000001;
+    let val = boys(n, t);
+    let exact = 3.358514441274557e-18;
+    assert!(val > 0.0, "Boys function must always be strictly positive! Got {val}");
+    let rel_err = (val - exact).abs() / exact;
+    assert!(rel_err < 1e-14, "n=128, t=35.000001: val={val:.16e}, exact={exact:.16e}, rel_err={rel_err:.2e}");
 }

@@ -1,0 +1,83 @@
+[
+  {
+    "n": 0,
+    "t": 0.0,
+    "test_reference": 1.0,
+    "quadrature": 1.0,
+    "quad_error_estimate": 1.1102230246251565e-14,
+    "reference_minus_quadrature": 0.0,
+    "outside_test_tolerance_1e-14": false
+  },
+  {
+    "n": 0,
+    "t": 1e-08,
+    "test_reference": 0.9999999966666667,
+    "quadrature": 0.9999999966666668,
+    "quad_error_estimate": 1.1102230209244133e-14,
+    "reference_minus_quadrature": -1.1102230246251565e-16,
+    "outside_test_tolerance_1e-14": false
+  },
+  {
+    "n": 0,
+    "t": 1.0,
+    "test_reference": 0.7468241328124271,
+    "quadrature": 0.7468241328124271,
+    "quad_error_estimate": 8.291413475940725e-15,
+    "reference_minus_quadrature": 0.0,
+    "outside_test_tolerance_1e-14": false
+  },
+  {
+    "n": 1,
+    "t": 1.0,
+    "test_reference": 0.18947234582049235,
+    "quadrature": 0.18947234582049235,
+    "quad_error_estimate": 2.1035656085965068e-15,
+    "reference_minus_quadrature": 0.0,
+    "outside_test_tolerance_1e-14": false
+  },
+  {
+    "n": 2,
+    "t": 1.0,
+    "test_reference": 0.10026879814501737,
+    "quadrature": 0.10026879814501738,
+    "quad_error_estimate": 1.1132072835209048e-15,
+    "reference_minus_quadrature": -1.3877787807814457e-17,
+    "outside_test_tolerance_1e-14": false
+  },
+  {
+    "n": 0,
+    "t": 25.0,
+    "test_reference": 0.1772453850905516,
+    "quadrature": 0.17724538509027907,
+    "quad_error_estimate": 4.6366211102901405e-15,
+    "reference_minus_quadrature": 2.725319969698603e-13,
+    "outside_test_tolerance_1e-14": true
+  },
+  {
+    "n": 4,
+    "t": 25.0,
+    "test_reference": 0.0002555074603299322,
+    "quadrature": 2.9777221487496273e-06,
+    "quad_error_estimate": 1.1830519170288664e-17,
+    "reference_minus_quadrature": 0.00025252973818118256,
+    "outside_test_tolerance_1e-14": true
+  },
+  {
+    "n": 0,
+    "t": 29.34071349,
+    "test_reference": 0.16360991294575364,
+    "quadrature": 0.16360990987453258,
+    "quad_error_estimate": 1.9676755790730905e-15,
+    "reference_minus_quadrature": 3.0712210552508168e-09,
+    "outside_test_tolerance_1e-14": true
+  },
+  {
+    "n": 0,
+    "t": 50.0,
+    "test_reference": 0.12533141373155002,
+    "quadrature": 0.12533141373155002,
+    "quad_error_estimate": 1.3914602883617898e-15,
+    "reference_minus_quadrature": 0.0,
+    "outside_test_tolerance_1e-14": false
+  }
+]

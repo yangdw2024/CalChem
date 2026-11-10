@@ -1,0 +1,9 @@
+{
+  "H2_distance_bohr": 1.4,
+  "closed_form_T01": 0.23645465597967397,
+  "Rust_T01": 0.23645465597967397,
+  "Rust_minus_closed_form": 0.0,
+  "existing_test_reference": 0.236454655845882,
+  "test_reference_minus_closed_form": -1.3379197749685545e-10,
+  "formula": "T_ab = mu * (3 - 2*mu*R^2) * S_ab; contracted with normalized source JSON coefficients"
+}

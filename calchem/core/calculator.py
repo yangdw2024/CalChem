@@ -37,6 +37,30 @@ class Calculator(ABC):
             f"Backend '{self.capabilities().name}' does not support frequency calculation"
         )
 
+    def tddft(self, request: CalculationRequest) -> Result:
+        """激发态与紫外-可见吸收光谱计算 (TD-DFT / TDA / CIS)。默认不支持，子类可覆盖。"""
+        raise UnsupportedTaskError(
+            f"Backend '{self.capabilities().name}' does not support TD-DFT / CIS excited states"
+        )
+
+    def ts_search(self, request: CalculationRequest) -> Result:
+        """过渡态搜索 (TS)。默认不支持，子类可覆盖。"""
+        raise UnsupportedTaskError(
+            f"Backend '{self.capabilities().name}' does not support transition state search"
+        )
+
+    def irc(self, request: CalculationRequest) -> Result:
+        """内禀反应坐标 (IRC) 路径追踪。默认不支持，子类可覆盖。"""
+        raise UnsupportedTaskError(
+            f"Backend '{self.capabilities().name}' does not support intrinsic reaction coordinate (IRC)"
+        )
+
+    def solvation(self, request: CalculationRequest) -> Result:
+        """连续介质溶剂化能计算 (PCM / COSMO / SMD / SCRF)。默认不支持，子类可覆盖。"""
+        raise UnsupportedTaskError(
+            f"Backend '{self.capabilities().name}' does not support continuum solvation"
+        )
+
     def run(self, request: CalculationRequest) -> Result:
         """根据 request.task 自动分发到对应方法。"""
         caps = self.capabilities()
@@ -64,6 +88,14 @@ class Calculator(ABC):
             return self.optimize(request)
         elif request.task == "frequency":
             return self.frequency(request)
+        elif request.task in ("tddft", "cis", "excited_states"):
+            return self.tddft(request)
+        elif request.task == "ts":
+            return self.ts_search(request)
+        elif request.task == "irc":
+            return self.irc(request)
+        elif request.task == "solvation":
+            return self.solvation(request)
         else:
             raise UnsupportedTaskError(f"Unknown task: {request.task}")
 

@@ -2,8 +2,20 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from pydantic import BaseModel, Field
+
+
+def get_default_data_root() -> str:
+    """动态获取默认数据根目录（跨平台自适应，避免硬编码）。"""
+    env = os.environ.get("CALCHEM_DATA") or os.environ.get("CALCHEM_DATA_DIR")
+    if env:
+        return env
+    d_dir = Path("D:/CalChemData")
+    if d_dir.exists():
+        return str(d_dir)
+    return str(Path.home() / ".calchem" / "data")
 
 
 class BackendPaths(BaseModel):
@@ -25,7 +37,7 @@ class ResourceConfig(BaseModel):
 
 class AppConfig(BaseModel):
     """CalChem 全局配置。"""
-    data_root: str = r"D:\CalChemData"
+    data_root: str = Field(default_factory=get_default_data_root)
     run_root: str = ""
     log_root: str = ""
     default_backend: str = "native"

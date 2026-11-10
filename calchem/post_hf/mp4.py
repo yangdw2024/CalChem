@@ -63,6 +63,26 @@ class MP4:
 
         self._t2 = None
 
+    @property
+    def energy(self) -> float:
+        return self.e_tot
+
+    @property
+    def e_corr(self) -> float:
+        return self.e_mp2 + self.e_mp3 + self.e_mp4
+
+    @property
+    def converged(self) -> bool:
+        return getattr(self.mf, "converged", True)
+
+    @property
+    def mo_energy(self):
+        return getattr(self.mf, "mo_energy", None)
+
+    @property
+    def mo_occ(self):
+        return getattr(self.mf, "mo_occ", None)
+
     def _print(self, msg: str, level: int = 1) -> None:
         if self.verbose >= level:
             print(msg, flush=True)
@@ -94,6 +114,9 @@ class MP4:
 
     def kernel(self) -> float:
         mf = self.mf
+        if getattr(mf, "mo_coeff", None) is None or not getattr(mf, "converged", False):
+            mf.kernel()
+        self.e_hf = mf.e_tot
         mo_coeff = mf.mo_coeff
         mo_energy = mf.mo_energy
         self._nbf = mo_coeff.shape[0]

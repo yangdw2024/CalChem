@@ -1,0 +1,198 @@
+   Compiling autocfg v1.5.1
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libm v0.2.16
+   Compiling cfg-if v1.0.5
+   Compiling version_check v0.9.5
+   Compiling bytemuck v1.25.2
+   Compiling rand_core v0.6.4
+   Compiling once_cell v1.21.4
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling libc v0.2.191
+   Compiling nano-gemm-codegen v0.1.0
+   Compiling crossbeam-utils v0.8.23
+   Compiling serde_core v1.0.229
+   Compiling memchr v2.8.3
+   Compiling crossbeam-epoch v0.9.21
+   Compiling rand v0.8.8
+   Compiling cc v1.10.0
+   Compiling crossbeam-deque v0.8.8
+   Compiling reborrow v0.5.5
+   Compiling windows-link v0.2.1
+   Compiling serde v1.0.229
+   Compiling rayon-core v1.13.0
+   Compiling num-traits v0.2.19
+   Compiling windows-sys v0.61.2
+   Compiling pulp v0.21.5
+   Compiling thiserror v1.0.69
+   Compiling pest_stack_guard v1.0.0
+   Compiling paste v1.0.15
+   Compiling bitflags v2.13.2
+   Compiling psm v0.1.24
+   Compiling stacker v0.1.25
+   Compiling dyn-stack-macros v0.1.3
+   Compiling either v1.19.0
+   Compiling generic-array v0.14.7
+   Compiling seq-macro v0.3.6
+   Compiling ucd-trie v0.1.7
+   Compiling raw-cpuid v11.6.0
+   Compiling nano-gemm-core v0.1.0
+   Compiling syn v2.0.119
+   Compiling num-complex v0.4.6
+   Compiling syn v3.0.9
+   Compiling num-integer v0.1.47
+   Compiling typenum v1.20.1
+   Compiling dyn-stack v0.13.2
+   Compiling nano-gemm-c64 v0.1.0
+   Compiling nano-gemm-f32 v0.1.0
+   Compiling nano-gemm-f64 v0.1.0
+   Compiling nano-gemm-c32 v0.1.0
+   Compiling zmij v1.0.23
+   Compiling num-bigint v0.4.8
+   Compiling serde_json v1.0.154
+   Compiling rayon v1.12.0
+   Compiling pest v2.9.5
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling pulp v0.18.22
+   Compiling coe-rs v0.1.2
+   Compiling itoa v1.0.18
+   Compiling byteorder v1.5.0
+   Compiling cpufeatures v0.2.17
+   Compiling matrixcompare-core v0.1.0
+   Compiling rand_distr v0.4.3
+   Compiling pest_meta v2.9.5
+   Compiling sha2 v0.10.9
+   Compiling matrixcompare v0.3.0
+   Compiling dyn-stack v0.11.0
+   Compiling serde_derive v1.0.229
+   Compiling dbgf v0.1.2
+   Compiling generativity v1.2.1
+   Compiling target-lexicon v0.12.16
+   Compiling matrixmultiply v0.3.11
+   Compiling gemm-common v0.18.2
+   Compiling memoffset v0.9.1
+   Compiling heck v0.5.0
+   Compiling gemm-c32 v0.18.2
+   Compiling gemm-f64 v0.18.2
+   Compiling gemm-f32 v0.18.2
+   Compiling gemm-c64 v0.18.2
+   Compiling pest_generator v2.9.5
+   Compiling faer-entity v0.20.1
+   Compiling thiserror-impl v1.0.69
+   Compiling equator-macro v0.2.1
+   Compiling equator-macro v0.4.2
+   Compiling gemm v0.18.2
+   Compiling rawpointer v0.2.1
+   Compiling indoc v2.0.8
+   Compiling equator v0.2.2
+   Compiling pyo3-build-config v0.22.6
+   Compiling pest_derive v2.9.5
+   Compiling unindent v0.2.4
+   Compiling ndarray v0.16.1
+   Compiling nano-gemm v0.1.3
+   Compiling equator v0.4.2
+   Compiling rustc-hash v1.1.0
+   Compiling py_literal v0.4.0
+   Compiling calchem-model v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-model)
+   Compiling pyo3-ffi v0.22.6
+   Compiling pyo3-macros-backend v0.22.6
+   Compiling pyo3 v0.22.6
+   Compiling npyz v0.8.4
+   Compiling calchem-basis v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-basis)
+   Compiling faer v0.20.2
+   Compiling pyo3-macros v0.22.6
+   Compiling numpy v0.22.1
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+warning: value assigned to `mo_energies` is never read
+   --> crates\calchem-scf\src\rhf.rs:111:10
+    |
+111 |     let (mut mo_energies, mut c_mat, mut p) = diagonalize_fock(&h_core, &x, &xt, n_occ)?;
+    |          ^^^^^^^^^^^^^^^ this value is reassigned later and never used
+...
+198 |     mo_energies = final_eps;
+    |     ----------- `mo_energies` is overwritten here before the previous value is read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `mo_energies` is never read
+   --> crates\calchem-scf\src\rhf.rs:173:9
+    |
+173 |         mo_energies = eps_new;
+    |         ^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: value assigned to `c_mat` is never read
+   --> crates\calchem-scf\src\rhf.rs:111:27
+    |
+111 |     let (mut mo_energies, mut c_mat, mut p) = diagonalize_fock(&h_core, &x, &xt, n_occ)?;
+    |                           ^^^^^^^^^ this value is reassigned later and never used
+...
+199 |     c_mat = final_c;
+    |     ----- `c_mat` is overwritten here before the previous value is read
+
+warning: value assigned to `c_mat` is never read
+   --> crates\calchem-scf\src\rhf.rs:172:9
+    |
+172 |         c_mat = c_new;
+    |         ^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: value assigned to `f` is never read
+   --> crates\calchem-scf\src\rhf.rs:112:17
+    |
+112 |     let mut f = h_core.clone();
+    |                 ^^^^^^^^^^^^^^ this value is reassigned later and never used
+...
+194 |     f = build_fock_matrix(&h_core, &p, &eri);
+    |     - `f` is overwritten here before the previous value is read
+
+   Compiling calchem-grad v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-grad)
+   Compiling calchem-prop v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-prop)
+   Compiling calchem-opt v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-opt)
+warning: `calchem-scf` (lib) generated 5 warnings
+   Compiling calchem-py v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-py)
+error: unknown format trait `f`
+  --> crates\calchem-int\tests\eri_reference.rs:54:48
+   |
+54 |             "ERI({i},{j},{k},{l}): got {got:.15f}, expected {expected:.15f}"
+   |                                                ^
+   |
+   = note: the only appropriate formatting traits are:
+           - ``, which uses the `Display` trait
+           - `?`, which uses the `Debug` trait
+           - `e`, which uses the `LowerExp` trait
+           - `E`, which uses the `UpperExp` trait
+           - `o`, which uses the `Octal` trait
+           - `p`, which uses the `Pointer` trait
+           - `b`, which uses the `Binary` trait
+           - `x`, which uses the `LowerHex` trait
+           - `X`, which uses the `UpperHex` trait
+
+error: unknown format trait `f`
+  --> crates\calchem-int\tests\eri_reference.rs:54:74
+   |
+54 |             "ERI({i},{j},{k},{l}): got {got:.15f}, expected {expected:.15f}"
+   |                                                                          ^
+   |
+   = note: the only appropriate formatting traits are:
+           - ``, which uses the `Display` trait
+           - `?`, which uses the `Debug` trait
+           - `e`, which uses the `LowerExp` trait
+           - `E`, which uses the `UpperExp` trait
+           - `o`, which uses the `Octal` trait
+           - `p`, which uses the `Pointer` trait
+           - `b`, which uses the `Binary` trait
+           - `x`, which uses the `LowerHex` trait
+           - `X`, which uses the `UpperHex` trait
+
+error: could not compile `calchem-int` (test "eri_reference") due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+warning: `calchem-scf` (lib test) generated 5 warnings (5 duplicates)

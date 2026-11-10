@@ -5,4 +5,8 @@ edition = "2021"
 
 [dependencies]
 calchem-model = { path = "../calchem-model" }
+calchem-basis = { path = "../calchem-basis" }
+calchem-int = { path = "../calchem-int" }
+calchem-tensor = { path = "../calchem-tensor" }
 calchem-scf = { path = "../calchem-scf" }
+rayon = { workspace = true }

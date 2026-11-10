@@ -1,0 +1,9 @@
+
+Algorithm : SHA256
+Hash      : 6596A745135A3D1C1F2D8C41915B1FA5FD815450F522DAE204318B4F5DA5F6A8
+Path      : E:\YDW\Trae_Gaussian\calchem\_core.pyd
+
+Algorithm : SHA256
+Hash      : 6596A745135A3D1C1F2D8C41915B1FA5FD815450F522DAE204318B4F5DA5F6A8
+Path      : E:\YDW\Trae_Gaussian\build_target\runtime\redteam_20261109\_core.pyd
+

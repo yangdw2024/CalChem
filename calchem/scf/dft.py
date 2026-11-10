@@ -37,7 +37,12 @@ class DFTMethod(HFMethod):
         level_shift: float = 0.0,
         diis_start: int = 3,
     ):
-        super().__init__(mol, basis=basis, max_cycles=max_cycles, conv_tol=conv_tol, diis=diis)
+        max_iter = max_cycles if max_cycles is not None else 50
+        energy_tol = conv_tol if conv_tol is not None else 1e-8
+        super().__init__(mol, basis=basis, max_iter=max_iter, energy_tol=energy_tol, diis=diis)
+        self.max_cycles = max_iter
+        self.conv_tol = energy_tol
+        self.use_diis = diis
         self.xc = xc.lower()
         self.grid_level = grid_level
         self.verbose = verbose
@@ -49,6 +54,10 @@ class DFTMethod(HFMethod):
         self.diis_start = diis_start
         self.exc: float = 0.0
         self.e_d3: float = 0.0
+
+    @property
+    def energy(self) -> float:
+        return self.e_tot
 
     def get_results(self) -> Results:
         results = super().get_results()
@@ -110,13 +119,25 @@ class RKS(DFTMethod):
     def _hcore(self):
         return self._dft_impl._hcore if self._dft_impl else None
 
+    @_hcore.setter
+    def _hcore(self, val):
+        pass
+
     @property
     def _s(self):
         return self._dft_impl._s if self._dft_impl else None
 
+    @_s.setter
+    def _s(self, val):
+        pass
+
     @property
     def _eri(self):
         return self._dft_impl._eri if self._dft_impl else None
+
+    @_eri.setter
+    def _eri(self, val):
+        pass
 
 
 class UKS(DFTMethod):
@@ -172,13 +193,25 @@ class UKS(DFTMethod):
     def _hcore(self):
         return self._dft_impl._hcore if self._dft_impl else None
 
+    @_hcore.setter
+    def _hcore(self, val):
+        pass
+
     @property
     def _s(self):
         return self._dft_impl._s if self._dft_impl else None
 
+    @_s.setter
+    def _s(self, val):
+        pass
+
     @property
     def _eri(self):
         return self._dft_impl._eri if self._dft_impl else None
+
+    @_eri.setter
+    def _eri(self, val):
+        pass
 
 
 class ROKS(DFTMethod):
@@ -297,7 +330,7 @@ class ROKS(DFTMethod):
         return e_1e + e_j + e_xc + e_exx + self.e_nn
 
     def kernel(self) -> float:
-        from ..scf.hf import _symmetric_orthogonalize, _eigh_safe, _matmul
+        from ..scf.guess import _symmetric_orthogonalize, _eigh_safe, _matmul
         from ..scf.diis import DIIS
 
         if self._functional is None:

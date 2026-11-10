@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
-import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -51,13 +49,17 @@ def _build_orca_inp(req: CalculationRequest, nproc: int) -> str:
     basis = _BASIS_MAP.get(req.basis.lower(), req.basis)
     mol = req.molecule
 
-    lines = [
-        f"! {method} {basis} SP",
-        f"%pal nprocs {nproc} end",
+    lines = [f"! {method} {basis} SP"]
+    # Windows 环境下 MS-MPI 若未配置 smpd 后台服务，%pal 会导致崩溃；默认安全单进程
+    use_mpi = os.environ.get("CALCHEM_ORCA_MPI", "").lower() in ("1", "true", "yes")
+    if use_mpi and nproc > 1:
+        lines.append(f"%pal nprocs {nproc} end")
+
+    lines.extend([
         "",
         f"* xyzfile {mol.charge} {mol.multiplicity} input.xyz",
         "",
-    ]
+    ])
     return "\n".join(lines)
 
 
@@ -72,29 +74,31 @@ def _parse_orca_output(text: str) -> dict:
         "error": None,
     }
 
-    m = re.search(r"FINAL SINGLE POINT ENERGY\s+([-\d.]+)", text)
+    # 取最后一次出现（stdout 与 .out 拼接时可能重复；多步任务以最终值为准）
+    m = re.findall(r"FINAL SINGLE POINT ENERGY\s+([-\d.]+)", text)
     if m:
-        result["energy_hartree"] = float(m.group(1))
+        result["energy_hartree"] = float(m[-1])
 
-    m = re.search(r"SCF CONVERGED AFTER\s+(\d+)", text)
+    m = re.findall(r"SCF CONVERGED AFTER\s+(\d+)", text)
     if m:
-        result["scf_iterations"] = int(m.group(1))
+        result["scf_iterations"] = int(m[-1])
+    if "SCF NOT CONVERGED" in text.upper():
+        result["scf_converged"] = False
 
     # 偶极矩：只存 magnitude，不伪造矢量分量
-    dipole_mag = None
-    m = re.search(r"Magnitude \(Debye\)\s*:\s*([-\d.]+)", text)
+    m = re.findall(r"Magnitude \(Debye\)\s*:\s*([-\d.]+)", text)
     if m:
-        dipole_mag = float(m.group(1))
+        result["dipole_magnitude"] = float(m[-1])
 
     # 错误检测：只匹配真正的 ERROR 行（排除 SCF 参数中的 "DIIS Error" 等）
     if "ERROR" in text.upper():
         err_lines = [
-            l.strip() for l in text.split("\n")
-            if "ERROR" in l.upper()
-            and "DIIS" not in l.upper()
-            and "TolErr" not in l.upper()
-            and "WARNING" not in l.upper()
-            and "Startup" not in l.upper()
+            ln.strip() for ln in text.split("\n")
+            if "ERROR" in ln.upper()
+            and "DIIS" not in ln.upper()
+            and "TOLERR" not in ln.upper()
+            and "WARNING" not in ln.upper()
+            and "STARTUP" not in ln.upper()
         ][:3]
         if err_lines:
             result["error"] = "; ".join(err_lines)
@@ -125,8 +129,7 @@ class ORCABackend(ExternalProgramBackend):
             raise BackendExecutionError(f"ORCA not available: {caps.unavailable_reason}")
 
         job_id = request.job_id or f"orca_{int(time.time())}"
-        tmp_base = Path(os.environ.get("CALCHEM_RUN_DIR", tempfile.gettempdir())) / "calchem_jobs"
-        run_dir = self._make_run_dir(tmp_base, job_id)
+        run_dir = self._make_run_dir(self.default_run_base(), job_id)
 
         # 写 xyz（ORCA 格式：natoms / comment / atoms）
         mol = request.molecule
@@ -139,24 +142,24 @@ class ORCABackend(ExternalProgramBackend):
         inp = _build_orca_inp(request, request.resources.max_cpu_cores)
         (run_dir / "input.inp").write_text(inp)
 
-        # 运行 ORCA（cwd 设为 run_dir，参数列表不用 shell）
-        cmd = [self.executable, "input.inp"]
-        try:
-            proc = subprocess.run(
-                cmd, cwd=str(run_dir), capture_output=True, text=True,
-                timeout=request.resources.timeout_seconds, shell=False,
-            )
-            returncode, stdout, stderr = proc.returncode, proc.stdout, proc.stderr
-        except subprocess.TimeoutExpired:
-            raise BackendExecutionError(f"ORCA timed out after {request.resources.timeout_seconds}s")
+        # 运行 ORCA（cwd 设为 run_dir，使用绝对路径以确保兼容性）
+        inp_abs = str((run_dir / "input.inp").resolve())
+        returncode, stdout, _stderr = self._run_command(
+            [self.executable, inp_abs], run_dir,
+            timeout=request.resources.timeout_seconds,
+        )
 
         # ORCA 输出：优先用 stdout（ORCA 6.x 主要输出到 stdout），
         # 同时检查 input.out 文件
         out_path = run_dir / "input.out"
-        out_text = stdout
+        out_text = stdout or ""
         if out_path.exists():
-            out_text = out_path.read_text(errors="replace") + "\n" + stdout
+            out_text = out_path.read_text(errors="replace") + "\n" + out_text
 
+        return self._build_result(request, out_text, returncode, started, out_path, run_dir)
+
+    def _build_result(self, request, out_text, returncode, started,
+                      out_path: Path, run_dir: Path) -> Result:
         parsed = _parse_orca_output(out_text)
         walltime = (datetime.now() - started).total_seconds()
 
@@ -167,15 +170,19 @@ class ORCABackend(ExternalProgramBackend):
             errors.append(parsed["error"])
         if parsed["energy_hartree"] is None:
             errors.append("Could not extract FINAL SINGLE POINT ENERGY")
+        if not parsed["scf_converged"]:
+            errors.append("ORCA SCF not converged")
 
-        status = "succeeded" if parsed["normal_termination"] and parsed["energy_hartree"] is not None else "failed"
+        status = "succeeded" if not errors else "failed"
 
         return Result(
+            job_id=request.job_id,
+            project_id=request.project_id,
             backend="orca",
             backend_version="ORCA 6.1.1",
             task=request.task,
             method=request.method,
-            actual_method=request.method,
+            actual_method=_METHOD_MAP.get(request.method.lower(), request.method.upper()),
             basis=request.basis,
             xc=request.xc,
             molecule=request.molecule,
@@ -183,11 +190,14 @@ class ORCABackend(ExternalProgramBackend):
             started_at=started,
             finished_at=datetime.now(),
             walltime_seconds=walltime,
-            scf_energy_hartree=parsed["energy_hartree"],
+            # FINAL SINGLE POINT ENERGY 对 Post-HF 已含相关能，只能作为总能量
+            scf_energy_hartree=(parsed["energy_hartree"]
+                                if request.method.lower() not in ("mp2", "ccsd", "ccsd(t)")
+                                else None),
             total_energy_hartree=parsed["energy_hartree"],
             scf_converged=parsed["scf_converged"],
             scf_iterations=parsed["scf_iterations"],
-            dipole_magnitude_debye=dipole_mag,
+            dipole_magnitude_debye=parsed["dipole_magnitude"],
             errors=errors,
             raw_log_path=str(out_path) if out_path.exists() else None,
             input_file_path=str(run_dir / "input.inp"),

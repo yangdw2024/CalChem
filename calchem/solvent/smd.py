@@ -1,24 +1,36 @@
+"""SMD (Solvation Model based on Density) 溶剂模型模块。
+
+纯 Rust 原生高性能 C-PCM / SMD 自洽反应场与全溶剂化能求解器。
+"""
+
 from __future__ import annotations
 
-from typing import Optional, Dict, Any
-
+from typing import Any, Dict, Optional
 import numpy as np
 
-from ..utils.logging_utils import get_logger
-
-logger = get_logger(__name__)
+from .pcm import PCMSolver, PCM
 
 
 class SMD:
-    def __init__(self, method, solvent: str = "water"):
-        self.method = method
-        self.solvent = solvent
-        self.e_solv: float = 0.0
+    """SMD 溶剂化模型接口。"""
+
+    def __init__(self, method_or_mf: Any, solvent: str = "water"):
+        self.mf = method_or_mf
+        self.solvent = solvent.lower()
+        self.e_solv_kcal_mol: float = 0.0
+        self.pcm = PCM(self.mf, solvent=self.solvent, solvent_model="cpcm", include_cds=True)
 
     def kernel(self) -> float:
-        logger.warning(f"SMD solvent calculation for {self.solvent} not fully implemented")
-        self.e_solv = 0.0
-        return self.e_solv
+        """执行 SMD 溶剂化计算，返回 Delta G_solv (kcal/mol)。"""
+        self.e_solv_kcal_mol = self.pcm.kernel()
+        return self.e_solv_kcal_mol
+
+    @property
+    def e_solv(self) -> float:
+        """Delta G_solv (kcal/mol)。"""
+        if self.e_solv_kcal_mol == 0.0 and self.pcm.solver is None:
+            self.kernel()
+        return self.e_solv_kcal_mol
 
     def __repr__(self) -> str:
-        return f"SMD(solvent='{self.solvent}')"
+        return f"SMD(solvent='{self.solvent}', delta_g_solv={self.e_solv:.2f} kcal/mol)"

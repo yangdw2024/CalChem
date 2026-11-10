@@ -1,0 +1,8 @@
+New native D3(BJ): -0.00058269 Eh
+Gaussian 16 ref:   -0.00057388 Eh
+Diff D3:           8.81e-06 Eh (8.81 uEh)
+
+--- Vibrational Frequencies & IR Intensities ---
+Mode 1: freq = 2170.06 cm^-1 | native IR = 7.2374 km/mol | G16 IR = 7.2374 km/mol | ratio = 1.0000
+Mode 2: freq = 4140.01 cm^-1 | native IR = 44.2881 km/mol | G16 IR = 44.2880 km/mol | ratio = 1.0000
+Mode 3: freq = 4391.07 cm^-1 | native IR = 29.9732 km/mol | G16 IR = 29.9732 km/mol | ratio = 1.0000

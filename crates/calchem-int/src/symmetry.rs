@@ -1,21 +1,17 @@
 /// Enumerates canonical shell quartets `[i, j, k, l]` satisfying `i <= j`, `k <= l`,
 /// and composite pair index `ij <= kl`.
 pub fn unique_shell_quartets(n_shells: usize) -> Vec<[usize; 4]> {
-    let mut out = Vec::new();
-    for i in 0..n_shells {
-        for j in i..n_shells {
-            let ij = i * n_shells + j;
-            for k in 0..n_shells {
-                for l in k..n_shells {
-                    let kl = k * n_shells + l;
-                    if ij <= kl {
-                        out.push([i, j, k, l]);
-                    }
-                }
-            }
-        }
-    }
-    out
+    shell_quartets(n_shells).collect()
+}
+
+/// Lazy canonical quartets: constant auxiliary storage.
+pub fn shell_quartets(n_shells: usize) -> impl Iterator<Item = [usize; 4]> {
+    (0..n_shells).flat_map(move |i| (i..n_shells).flat_map(move |j| {
+        (i..n_shells).flat_map(move |k| {
+            let start = if k == i { j } else { k };
+            (start..n_shells).map(move |l| [i, j, k, l])
+        })
+    }))
 }
 
 /// Returns all 8 real-AO permutation indices of `(mu nu | lam sig)`:

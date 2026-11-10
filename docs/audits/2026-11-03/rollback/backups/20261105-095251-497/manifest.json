@@ -1,0 +1,14 @@
+﻿[
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-py\\Cargo.toml",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-095251-497\\files\\crates\\calchem-py\\Cargo.toml",
+        "SHA256":  "BEF4A1BDC012CC16C9010975ABE7DA1789A3862BF3543B8F02EB07BFA6D14DCE",
+        "LastWriteTimeUtc":  "2026-10-29T19:25:54.0000000Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-py\\src\\lib.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-095251-497\\files\\crates\\calchem-py\\src\\lib.rs",
+        "SHA256":  "1F23EE2403EE1F16582C86C7FA6154DDC6346A3C1DE1D90656EE550D01C2560C",
+        "LastWriteTimeUtc":  "2026-11-03T13:20:22.9271159Z"
+    }
+]

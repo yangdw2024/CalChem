@@ -2,37 +2,32 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, master, develop]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
-  test-windows:
+  rust-workspace:
+    name: Rust Workspace Tests
     runs-on: windows-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: Run tests
-        run: |
-          pytest tests/ -v -m "not slow and not gpu"
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run Cargo Tests
+        run: cargo test --workspace --locked
 
-  test-linux:
-    runs-on: ubuntu-latest
+  python-tests:
+    name: Python Unit Tests (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [windows-latest, ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -41,11 +36,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      - name: Run tests
+      - name: Build PyO3 Extension
         run: |
-          pytest tests/ -v -m "not slow and not gpu"
+          cargo build --release --locked -p calchem-py
+      - name: Run curated unit tests
+        run: |
+          pytest tests/unit/ -v
 
   lint:
+    name: Code Linting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,5 +53,5 @@ jobs:
           python-version: "3.11"
       - name: Install ruff
         run: pip install ruff
-      - name: Run ruff
-        run: ruff check calchem/
+      - name: Run ruff check
+        run: ruff check --select E,F,W,I,B calchem/

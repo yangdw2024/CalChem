@@ -1,0 +1,38 @@
+﻿[
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-int\\tests\\eri_reference.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261103-211757-547\\files\\crates\\calchem-int\\tests\\eri_reference.rs",
+        "SHA256":  "3EEE44DD31392A86EF6901AA431002ACE9BFB2BAFDE18EA5D1FEFA0DE2C749E8",
+        "LastWriteTimeUtc":  "2026-10-29T19:46:40.0000000Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-int\\tests\\boys.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261103-211757-547\\files\\crates\\calchem-int\\tests\\boys.rs",
+        "SHA256":  "249ECA9F4B397CA9A10A167C05D7124E14C83FB1E337822492A28E750DDA5AFE",
+        "LastWriteTimeUtc":  "2026-10-29T19:46:16.0000000Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-int\\tests\\one_electron.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261103-211757-547\\files\\crates\\calchem-int\\tests\\one_electron.rs",
+        "SHA256":  "4A8945677FECB20C16A86319FBB47D79CE793B778FEA1F66DC41782B38B5DABC",
+        "LastWriteTimeUtc":  "2026-10-29T19:46:24.0000000Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\tests\\unit\\test_core_rust.py",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261103-211757-547\\files\\tests\\unit\\test_core_rust.py",
+        "SHA256":  "003A10FAF084A83A47BB58289D68562487EC14A2E618032B5BBF63360C5CEB9D",
+        "LastWriteTimeUtc":  "2026-10-29T18:11:27.8370843Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\.github\\workflows\\ci.yml",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261103-211757-547\\files\\.github\\workflows\\ci.yml",
+        "SHA256":  "CF0F900008FF3ECC862F1BA3F09CABF46A1DDD71567A6C809BF61930AEA33109",
+        "LastWriteTimeUtc":  "2026-07-05T08:59:29.7613881Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\calchem\\_core.pyd",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261103-211757-547\\files\\calchem\\_core.pyd",
+        "SHA256":  "64B681E8F5FC9EBC7EC43E834F288DD1CDEFB6EC25DFB516BD8F3C5ECE786C89",
+        "LastWriteTimeUtc":  "2026-10-30T06:05:19.4256973Z"
+    }
+]

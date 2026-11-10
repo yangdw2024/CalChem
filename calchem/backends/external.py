@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 from datetime import datetime
@@ -12,6 +13,7 @@ from ..core.calculator import Calculator
 from ..core.capabilities import BackendCapabilities
 from ..core.errors import BackendExecutionError
 from ..core.request import CalculationRequest
+from ..config.models import get_default_data_root
 
 
 class ExternalProgramBackend(Calculator):
@@ -45,6 +47,7 @@ class ExternalProgramBackend(Calculator):
         cmd: List[str],
         cwd: Path,
         timeout: int = 3600,
+        env: Optional[dict] = None,
     ) -> tuple[int, str, str]:
         """执行外部命令，返回 (returncode, stdout, stderr)。
 
@@ -58,7 +61,9 @@ class ExternalProgramBackend(Calculator):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            errors="replace",
             shell=False,
+            env=env,
         )
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -91,6 +96,19 @@ class ExternalProgramBackend(Calculator):
         run_dir = base_dir / job_id
         run_dir.mkdir(parents=True, exist_ok=True)
         return run_dir
+
+    @staticmethod
+    def default_run_base() -> Path:
+        """外部程序运行根目录。
+
+        优先级：CALCHEM_RUN_DIR > CALCHEM_DATA/external_runs > 默认数据目录/external_runs。
+        不再回退到系统临时目录（默认在 C 盘）。
+        """
+        env_run = os.environ.get("CALCHEM_RUN_DIR")
+        if env_run:
+            return Path(env_run) / "calchem_jobs"
+        data = os.environ.get("CALCHEM_DATA") or get_default_data_root()
+        return Path(data) / "external_runs"
 
     def capabilities(self) -> BackendCapabilities:
         available, reason = self._check_available()

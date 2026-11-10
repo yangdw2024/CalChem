@@ -1,0 +1,191 @@
+{
+  "root": "E:\\YDW\\Trae_Gaussian",
+  "audit": "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03",
+  "checks": {
+    "static_inventory": {
+      "executed": true,
+      "value": {
+        "python_files": 244,
+        "syntax_failures": [],
+        "test_files_with_top_level_test_functions": 10
+      },
+      "seconds": 0.2678302000003896
+    },
+    "environment": {
+      "executed": true,
+      "value": {
+        "python": "3.13.13 | packaged by Anaconda, Inc. | (main, Apr 14 2026, 06:12:50) [MSC v.1942 64 bit (AMD64)]",
+        "executable": "D:\\YDW\\Trae_Gromacs\\miniconda3\\python.exe",
+        "dependencies": {
+          "numpy": "2.5.2",
+          "scipy": "1.17.1",
+          "pydantic": "2.12.3",
+          "pytest": "9.1.1",
+          "PyQt6": "6.11.0",
+          "ruff": "0.16.7",
+          "h5py": "3.14.0",
+          "PyYAML": "6.0.3",
+          "click": "8.4.2",
+          "rich": "15.0.0"
+        },
+        "environment": {
+          "TEMP": "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\runtime\\temp",
+          "TMP": "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\runtime\\temp",
+          "CALCHEM_DATA": "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\runtime\\data",
+          "CALCHEM_RUN_DIR": "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\runtime\\external",
+          "CALCHEM_CONFIG": "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\runtime\\config.json",
+          "CARGO_HOME": "D:\\cargo",
+          "RUSTUP_HOME": "D:\\rustup",
+          "NUMBA_CACHE_DIR": "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\runtime\\numba",
+          "MPLCONFIGDIR": "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\runtime\\matplotlib"
+        }
+      },
+      "seconds": 0.027788999999756925
+    },
+    "import_and_extension": {
+      "executed": true,
+      "value": {
+        "package": "E:\\YDW\\Trae_Gaussian\\calchem\\__init__.py",
+        "package_version": "0.1.0",
+        "extension": "E:\\YDW\\Trae_Gaussian\\calchem\\_core.pyd",
+        "extension_sha256": "64b681e8f5fc9ebc7ec43e834f288dd1cdefb6ec25dfb516bd8f3c5ece786c89",
+        "signature": "(symbols, geometry_bohr, charge=0, multiplicity=1, method='rhf', basis='sto-3g', max_iter=100, conv_energy=1e-10, conv_density=1e-08)",
+        "exports": [
+          "PyScfWavefunction",
+          "run_single_point"
+        ]
+      },
+      "seconds": 0.00047029999950609636
+    },
+    "four_molecule_baselines": {
+      "executed": true,
+      "value": {
+        "H2": {
+          "rust_energy": -1.1167143250625706,
+          "python_energy": -1.1167143250626226,
+          "rust_minus_reference": 4.2943426592501055e-13,
+          "rust_minus_python": 5.1958437552457326e-14,
+          "python_converged": true,
+          "rust_converged": true,
+          "service_status": "succeeded",
+          "service_actual_method": "RHF-Rust",
+          "service_orbitals": 0,
+          "service_homo": null
+        },
+        "He": {
+          "rust_energy": -2.8077839575399755,
+          "python_energy": -2.807783957539976,
+          "rust_minus_reference": 2.4424906541753444e-14,
+          "rust_minus_python": 4.440892098500626e-16,
+          "python_converged": true,
+          "rust_converged": true,
+          "service_status": "succeeded",
+          "service_actual_method": "RHF-Rust",
+          "service_orbitals": 0,
+          "service_homo": null
+        },
+        "Ne": {
+          "rust_energy": -126.60452917149092,
+          "python_energy": -126.60452917149101,
+          "rust_minus_reference": 9.08073616301408e-12,
+          "rust_minus_python": 8.526512829121202e-14,
+          "python_converged": true,
+          "rust_converged": true,
+          "service_status": "succeeded",
+          "service_actual_method": "RHF-Rust",
+          "service_orbitals": 0,
+          "service_homo": null
+        },
+        "H2O": {
+          "rust_energy": -74.69531911423606,
+          "python_energy": -74.69531917713154,
+          "rust_minus_reference": 1.2789769243681803e-13,
+          "rust_minus_python": 6.289548082349938e-08,
+          "python_converged": true,
+          "rust_converged": true,
+          "service_status": "succeeded",
+          "service_actual_method": "RHF-Rust",
+          "service_orbitals": 0,
+          "service_homo": null
+        }
+      },
+      "seconds": 4.758342200000698
+    },
+    "631g_direct_bridge": {
+      "executed": true,
+      "value": {
+        "H2": -1.1267427044518645,
+        "H2O": -75.8002775095878
+      },
+      "seconds": 0.0146524000010686
+    },
+    "rust_option_forwarding": {
+      "executed": true,
+      "value": {
+        "direct_max_iter_1_error": "ValueError('SCF failed to converge in 1 iterations (dE=inf, rmsD=6.473e-1)')",
+        "routed_status": "succeeded",
+        "routed_iterations": 9,
+        "routed_actual_method": "RHF-Rust"
+      },
+      "seconds": 0.008991499998955987
+    },
+    "task_plumbing": {
+      "executed": true,
+      "value": {
+        "environment_CALCHEM_DATA": "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\runtime\\data",
+        "default_service_data_root": "D:\\CalChemData",
+        "submitted_job_state": "queued",
+        "dispatcher_uses_service_queue": false,
+        "after_cancel_and_success_state": "cancel_requested",
+        "queue_running_id_after_completion": null,
+        "default_config_data_root": "D:\\CalChemData"
+      },
+      "seconds": 0.0368586000004143
+    },
+    "parser_adapter_diagnostics": {
+      "executed": true,
+      "value": {
+        "two_SCF_lines_selected_energy": -1.1,
+        "expected_last_energy": -1.2,
+        "standalone_frequency_parser": [
+          100.0,
+          200.0,
+          300.0
+        ],
+        "gaussian_frequency_result_status": "succeeded",
+        "gaussian_frequency_result_values": null,
+        "orca_result_error": "NameError(\"name 'dipole_mag' is not defined\")",
+        "note": "Synthetic parser/adapter diagnostics only; no external quantum program was launched."
+      },
+      "seconds": 0.002942600000096718
+    },
+    "h2_numeric_gradient_and_optimization": {
+      "executed": true,
+      "value": {
+        "gradient_hartree_per_bohr": [
+          [
+            0.0,
+            0.0,
+            -0.02845303254034315
+          ],
+          [
+            0.0,
+            0.0,
+            0.028453032540232126
+          ]
+        ],
+        "gradient_total": [
+          0.0,
+          0.0,
+          -1.1102230246251565e-13
+        ],
+        "optimization_status": "succeeded",
+        "energy": -1.117505885113077,
+        "bond_angstrom": 0.7122315823248843,
+        "implementation": "Python finite differences + SciPy BFGS; Rust single-point energy route"
+      },
+      "seconds": 0.3588644999999815
+    }
+  },
+  "pytest_exit_code": 3
+}

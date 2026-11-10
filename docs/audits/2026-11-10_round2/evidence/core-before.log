@@ -1,0 +1,6 @@
+{"probe":"sparse_vs_dense","n_ao":65,"entries":8385,"exx":0,"max_abs":9.99200722162640886e-16}
+{"probe":"sparse_vs_dense","n_ao":65,"entries":8385,"exx":0.2,"max_abs":7.77156117237609578e-16}
+{"probe":"sparse_vs_dense","n_ao":65,"entries":8385,"exx":1,"max_abs":6.10622663543836097e-16}
+{"probe":"sparse_general_K","max_abs":6.66133814775093924e-16}
+{"probe":"diffuse_grid_charge","exponent":0.0001,"exact":1.0,"integrated":2.48674400798049700e-1}
+{"probe":"solvent_optimizer_gradient_fd","step":0.0001,"max_abs":8.56660829462174700e-3}

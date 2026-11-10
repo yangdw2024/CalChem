@@ -1,0 +1,3369 @@
+{
+  "files": {
+    "crates/calchem-basis/Cargo.toml": 10,
+    "crates/calchem-dft/Cargo.toml": 12,
+    "crates/calchem-grad/Cargo.toml": 13,
+    "crates/calchem-int/Cargo.toml": 10,
+    "crates/calchem-model/Cargo.toml": 8,
+    "crates/calchem-opt/Cargo.toml": 15,
+    "crates/calchem-prop/Cargo.toml": 12,
+    "crates/calchem-py/Cargo.toml": 24,
+    "crates/calchem-scf/Cargo.toml": 14,
+    "crates/calchem-solv/Cargo.toml": 17,
+    "crates/calchem-tddft/Cargo.toml": 14,
+    "crates/calchem-tensor/Cargo.toml": 9,
+    "crates/calchem-vib/Cargo.toml": 16,
+    "crates/calchem-vib/src/hessian.rs": 243,
+    "crates/calchem-vib/src/lib.rs": 66,
+    "crates/calchem-vib/src/masses.rs": 132,
+    "crates/calchem-vib/src/modes.rs": 336,
+    "crates/calchem-vib/src/thermo.rs": 230,
+    "crates/calchem-vib/tests/frequencies_and_thermo.rs": 163,
+    "crates/calchem-tensor/src/lib.rs": 359,
+    "crates/calchem-tddft/src/davidson.rs": 509,
+    "crates/calchem-tddft/src/lib.rs": 881,
+    "crates/calchem-tddft/tests/tddft_and_cis.rs": 582,
+    "crates/calchem-solv/src/cavity.rs": 203,
+    "crates/calchem-solv/src/gradient.rs": 208,
+    "crates/calchem-solv/src/lib.rs": 27,
+    "crates/calchem-solv/src/matrix.rs": 183,
+    "crates/calchem-solv/src/potential.rs": 209,
+    "crates/calchem-solv/src/scrf.rs": 630,
+    "crates/calchem-solv/src/solvent.rs": 183,
+    "crates/calchem-solv/tests/pcm_and_scrf.rs": 284,
+    "crates/calchem-scf/src/diis.rs": 86,
+    "crates/calchem-scf/src/lib.rs": 11,
+    "crates/calchem-scf/src/rhf.rs": 275,
+    "crates/calchem-scf/src/rks.rs": 326,
+    "crates/calchem-scf/src/uhf.rs": 295,
+    "crates/calchem-scf/src/uks.rs": 363,
+    "crates/calchem-scf/tests/kohn_sham_dft.rs": 162,
+    "crates/calchem-scf/tests/polarization_and_ecp.rs": 211,
+    "crates/calchem-scf/tests/rhf_631g.rs": 138,
+    "crates/calchem-scf/tests/rhf_sto3g.rs": 125,
+    "crates/calchem-scf/tests/uhf.rs": 133,
+    "crates/calchem-py/src/lib.rs": 3062,
+    "crates/calchem-prop/src/esp.rs": 567,
+    "crates/calchem-prop/src/lib.rs": 685,
+    "crates/calchem-prop/src/marching_cubes.rs": 758,
+    "crates/calchem-prop/tests/esp_and_population.rs": 255,
+    "crates/calchem-prop/tests/isosurface_and_cube.rs": 387,
+    "crates/calchem-opt/src/irc.rs": 390,
+    "crates/calchem-opt/src/lib.rs": 574,
+    "crates/calchem-opt/src/prfo.rs": 469,
+    "crates/calchem-opt/tests/dft_optimization.rs": 65,
+    "crates/calchem-opt/tests/ecp_optimization.rs": 42,
+    "crates/calchem-opt/tests/optimization.rs": 91,
+    "crates/calchem-opt/tests/ts_and_irc.rs": 94,
+    "crates/calchem-opt/tests/uhf_optimization.rs": 70,
+    "crates/calchem-model/src/lib.rs": 484,
+    "crates/calchem-int/src/boys.rs": 160,
+    "crates/calchem-int/src/ecp.rs": 862,
+    "crates/calchem-int/src/eri.rs": 304,
+    "crates/calchem-int/src/lib.rs": 449,
+    "crates/calchem-int/src/one_electron.rs": 149,
+    "crates/calchem-int/src/primitive.rs": 174,
+    "crates/calchem-int/src/screening.rs": 77,
+    "crates/calchem-int/src/symmetry.rs": 35,
+    "crates/calchem-int/tests/boys.rs": 71,
+    "crates/calchem-int/tests/eri_reference.rs": 57,
+    "crates/calchem-int/tests/eri_symmetry.rs": 55,
+    "crates/calchem-int/tests/one_electron.rs": 213,
+    "crates/calchem-int/tests/screening_and_parallel.rs": 92,
+    "crates/calchem-grad/src/derivatives.rs": 536,
+    "crates/calchem-grad/src/lib.rs": 450,
+    "crates/calchem-grad/tests/dft_gradient.rs": 140,
+    "crates/calchem-grad/tests/polarization_and_ecp_gradient.rs": 200,
+    "crates/calchem-grad/tests/rhf_gradient.rs": 239,
+    "crates/calchem-grad/tests/uhf_gradient.rs": 109,
+    "crates/calchem-dft/src/ao_grid.rs": 320,
+    "crates/calchem-dft/src/d3.rs": 628,
+    "crates/calchem-dft/src/fxc.rs": 402,
+    "crates/calchem-dft/src/grid.rs": 578,
+    "crates/calchem-dft/src/lebedev.rs": 283,
+    "crates/calchem-dft/src/lib.rs": 22,
+    "crates/calchem-dft/src/vxc.rs": 643,
+    "crates/calchem-dft/src/xc.rs": 975,
+    "crates/calchem-dft/tests/d3_dispersion.rs": 115,
+    "crates/calchem-basis/src/lib.rs": 543,
+    "crates/calchem-basis/src/normalization.rs": 97,
+    "crates/calchem-basis/tests/basis_normalization.rs": 114,
+    "calchem/cli.py": 166,
+    "calchem/molforge_bridge.py": 16,
+    "calchem/__init__.py": 52,
+    "calchem/__main__.py": 6,
+    "calchem/api/high_level.py": 567,
+    "calchem/api/service.py": 161,
+    "calchem/api/__init__.py": 7,
+    "calchem/backends/external.py": 122,
+    "calchem/backends/gaussian.py": 394,
+    "calchem/backends/native.py": 1326,
+    "calchem/backends/orca.py": 199,
+    "calchem/backends/pyscf.py": 37,
+    "calchem/backends/rest.py": 318,
+    "calchem/backends/xtb.py": 31,
+    "calchem/backends/__init__.py": 8,
+    "calchem/basis/basis_data.py": 1595,
+    "calchem/basis/basis_set.py": 138,
+    "calchem/basis/gto.py": 229,
+    "calchem/basis/library.py": 48,
+    "calchem/basis/__init__.py": 11,
+    "calchem/config/loader.py": 156,
+    "calchem/config/models.py": 61,
+    "calchem/config/__init__.py": 6,
+    "calchem/core/calculator.py": 170,
+    "calchem/core/capabilities.py": 47,
+    "calchem/core/errors.py": 47,
+    "calchem/core/periodic_table.py": 66,
+    "calchem/core/request.py": 158,
+    "calchem/core/result.py": 188,
+    "calchem/core/units.py": 22,
+    "calchem/core/__init__.py": 58,
+    "calchem/dft/d3.py": 235,
+    "calchem/dft/dft.py": 632,
+    "calchem/dft/fock.py": 254,
+    "calchem/dft/functionals.py": 1169,
+    "calchem/dft/grid.py": 608,
+    "calchem/excited/cis.py": 113,
+    "calchem/excited/spectra.py": 51,
+    "calchem/excited/tddft.py": 56,
+    "calchem/excited/tddft_native.py": 371,
+    "calchem/excited/__init__.py": 9,
+    "calchem/gpu/fock.py": 42,
+    "calchem/gpu/__init__.py": 6,
+    "calchem/grad/analytical.py": 348,
+    "calchem/grad/dft_grad.py": 65,
+    "calchem/grad/finite_difference.py": 64,
+    "calchem/grad/hf_grad.py": 78,
+    "calchem/grad/__init__.py": 7,
+    "calchem/gui/main_window.py": 354,
+    "calchem/gui/worker.py": 66,
+    "calchem/gui/__init__.py": 1,
+    "calchem/gui/__main__.py": 6,
+    "calchem/integrals/direct_scf.py": 254,
+    "calchem/integrals/one_electron.py": 901,
+    "calchem/integrals/ri.py": 515,
+    "calchem/integrals/screening.py": 122,
+    "calchem/integrals/two_electron.py": 593,
+    "calchem/integrals/__init__.py": 76,
+    "calchem/io/checkpoint.py": 122,
+    "calchem/io/input.py": 239,
+    "calchem/io/output.py": 62,
+    "calchem/io/project.py": 115,
+    "calchem/io/__init__.py": 15,
+    "calchem/jobs/dispatcher.py": 98,
+    "calchem/jobs/global_lock.py": 128,
+    "calchem/jobs/models.py": 76,
+    "calchem/jobs/queue.py": 93,
+    "calchem/jobs/__init__.py": 8,
+    "calchem/md/ff_fit.py": 47,
+    "calchem/md/gromacs_io.py": 55,
+    "calchem/md/__init__.py": 7,
+    "calchem/mol/geometry.py": 169,
+    "calchem/mol/molecule.py": 270,
+    "calchem/mol/symmetry.py": 72,
+    "calchem/mol/__init__.py": 9,
+    "calchem/oniom/__init__.py": 193,
+    "calchem/opt/berny.py": 21,
+    "calchem/opt/bfgs.py": 113,
+    "calchem/opt/irc.py": 202,
+    "calchem/opt/numeric_optimizer.py": 114,
+    "calchem/opt/optimizer.py": 80,
+    "calchem/opt/ts_search.py": 330,
+    "calchem/opt/__init__.py": 9,
+    "calchem/post_hf/casscf.py": 602,
+    "calchem/post_hf/ccd.py": 193,
+    "calchem/post_hf/ccsd.py": 328,
+    "calchem/post_hf/ccsd_t.py": 127,
+    "calchem/post_hf/mp2.py": 157,
+    "calchem/post_hf/mp4.py": 452,
+    "calchem/post_hf/__init__.py": 7,
+    "calchem/props/charges.py": 41,
+    "calchem/props/cube.py": 194,
+    "calchem/props/isosurface.py": 449,
+    "calchem/props/multipole.py": 33,
+    "calchem/props/multipole_native.py": 278,
+    "calchem/props/population.py": 97,
+    "calchem/props/__init__.py": 36,
+    "calchem/scf/dft.py": 453,
+    "calchem/scf/diis.py": 206,
+    "calchem/scf/guess.py": 198,
+    "calchem/scf/hf.py": 682,
+    "calchem/scf/results.py": 92,
+    "calchem/scf/__init__.py": 22,
+    "calchem/solvent/pcm.py": 168,
+    "calchem/solvent/smd.py": 36,
+    "calchem/solvent/__init__.py": 7,
+    "calchem/tests/test_debug.py": 50,
+    "calchem/tests/test_h2_sto3g.py": 147,
+    "calchem/tests/test_scf.py": 82,
+    "calchem/tests/test_scf_direct.py": 119,
+    "calchem/utils/accelerate.py": 281,
+    "calchem/utils/config.py": 51,
+    "calchem/utils/constants.py": 135,
+    "calchem/utils/exceptions.py": 26,
+    "calchem/utils/logging_utils.py": 45,
+    "calchem/utils/units.py": 61,
+    "calchem/utils/__init__.py": 67,
+    "calchem/vib/frequency.py": 164,
+    "calchem/vib/numeric_frequency.py": 162,
+    "calchem/vib/__init__.py": 6,
+    "calchem/workflows/opv.py": 2046,
+    "calchem/workflows/__init__.py": 29,
+    "calchem/backends/parsers/base.py": 54,
+    "calchem/backends/parsers/__init__.py": 1,
+    "tests/acceptance.py": 162,
+    "tests/conftest.py": 50,
+    "tests/__init__.py": 1,
+    "tests/debug/calc_eri_ref.py": 319,
+    "tests/debug/debug_eri.py": 132,
+    "tests/debug/debug_h2o.py": 117,
+    "tests/debug/debug_ne_detail.py": 121,
+    "tests/debug/debug_ne_integrals.py": 235,
+    "tests/debug/debug_spherical.py": 1424,
+    "tests/debug/debug_vrr.py": 343,
+    "tests/debug/debug_vrr_coeff.py": 109,
+    "tests/debug/verify_d_eri.py": 253,
+    "tests/debug/verify_eri_analytic.py": 429,
+    "tests/debug/verify_eri_spherical.py": 60,
+    "tests/debug/verify_eri_systematic.py": 204,
+    "tests/debug/verify_integrals.py": 152,
+    "tests/debug/verify_pp_eri.py": 57,
+    "tests/debug/verify_pp_eri2.py": 97,
+    "tests/dft/test_grid_h.py": 19,
+    "tests/dft/test_grid_h2.py": 20,
+    "tests/dft/test_grid_he.py": 20,
+    "tests/dft/test_grid_phi.py": 24,
+    "tests/dft/test_grid_phi2.py": 25,
+    "tests/dft/test_grid_verify.py": 23,
+    "tests/dft/test_lda_convergence.py": 24,
+    "tests/dft/test_lda_debug.py": 61,
+    "tests/dft/test_lda_no_diis.py": 15,
+    "tests/dft/test_lda_quick.py": 15,
+    "tests/dft/test_lda_vs_pbe.py": 74,
+    "tests/dft/test_lebedev.py": 8,
+    "tests/dft/test_pbe_convergence.py": 24,
+    "tests/dft/test_pbe_diagnose.py": 64,
+    "tests/dft/test_pbe_gamma_diagnose.py": 55,
+    "tests/dft/test_pbe_quick.py": 16,
+    "tests/dft/test_tpss_fix.py": 25,
+    "tests/dft/test_vwn5_num.py": 80,
+    "tests/dft/test_vxc_detailed.py": 64,
+    "tests/dft/test_vxc_direct.py": 76,
+    "tests/dft/test_vxc_sign.py": 58,
+    "tests/external/__init__.py": 1,
+    "tests/gui/test_gui_fast.py": 73,
+    "tests/gui/test_gui_methods.py": 72,
+    "tests/gui/__init__.py": 1,
+    "tests/integrals/test_comprehensive.py": 118,
+    "tests/integrals/test_eri.py": 37,
+    "tests/integrals/test_eri_detailed.py": 171,
+    "tests/integrals/test_eri_index.py": 64,
+    "tests/integrals/test_eri_verify.py": 222,
+    "tests/integrals/test_he_eri.py": 56,
+    "tests/integrals/test_integral_check.py": 67,
+    "tests/integrals/test_jk_verify.py": 93,
+    "tests/integrals/test_kinetic_check.py": 181,
+    "tests/integrals/test_nuclear_check.py": 63,
+    "tests/integrals/test_o_eri.py": 53,
+    "tests/integrals/test_p_1e.py": 63,
+    "tests/integrals/test_p_eri.py": 143,
+    "tests/integrals/test_p_eri_check.py": 304,
+    "tests/numerical/test_scf.py": 40,
+    "tests/numerical/__init__.py": 1,
+    "tests/parser/__init__.py": 1,
+    "tests/posthf/test_audit.py": 133,
+    "tests/posthf/test_ccsd_t_convergence.py": 30,
+    "tests/posthf/test_regression.py": 313,
+    "tests/scf/test_be_atom.py": 70,
+    "tests/scf/test_diis.py": 66,
+    "tests/scf/test_energy_formula.py": 71,
+    "tests/scf/test_fock_eig.py": 57,
+    "tests/scf/test_guess.py": 28,
+    "tests/scf/test_h2.py": 61,
+    "tests/scf/test_h2o.py": 60,
+    "tests/scf/test_h2o_analysis.py": 152,
+    "tests/scf/test_h2o_bohr.py": 68,
+    "tests/scf/test_h2o_diis_debug.py": 93,
+    "tests/scf/test_h2o_direct.py": 61,
+    "tests/scf/test_h2o_integrals.py": 64,
+    "tests/scf/test_h2o_nodiis.py": 26,
+    "tests/scf/test_h2o_quick.py": 51,
+    "tests/scf/test_h2_full.py": 66,
+    "tests/scf/test_h2_manual.py": 105,
+    "tests/scf/test_h2_sto3g.py": 154,
+    "tests/scf/test_he_atom.py": 65,
+    "tests/scf/test_hf_vs_dft.py": 36,
+    "tests/scf/test_init_density.py": 38,
+    "tests/scf/test_manual_scf.py": 67,
+    "tests/scf/test_ne_atom.py": 32,
+    "tests/scf/test_o_atom.py": 50,
+    "tests/scf/test_quick.py": 35,
+    "tests/scf/test_rhf_quick.py": 15,
+    "tests/scf/test_scf_energy.py": 140,
+    "tests/scratch/test_dot.py": 31,
+    "tests/scratch/test_eig.py": 21,
+    "tests/scratch/test_eigh.py": 27,
+    "tests/scratch/test_einsum.py": 38,
+    "tests/scratch/test_flush.py": 26,
+    "tests/scratch/test_matmul.py": 31,
+    "tests/scratch/test_matrix.py": 39,
+    "tests/scratch/test_numpy_config.py": 5,
+    "tests/scratch/test_ortho_detail.py": 32,
+    "tests/scratch/test_pieces.py": 45,
+    "tests/scratch/test_simple.py": 18,
+    "tests/scratch/test_steps.py": 79,
+    "tests/scratch/_analyze_mp3.py": 177,
+    "tests/scratch/_correct_mp3.py": 287,
+    "tests/scratch/_debug_ccsd.py": 51,
+    "tests/scratch/_debug_dft.py": 33,
+    "tests/scratch/_debug_eri.py": 57,
+    "tests/scratch/_decompose_mp3.py": 196,
+    "tests/scratch/_full_mp3.py": 314,
+    "tests/scratch/_test_mp.py": 657,
+    "tests/scratch/_validate_mp3.py": 261,
+    "tests/unit/test_adapters.py": 128,
+    "tests/unit/test_atoms.py": 82,
+    "tests/unit/test_basis_norm.py": 28,
+    "tests/unit/test_core_rust.py": 179,
+    "tests/unit/test_d3_and_solv_gradient.py": 130,
+    "tests/unit/test_dft_rust.py": 267,
+    "tests/unit/test_esp_and_population.py": 243,
+    "tests/unit/test_gto_detail.py": 41,
+    "tests/unit/test_imports.py": 40,
+    "tests/unit/test_io.py": 54,
+    "tests/unit/test_isosurface_stream.py": 211,
+    "tests/unit/test_molecule.py": 55,
+    "tests/unit/test_native_backend.py": 188,
+    "tests/unit/test_opv_cam_b3lyp_and_dimer.py": 176,
+    "tests/unit/test_opv_workflow.py": 175,
+    "tests/unit/test_request_validation.py": 99,
+    "tests/unit/test_service_and_queue.py": 79,
+    "tests/unit/test_solvation_and_scrf.py": 194,
+    "tests/unit/test_tddft_rust.py": 246,
+    "tests/unit/test_ts_and_irc.py": 208,
+    "tests/unit/test_vibration_and_thermo.py": 224,
+    "tests/unit/__init__.py": 1,
+    "tests/debug/old_cli_package/main.py": 278,
+    "tests/debug/old_cli_package/__init__.py": 3,
+    "tools/dev/benchmark_baseline.py": 186,
+    "tools/dev/benchmark_multi_program.py": 229,
+    "tools/dev/benchmark_opv_pv.py": 259,
+    "tools/dev/fetch_bse_basis.py": 205,
+    "tools/reference/gen_integral_refs.py": 111,
+    ".github/workflows/ci.yml": 57,
+    ".github/workflows/release_pypi.yml": 108
+  },
+  "hits": {
+    "unsafe_or_leak": [],
+    "native_external_or_simd": [],
+    "synchronization": [
+      {
+        "file": "crates/calchem-prop/src/marching_cubes.rs",
+        "line": 2,
+        "text": "use std::sync::OnceLock;",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/src/marching_cubes.rs",
+        "line": 241,
+        "text": "static TABLES: OnceLock<McTables> = OnceLock::new();",
+        "rust_test_block": true
+      },
+      {
+        "file": "crates/calchem-opt/src/irc.rs",
+        "line": 80,
+        "text": "/// Arc length s in mass-weighted coordinates (amu^(1/2) * Bohr).",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-int/src/ecp.rs",
+        "line": 12,
+        "text": "//!   computed once (`OnceLock`) outside radial loops, guaranteeing machine-precision rotational",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-int/src/ecp.rs",
+        "line": 21,
+        "text": "use std::sync::OnceLock;",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-int/src/ecp.rs",
+        "line": 42,
+        "text": "static ECP_GRIDS: OnceLock<EcpGrids> = OnceLock::new();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-dft/src/lebedev.rs",
+        "line": 9,
+        "text": "use std::sync::OnceLock;",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-dft/src/lebedev.rs",
+        "line": 39,
+        "text": "static G: OnceLock<Vec<([f64; 3], f64)>> = OnceLock::new();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-dft/src/lebedev.rs",
+        "line": 43,
+        "text": "static G: OnceLock<Vec<([f64; 3], f64)>> = OnceLock::new();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-dft/src/lebedev.rs",
+        "line": 47,
+        "text": "static G: OnceLock<Vec<([f64; 3], f64)>> = OnceLock::new();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-dft/src/lebedev.rs",
+        "line": 51,
+        "text": "static G: OnceLock<Vec<([f64; 3], f64)>> = OnceLock::new();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-dft/src/lebedev.rs",
+        "line": 55,
+        "text": "static G: OnceLock<Vec<([f64; 3], f64)>> = OnceLock::new();",
+        "rust_test_block": false
+      }
+    ],
+    "molecular_identity": [
+      {
+        "file": "crates/calchem-vib/tests/frequencies_and_thermo.rs",
+        "line": 7,
+        "text": "fn water_mol() -> Molecule {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-vib/tests/frequencies_and_thermo.rs",
+        "line": 21,
+        "text": "fn test_water_b3lyp_vibrational_frequencies_and_thermo() {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-vib/tests/frequencies_and_thermo.rs",
+        "line": 22,
+        "text": "let mol = water_mol();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-vib/tests/frequencies_and_thermo.rs",
+        "line": 28,
+        "text": "symmetry_number: Some(2), // C2v water",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-vib/tests/frequencies_and_thermo.rs",
+        "line": 47,
+        "text": "// Water is non-linear: exactly 3N - 6 = 3 vibrational modes",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-vib/tests/frequencies_and_thermo.rs",
+        "line": 83,
+        "text": "assert!(bend.ir_intensity_km_mol > 1.0, \"Water bending mode has strong IR intensity\");",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-vib/tests/frequencies_and_thermo.rs",
+        "line": 89,
+        "text": "\"Water bending mode IR intensity should exceed symmetric stretch\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-tddft/tests/tddft_and_cis.rs",
+        "line": 12,
+        "text": "fn water_mol(shift_ang: [f64; 3]) -> Molecule {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-tddft/tests/tddft_and_cis.rs",
+        "line": 34,
+        "text": "let mol = water_mol([0.0, 0.0, 0.0]);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-tddft/tests/tddft_and_cis.rs",
+        "line": 130,
+        "text": "let mol = water_mol([0.0, 0.0, 0.0]);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-tddft/tests/tddft_and_cis.rs",
+        "line": 363,
+        "text": "let mol = water_mol([0.0, 0.0, 0.0]);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-tddft/tests/tddft_and_cis.rs",
+        "line": 420,
+        "text": "let mol_shifted = water_mol([3.4, -2.1, 4.7]);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/scrf.rs",
+        "line": 40,
+        "text": "solvent: Solvent::water(),",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 47,
+        "text": "/// Canonical solvent identifier (e.g. `\"water\"`, `\"chlorobenzene\"`).",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 61,
+        "text": "Self::water()",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 86,
+        "text": "/// Water (H2O, standard aqueous medium).",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 87,
+        "text": "pub fn water() -> Self {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 88,
+        "text": "Self::custom(\"water\", 78.3553, 1.3330, 72.8, 1.385)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 121,
+        "text": "/// Chlorobenzene (C6H5Cl, standard OPV thin-film processing solvent).",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 122,
+        "text": "pub fn chlorobenzene() -> Self {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 123,
+        "text": "Self::custom(\"chlorobenzene\", 5.62, 1.5248, 33.6, 2.72)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 136,
+        "text": "/// Benzene (C6H6, nonpolar aromatic solvent).",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 137,
+        "text": "pub fn benzene() -> Self {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 138,
+        "text": "Self::custom(\"benzene\", 2.2706, 1.5011, 28.9, 2.63)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 161,
+        "text": "\"water\" | \"h2o\" | \"aqueous\" => Some(Self::water()),",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 168,
+        "text": "\"chlorobenzene\" | \"cb\" | \"phcl\" => Some(Self::chlorobenzene()),",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/src/solvent.rs",
+        "line": 171,
+        "text": "\"benzene\" | \"phh\" => Some(Self::benzene()),",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 44,
+        "text": "// Test across two solvents: water (eps = 78.36) and chlorobenzene (eps = 5.62)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 46,
+        "text": "(Solvent::water(), 78.3553),",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 47,
+        "text": "(Solvent::chlorobenzene(), 5.62),",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 82,
+        "text": "fn test_water_scrf_rhf_and_solvent_polarity_ordering() {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 83,
+        "text": "let water = Molecule::new(",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 93,
+        "text": "let basis = BasisSet::from_name(\"sto-3g\", &water).expect(\"Failed to load sto-3g for water\");",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 102,
+        "text": "let gas_wf = rhf(&water, &basis, &scf_opts).expect(\"Gas RHF failed\");",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 104,
+        "text": "// 2. High dielectric solvent (water, eps = 78.36)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 105,
+        "text": "let water_opts = SolvationOptions {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 106,
+        "text": "solvent: Solvent::water(),",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 116,
+        "text": "let water_scrf = run_scrf_rhf(&water, &basis, &scf_opts, &water_opts)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 117,
+        "text": ".expect(\"Water SCRF RHF failed\");",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 118,
+        "text": "assert!(water_scrf.converged);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 119,
+        "text": "assert!(water_scrf.delta_g_elec_kcal_mol < 0.0);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 121,
+        "text": "\"Water in Water: Gas = {:.6} Eh, Solv = {:.6} Eh, dG_elec = {:.2} kcal/mol, dG_CDS = {:.2} kcal/mol, dG_tot = {:.2} kcal/mol\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 123,
+        "text": "water_scrf.solvated_energy,",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 124,
+        "text": "water_scrf.delta_g_elec_kcal_mol,",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 125,
+        "text": "water_scrf.delta_g_cds_kcal_mol,",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 126,
+        "text": "water_scrf.delta_g_solv_kcal_mol",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 129,
+        "text": "// 3. Medium dielectric OPV solvent (chlorobenzene, eps = 5.62)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 131,
+        "text": "solvent: Solvent::chlorobenzene(),",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 141,
+        "text": "let cb_scrf = run_scrf_rhf(&water, &basis, &scf_opts, &cb_opts)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 142,
+        "text": ".expect(\"Chlorobenzene SCRF RHF failed\");",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 145,
+        "text": "\"Water in Chlorobenzene: Solv = {:.6} Eh, dG_elec = {:.2} kcal/mol, dG_tot = {:.2} kcal/mol\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 151,
+        "text": "// Physical verification: electrostatic stabilization in high-dielectric water must be strictly",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 152,
+        "text": "// more stabilizing (more negative) than in low-dielectric chlorobenzene!",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 154,
+        "text": "water_scrf.delta_g_elec_kcal_mol < cb_scrf.delta_g_elec_kcal_mol,",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 155,
+        "text": "\"Water dG_elec ({:.2}) must be more negative than Chlorobenzene ({:.2})\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 156,
+        "text": "water_scrf.delta_g_elec_kcal_mol,",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 162,
+        "text": "water_scrf.total_surface_charge.abs() < 1e-10,",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 164,
+        "text": "water_scrf.total_surface_charge",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 169,
+        "text": "fn test_water_scrf_rks_b3lyp() {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 170,
+        "text": "let water = Molecule::new(",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 180,
+        "text": "let basis = BasisSet::from_name(\"sto-3g\", &water).expect(\"Failed to load sto-3g for water\");",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 189,
+        "text": "solvent: Solvent::water(),",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 200,
+        "text": "let res = run_scrf_rks(&water, &basis, &scf_opts, &solv_opts, XcFunctional::B3lyp)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 201,
+        "text": ".expect(\"B3LYP SCRF failed for water\");",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 207,
+        "text": "\"B3LYP SCRF Water: Solvated E = {:.6} Eh, dG_elec = {:.2} kcal/mol, SASA = {:.2} A^2, iters = {}\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 217,
+        "text": "let water = Molecule::new(",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 226,
+        "text": "let basis = BasisSet::from_name(\"sto-3g\", &water).unwrap();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 230,
+        "text": "let res_rhf = calchem_solv::run_scrf(&water, &basis, &scf_opts, &solv_opts, \"rhf\", None)",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 234,
+        "text": "let res_dft = calchem_solv::run_scrf(&water, &basis, &scf_opts, &solv_opts, \"b3lyp\", Some(XcFunctional::B3lyp))",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 241,
+        "text": "let water = Molecule::new(",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 250,
+        "text": "let basis = BasisSet::from_name(\"sto-3g\", &water).unwrap();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 252,
+        "text": "let wf = calchem_scf::rhf(&water, &basis, &scf_opts).unwrap();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 259,
+        "text": "let solv = Solvent::water();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 266,
+        "text": "let grad = calchem_solv::run_pcm_gradient(&water, &basis, &density, &solv, Some(&cavity_opts))",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-solv/tests/pcm_and_scrf.rs",
+        "line": 276,
+        "text": "// Net force on neutral water should be small",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/kohn_sham_dft.rs",
+        "line": 8,
+        "text": "fn water_standard() -> Molecule {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/kohn_sham_dft.rs",
+        "line": 40,
+        "text": "fn test_closed_shell_uks_matches_rks_across_all_functionals_and_water_b3lyp_benchmark() {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/kohn_sham_dft.rs",
+        "line": 41,
+        "text": "let mol = water_standard();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/polarization_and_ecp.rs",
+        "line": 5,
+        "text": "fn water_angstrom() -> Molecule {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/polarization_and_ecp.rs",
+        "line": 23,
+        "text": "fn test_water_631gd_and_631gdp_variational_hierarchy_and_literature_energy() {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/polarization_and_ecp.rs",
+        "line": 24,
+        "text": "let mol = water_angstrom();",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/polarization_and_ecp.rs",
+        "line": 59,
+        "text": "// Standard Pople RHF/6-31G(d) (6D Cartesian) water energy at experimental geometry ~ -76.01075 Eh",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/polarization_and_ecp.rs",
+        "line": 62,
+        "text": "\"Unexpected RHF/6-31G(d) water energy: {}\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-py/src/lib.rs",
+        "line": 2664,
+        "text": "solvent=\"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-py/src/lib.rs",
+        "line": 2769,
+        "text": "solvent=\"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-py/src/lib.rs",
+        "line": 2945,
+        "text": "solvent=\"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/src/marching_cubes.rs",
+        "line": 11,
+        "text": "/// Single-lobe watertight triangle mesh extracted by Consistent Marching Cubes.",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/src/marching_cubes.rs",
+        "line": 310,
+        "text": "/// Extracts a single watertight Marching Cubes isosurface mesh from a `(nz, ny, nx)` scalar grid.",
+        "rust_test_block": true
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 13,
+        "text": "fn water(charge: i32, mult: usize) -> Molecule {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 58,
+        "text": "let mol = water(0, 1);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 111,
+        "text": "let mol = water(0, 1);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 137,
+        "text": "let cat = water(1, 2);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 174,
+        "text": "let mol = water(0, 1);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 183,
+        "text": "// Literature RHF/6-31G(d) Mulliken charge of O in water ~ -0.87 e.",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 188,
+        "text": "let cat = water(1, 2);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 221,
+        "text": "fn test_water_esp_mapped_isodensity_surface_and_ccesp_roundtrip() {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 222,
+        "text": "let mol = water(0, 1);",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/esp_and_population.rs",
+        "line": 229,
+        "text": "// Water 0.001 a.u. surface: lone-pair minimum ~ -0.06 Eh/e, O-H hydrogen maximum ~ +0.07 Eh/e.",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/isosurface_and_cube.rs",
+        "line": 155,
+        "text": "fn test_f_xyz_octant_nodal_saddle_disambiguation_watertight() {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/isosurface_and_cube.rs",
+        "line": 186,
+        "text": "fn test_water_631gd_homo_dual_mesh_density_cube_and_binary_protocol() {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/isosurface_and_cube.rs",
+        "line": 201,
+        "text": "// Water has 10 electrons -> 5 doubly occupied MOs -> HOMO is index 4 (out-of-plane 1b1 = 2p_x).",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/isosurface_and_cube.rs",
+        "line": 272,
+        "text": "\"Water 6-31G(d)\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-prop/tests/isosurface_and_cube.rs",
+        "line": 293,
+        "text": "// 1. Water radical cation (H2O+, doublet): spin density P_alpha - P_beta integrates to 1.0 e.",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-opt/tests/dft_optimization.rs",
+        "line": 7,
+        "text": "fn test_water_and_cation_b3lyp_geometry_optimization() {",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-int/tests/screening_and_parallel.rs",
+        "line": 30,
+        "text": "// In 6-31G water (9 shells, 171 unique quartets), Cauchy-Schwarz screening should safely skip quartets",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-dft/src/vxc.rs",
+        "line": 439,
+        "text": "fn distorted_water(atoms_override: Option<Vec<[f64; 3]>>) -> Molecule {",
+        "rust_test_block": true
+      },
+      {
+        "file": "crates/calchem-dft/src/vxc.rs",
+        "line": 483,
+        "text": "let mol = distorted_water(None);",
+        "rust_test_block": true
+      },
+      {
+        "file": "crates/calchem-dft/src/vxc.rs",
+        "line": 594,
+        "text": "let mol = distorted_water(None);",
+        "rust_test_block": true
+      },
+      {
+        "file": "crates/calchem-dft/tests/d3_dispersion.rs",
+        "line": 21,
+        "text": "assert!(energy > -0.01, \"Small water molecule dispersion should be on the order of 1e-4..1e-3 Eh, got {energy}\");",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-dft/tests/d3_dispersion.rs",
+        "line": 39,
+        "text": "// Asymmetric water molecule to test all 9 gradient components",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/cli.py",
+        "line": 83,
+        "text": "@click.option(\"--molecule\", \"-i\", help=\"分子文件路径（.xyz）或 'H2'/'water' 内置测试分子\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/cli.py",
+        "line": 103,
+        "text": "elif molecule.lower() in (\"h2\", \"water\", \"h2o\"):",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/backends/native.py",
+        "line": 1267,
+        "text": "solvent = request.solvent or request.options.get(\"solvent\", \"water\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/core/request.py",
+        "line": 155,
+        "text": "solvent: Optional[str] = Field(None, description=\"连续介质溶剂名称，如 water, chlorobenzene, thf, toluene\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/io/project.py",
+        "line": 23,
+        "text": "water.calchem/",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/solvent/pcm.py",
+        "line": 22,
+        "text": "solvent: str = \"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/solvent/pcm.py",
+        "line": 127,
+        "text": "solvent: str = \"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/solvent/pcm.py",
+        "line": 164,
+        "text": "def pcm(mf: Any, solvent: str = \"water\", solvent_model: str = \"cpcm\") -> PCM:",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/solvent/smd.py",
+        "line": 17,
+        "text": "def __init__(self, method_or_mf: Any, solvent: str = \"water\"):",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 131,
+        "text": "\"chemical_name\": \"2-(5,6-difluoro-3-oxo-2,3-dihydro-1H-inden-1-ylidene)malononitrile (IC-2F / INCN-2F)\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 161,
+        "text": "\"chemical_name\": \"Y6 (BTP-4F) full A-DA'D-A non-fullerene acceptor\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 175,
+        "text": "\"pm6_monomer\": {",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 176,
+        "text": "\"source_file\": resolve_chemdatas_file(r\"Gjf\\ydw-PM6-opt01.gjf\"),",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 177,
+        "text": "\"chemical_name\": \"PM6 (PBDB-T-2F) full donor repeat monomer (BDT-2F + 2 Thiophene + BDD + alkyl chains)\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 181,
+        "text": "\"pm6_l8bo_cluster\": {",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 182,
+        "text": "\"source_file\": resolve_chemdatas_file(r\"TH\\00cluster_PM6-L8BO-2ac_rank1_donor-BDD1_Acceptor2-NC1.log\"),",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 183,
+        "text": "\"gjf_file\": resolve_chemdatas_file(r\"TH\\00cluster_PM6-L8BO-2ac_rank1_donor-BDD1_Acceptor2-NC1(2).gjf\"),",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 184,
+        "text": "\"chemical_name\": \"MD-extracted PM6:L8-BO interfacial stacking dimer (donor-BDD1 + Acceptor2-NC1)\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 197,
+        "text": "# Authentic Gaussian 16 wB97X-D/6-31G(d,p) optimized coordinates of IC-2F (22 atoms, C13H4F2N2O)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 199,
+        "text": "_AUTHENTIC_IC_2F_SYMBOLS: List[str] = [",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 203,
+        "text": "_AUTHENTIC_IC_2F_COORDS: List[List[float]] = [",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 228,
+        "text": "# Authentic PM6 Donor-BDD1 (T-BDD-T, 32 atoms, C18H8O2S4) rigidly aligned to the XY molecular plane",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 229,
+        "text": "# Source: E:\\YDW\\ChemDatas\\TH\\00cluster_PM6-L8BO-2ac_rank1_donor-BDD1_Acceptor2-NC1(2).gjf (indices 0..23, 51..58)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 230,
+        "text": "_AUTHENTIC_DONOR_BDD1_INDICES: List[int] = [",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 238,
+        "text": "_AUTHENTIC_DONOR_BDD1_SYMBOLS: List[str] = [",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 243,
+        "text": "_AUTHENTIC_DONOR_BDD1_PLANAR_COORDS: List[List[float]] = [",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 278,
+        "text": "# Authentic L8-BO/Y6 Acceptor2-NC1 fragment (28 atoms, C17H6F2N2O)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 315,
+        "text": "# Authentic PM6:L8-BO interfacial stacking dimer (60 atoms, C35H14F2N2O3S4)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 316,
+        "text": "_AUTHENTIC_PM6_L8BO_CLUSTER_SYMBOLS: List[str] = [",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 323,
+        "text": "_AUTHENTIC_PM6_L8BO_CLUSTER_COORDS: List[List[float]] = [",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 562,
+        "text": "- `'y6_ic_ff'` / `'ic_2f'` / `'y6_terminal'`:",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 563,
+        "text": "Optimized IC-2F (INCN-2F) acceptor terminal unit (22 atoms, C13H4F2N2O) from `ydw-IC_FF.log`.",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 565,
+        "text": "Optimized BTP central core unit of Y6 (159 atoms, C60H90N4S5) from `ydw-BTP.log`.",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 566,
+        "text": "- `'y6_full'` / `'btp_4f'` / `'y6'`:",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 567,
+        "text": "Optimized full Y6 (BTP-4F) molecule (199 atoms, C86H94F4N8O2S5) from `ydw-BTP-4F.log`.",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 568,
+        "text": "- `'pm6_monomer'` / `'pm6'`:",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 569,
+        "text": "Full PM6 polymer repeat monomer (158 atoms, C68H78F2O2S8) from `ydw-PM6-opt01.gjf`.",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 570,
+        "text": "- `'pm6_l8bo_cluster'` / `'pm6_y6_md_cluster'` / `'da_cluster'`:",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 571,
+        "text": "MD-extracted PM6:L8-BO interfacial stacking dimer (60 atoms: donor-BDD1 + Acceptor2-NC1)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 572,
+        "text": "from `00cluster_PM6-L8BO-2ac_rank1_donor-BDD1_Acceptor2-NC1.log` / `.gjf`.",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 573,
+        "text": "- `'donor_bdd1'`:",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 574,
+        "text": "Authentic 32-atom PM6 Donor-BDD1 (T-BDD-T, C18H8O2S4) sub-molecule from the MD cluster.",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 576,
+        "text": "Authentic 28-atom L8-BO/Y6 Acceptor2-NC1 (C17H6F2N2O) sub-molecule from the MD cluster.",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 579,
+        "text": "if key in (\"y6_ic_ff\", \"ic_2f\", \"ic2f\", \"y6_terminal\"):",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 583,
+        "text": "mol = load_chemdatas_molecule(p, name=\"Y6_IC-2F_Terminal\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 587,
+        "text": "name=\"Y6_IC-2F_Terminal\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 588,
+        "text": "symbols=list(_AUTHENTIC_IC_2F_SYMBOLS),",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 589,
+        "text": "coordinates_angstrom=[list(r) for r in _AUTHENTIC_IC_2F_COORDS],",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 602,
+        "text": "\"authentic fragments: 'ic_2f', 'donor_bdd1', 'acceptor_nc1', 'pm6_l8bo_cluster'.\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 608,
+        "text": "if key in (\"y6_full\", \"btp_4f\", \"y6\"):",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 613,
+        "text": "f\"Full Y6 (BTP-4F) dataset not found at '{p}'. To use full 199-atom Y6 on an external machine, \"",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 615,
+        "text": "\"authentic fragments: 'ic_2f', 'donor_bdd1', 'acceptor_nc1', 'pm6_l8bo_cluster'.\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 621,
+        "text": "if key in (\"pm6_monomer\", \"pm6\"):",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 622,
+        "text": "ref = dict(CHEMDATAS_REFERENCE_DATA[\"pm6_monomer\"])",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 626,
+        "text": "f\"Full PM6 monomer dataset not found at '{p}'. To use full 158-atom PM6 monomer on an external machine, \"",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 628,
+        "text": "\"authentic fragments: 'ic_2f', 'donor_bdd1', 'acceptor_nc1', 'pm6_l8bo_cluster'.\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 630,
+        "text": "mol = load_chemdatas_molecule(p, name=\"PM6_Monomer_Full\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 634,
+        "text": "if key in (\"pm6_l8bo_cluster\", \"pm6_y6_md_cluster\", \"da_cluster\"):",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 635,
+        "text": "ref = dict(CHEMDATAS_REFERENCE_DATA[\"pm6_l8bo_cluster\"])",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 640,
+        "text": "mol = load_chemdatas_molecule(target, name=\"PM6_L8BO_MD_Cluster\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 644,
+        "text": "name=\"PM6_L8BO_MD_Cluster\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 645,
+        "text": "symbols=list(_AUTHENTIC_PM6_L8BO_CLUSTER_SYMBOLS),",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 646,
+        "text": "coordinates_angstrom=[list(r) for r in _AUTHENTIC_PM6_L8BO_CLUSTER_COORDS],",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 652,
+        "text": "if key in (\"donor_bdd1\", \"pm6_bdd1\"):",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 653,
+        "text": "ref_cluster = CHEMDATAS_REFERENCE_DATA[\"pm6_l8bo_cluster\"]",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 656,
+        "text": "cluster = load_chemdatas_molecule(gjf_p, name=\"PM6_L8BO_MD_Cluster\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 657,
+        "text": "syms = [cluster.symbols[k] for k in _AUTHENTIC_DONOR_BDD1_INDICES]",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 658,
+        "text": "coords = [list(cluster.coordinates_angstrom[k]) for k in _AUTHENTIC_DONOR_BDD1_INDICES]",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 660,
+        "text": "name=\"PM6_Donor_BDD1\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 669,
+        "text": "\"fragment_role\": \"donor-BDD1 (T-BDD-T)\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 673,
+        "text": "name=\"PM6_Donor_BDD1\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 674,
+        "text": "symbols=list(_AUTHENTIC_DONOR_BDD1_SYMBOLS),",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 675,
+        "text": "coordinates_angstrom=[list(r) for r in _AUTHENTIC_DONOR_BDD1_PLANAR_COORDS],",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 682,
+        "text": "ref_cluster = CHEMDATAS_REFERENCE_DATA[\"pm6_l8bo_cluster\"]",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 685,
+        "text": "cluster = load_chemdatas_molecule(gjf_p, name=\"PM6_L8BO_MD_Cluster\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 716,
+        "text": "\"'y6_ic_ff', 'y6_btp_core', 'y6_full', 'pm6_monomer', 'pm6_l8bo_cluster', 'donor_bdd1', 'acceptor_nc1'.\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 720,
+        "text": "def get_pm6_fragment(",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 722,
+        "text": "variant: Literal[\"donor_bdd1\", \"monomer\"] = \"donor_bdd1\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 724,
+        "text": "\"\"\"Returns an authentic PM6 (PBDB-T-2F) donor molecular structure.",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 727,
+        "text": "- `'donor_bdd1'` (default): Authentic 32-atom T-BDD-T conjugated donor unit (`C18H8O2S4`)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 728,
+        "text": "extracted from the PM6:L8-BO interfacial stacking cluster (`donor-BDD1`),",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 730,
+        "text": "- `'monomer'`: Complete 158-atom PM6 polymer repeat monomer (`C68H78F2O2S8`)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 734,
+        "text": "return get_real_opv_system(\"pm6_monomer\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 736,
+        "text": "name=\"PM6_Donor_BDD1\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 737,
+        "text": "symbols=list(_AUTHENTIC_DONOR_BDD1_SYMBOLS),",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 738,
+        "text": "coordinates_angstrom=[list(r) for r in _AUTHENTIC_DONOR_BDD1_PLANAR_COORDS],",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 742,
+        "text": "\"source_file\": CHEMDATAS_REFERENCE_DATA[\"pm6_l8bo_cluster\"][\"gjf_file\"],",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 743,
+        "text": "\"chemical_name\": \"PM6 Benzo[1,2-c:4,5-c']dithiophene-4,8-dione + dithiophene unit (T-BDD-T)\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 752,
+        "text": "variant: Literal[\"ic2f\", \"btp_core\", \"full\", \"acceptor_nc1\"] = \"ic2f\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 754,
+        "text": "\"\"\"Returns an authentic Y6 (BTP-4F) non-fullerene acceptor unit.",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 757,
+        "text": "- `'ic2f'` (default): Authentic 22-atom Gaussian-optimized IC-2F acceptor terminal unit (`C13H4F2N2O`, `wB97X-D/6-31G(d,p)`).",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 759,
+        "text": "- `'full'`: Authentic 199-atom Gaussian-optimized full Y6 molecule (`C86H94F4N8O2S5`, `B3LYP-D3(BJ)/6-311G(d,p)`).",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 776,
+        "text": "name: str = \"PM6_Y6_Stacking_Dimer\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 1445,
+        "text": "name: str = \"PM6:Y6 D-A Dimer\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 1992,
+        "text": "solvent: str = \"chlorobenzene\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 1998,
+        "text": "\"\"\"Evaluates pure Rust continuum solvation free energy in an OPV processing solvent (e.g. Chlorobenzene).\"\"\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/conftest.py",
+        "line": 13,
+        "text": "def water_mol():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/numerical/test_scf.py",
+        "line": 5,
+        "text": "def test_hf_water_sto3g():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/numerical/test_scf.py",
+        "line": 24,
+        "text": "def test_dft_water_b3lyp():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_d3_and_solv_gradient.py",
+        "line": 83,
+        "text": "solvent=\"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_d3_and_solv_gradient.py",
+        "line": 118,
+        "text": "# 2. Optimize in water solvent",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_d3_and_solv_gradient.py",
+        "line": 126,
+        "text": "solvent=\"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_dft_rust.py",
+        "line": 16,
+        "text": "def _water_spec() -> MoleculeSpec:",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_dft_rust.py",
+        "line": 29,
+        "text": "def test_core_dft_functionals_water_benchmark_and_analytical_gradient():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_dft_rust.py",
+        "line": 35,
+        "text": "w = _water_spec()",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_dft_rust.py",
+        "line": 106,
+        "text": "w = _water_spec()",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_esp_and_population.py",
+        "line": 33,
+        "text": "def _water_origin_spec(charge: int = 0, multiplicity: int = 1) -> MoleculeSpec:",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_esp_and_population.py",
+        "line": 34,
+        "text": "\"\"\"Water with oxygen placed directly at `(0, 0, 0)` to test nuclear-cusp grid safety.\"\"\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_esp_and_population.py",
+        "line": 51,
+        "text": "# 1. Closed-shell B3LYP / 6-31G(d) water",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_esp_and_population.py",
+        "line": 52,
+        "text": "w = _water_origin_spec(0, 1)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_esp_and_population.py",
+        "line": 82,
+        "text": "w_cat = _water_origin_spec(1, 2)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_esp_and_population.py",
+        "line": 125,
+        "text": "w = _water_origin_spec(0, 1)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_esp_and_population.py",
+        "line": 165,
+        "text": "cube_txt = cube.to_cube_string(title=\"Water B3LYP ESP\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_esp_and_population.py",
+        "line": 174,
+        "text": "w = _water_origin_spec(0, 1)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_io.py",
+        "line": 12,
+        "text": "def water_xyz():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_io.py",
+        "line": 14,
+        "text": "water molecule",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_io.py",
+        "line": 21,
+        "text": "def test_read_xyz_string(water_xyz):",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_io.py",
+        "line": 22,
+        "text": "mol = read_xyz(water_xyz)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_io.py",
+        "line": 31,
+        "text": "Water optimization",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 17,
+        "text": "def _assert_watertight_manifold(vertices: np.ndarray, faces: np.ndarray) -> float:",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 75,
+        "text": "vol_pos = _assert_watertight_manifold(pos_v, pos_f)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 76,
+        "text": "vol_neg = _assert_watertight_manifold(homo_mesh.negative.vertices, homo_mesh.negative.faces)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 100,
+        "text": "_assert_watertight_manifold(lumo_mesh.positive.vertices, lumo_mesh.positive.faces)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 101,
+        "text": "_assert_watertight_manifold(lumo_mesh.negative.vertices, lumo_mesh.negative.faces)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 126,
+        "text": "vol_low = _assert_watertight_manifold(m_low.positive.vertices, m_low.positive.faces)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 127,
+        "text": "vol_high = _assert_watertight_manifold(m_high.positive.vertices, m_high.positive.faces)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 162,
+        "text": "_assert_watertight_manifold(spin_mesh.positive.vertices, spin_mesh.positive.faces)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 203,
+        "text": "_assert_watertight_manifold(mesh.positive.vertices, mesh.positive.faces)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_isosurface_stream.py",
+        "line": 204,
+        "text": "_assert_watertight_manifold(mesh.negative.vertices, mesh.negative.faces)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_molecule.py",
+        "line": 8,
+        "text": "water",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_molecule.py",
+        "line": 22,
+        "text": "water",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 2,
+        "text": "authentic ChemDatas Gaussian (.log / .gjf / .fchk) molecular systems (PM6, Y6, BTP, IC-2F, MD clusters),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 17,
+        "text": "get_pm6_fragment,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 54,
+        "text": "\"\"\"Verify authentic PM6, Y6 (BTP-4F), BTP core, IC-2F terminal, and MD cluster loading from ChemDatas.\"\"\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 55,
+        "text": "# 1. IC-2F acceptor terminal unit (22 atoms, C13H4F2N2O) from .log and .fchk",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 56,
+        "text": "ic2f = get_real_opv_system(\"y6_ic_ff\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 57,
+        "text": "assert len(ic2f.symbols) == 22",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 58,
+        "text": "assert Counter(ic2f.symbols) == {\"C\": 13, \"H\": 4, \"F\": 2, \"N\": 2, \"O\": 1}",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 59,
+        "text": "assert ic2f.reference_data is not None",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 60,
+        "text": "assert ic2f.reference_data[\"scf_energy_hartree\"] == pytest.approx(-881.833266861, abs=1e-6)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 63,
+        "text": "ic2f_fchk = load_chemdatas_molecule(fchk_path, name=\"IC2F_FCHK\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 64,
+        "text": "assert len(ic2f_fchk.symbols) == 22",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 65,
+        "text": "assert ic2f_fchk.symbols == ic2f.symbols",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 66,
+        "text": "assert ic2f_fchk.reference_data[\"scf_energy_hartree\"] == pytest.approx(-881.833266861, abs=1e-6)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 67,
+        "text": "for c_log, c_fchk in zip(ic2f.coordinates_angstrom, ic2f_fchk.coordinates_angstrom):",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 77,
+        "text": "# 3. Full Y6 (BTP-4F) non-fullerene acceptor (199 atoms, C86H94F4N8O2S5)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 84,
+        "text": "# 4. Full PM6 polymer repeat monomer (158 atoms, C68H78F2O2S8)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 85,
+        "text": "pm6_mono = get_real_opv_system(\"pm6_monomer\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 86,
+        "text": "assert len(pm6_mono.symbols) == 158",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 87,
+        "text": "assert Counter(pm6_mono.symbols) == {\"C\": 68, \"H\": 78, \"F\": 2, \"O\": 2, \"S\": 8}",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 89,
+        "text": "# 5. Authentic 60-atom MD-derived PM6:L8-BO interfacial stacking cluster",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 90,
+        "text": "cluster = get_real_opv_system(\"pm6_l8bo_cluster\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 96,
+        "text": "def test_pm6_and_y6_fragments_and_dimer_builder():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 97,
+        "text": "\"\"\"Verify authentic PM6 Donor-BDD1 (32 atoms), Y6 IC-2F (22 atoms), and stacking dimer builder.\"\"\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 98,
+        "text": "pm6 = get_pm6_fragment(fluorinated=True)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 99,
+        "text": "assert isinstance(pm6, OPVMolecule)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 100,
+        "text": "assert pm6.name == \"PM6_Donor_BDD1\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 101,
+        "text": "assert len(pm6.symbols) == 32",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 102,
+        "text": "assert Counter(pm6.symbols) == {\"C\": 18, \"H\": 8, \"O\": 2, \"S\": 4}",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 104,
+        "text": "y6 = get_y6_fragment(fluorinated=True)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 105,
+        "text": "assert isinstance(y6, OPVMolecule)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 106,
+        "text": "assert y6.name == \"Y6_IC-2F_Terminal\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 107,
+        "text": "assert len(y6.symbols) == 22",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 108,
+        "text": "assert Counter(y6.symbols) == {\"C\": 13, \"H\": 4, \"F\": 2, \"N\": 2, \"O\": 1}",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 110,
+        "text": "dimer = build_da_stacking_dimer(pm6, y6, distance_angstrom=3.5, lateral_shift_angstrom=0.5)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 117,
+        "text": "z_mean_pm6 = sum(c[2] for c in dimer.coordinates_angstrom[:32]) / 32.0",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 119,
+        "text": "assert abs(z_mean_pm6 - (-1.75)) < 1e-5",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 123,
+        "text": "def test_authentic_ic2f_dft_and_solvation():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 124,
+        "text": "\"\"\"Verify pure Rust CAM-B3LYP + D3(BJ) + PCM solvation on authentic 22-atom IC-2F acceptor unit.\"\"\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 126,
+        "text": "ic2f = get_y6_fragment(variant=\"ic2f\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 129,
+        "text": "ic2f.to_spec(),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 133,
+        "text": "name=\"Y6_IC2F_CAMB3LYP\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 144,
+        "text": "ic2f.to_spec(),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 148,
+        "text": "name=\"Y6_IC2F_CHCl3\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 161,
+        "text": "cluster = get_real_opv_system(\"pm6_l8bo_cluster\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 162,
+        "text": "donor = get_real_opv_system(\"donor_bdd1\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 174,
+        "text": "# Intermolecular pi-pi dispersion stabilization between 32-atom donor-BDD1 and 28-atom Acceptor2-NC1",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_request_validation.py",
+        "line": 7,
+        "text": "def test_valid_water():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 11,
+        "text": "def test_rust_core_run_solvation_water():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 19,
+        "text": "# Water in high-dielectric aqueous medium (eps = 78.36)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 20,
+        "text": "res_water = _core.run_solvation(",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 24,
+        "text": "solvent=\"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 32,
+        "text": "assert res_water.converged",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 33,
+        "text": "assert res_water.delta_g_elec_kcal_mol < 0.0",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 34,
+        "text": "assert res_water.cavity_surface_area_angstrom2 > 20.0",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 35,
+        "text": "assert abs(res_water.total_surface_charge) < 1e-8",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 36,
+        "text": "assert res_water.solvent_name == \"water\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 37,
+        "text": "assert math.isclose(res_water.dielectric_constant, 78.3553, abs_tol=0.1)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 39,
+        "text": "# Water in medium-dielectric OPV processing solvent (chlorobenzene, eps = 5.62)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 44,
+        "text": "solvent=\"chlorobenzene\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 54,
+        "text": "assert res_cb.solvent_name == \"chlorobenzene\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 58,
+        "text": "assert res_water.delta_g_elec_kcal_mol < res_cb.delta_g_elec_kcal_mol",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 83,
+        "text": "solvent=\"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 106,
+        "text": "solvent=\"water\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 127,
+        "text": "assert result.solvent_name == \"water\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 146,
+        "text": "solver = PCMSolver(mol, basis_set=\"sto-3g\", solvent=\"chlorobenzene\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 153,
+        "text": "smd_calc = SMD(mol, solvent=\"water\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 183,
+        "text": "solvent=\"chlorobenzene\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 186,
+        "text": "name=\"water_test\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 190,
+        "text": "assert res.solvent == \"chlorobenzene\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_solvation_and_scrf.py",
+        "line": 194,
+        "text": "assert \"Chlorobenzene\" in res.summary",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_tddft_rust.py",
+        "line": 23,
+        "text": "def _water_spec() -> MoleculeSpec:",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_tddft_rust.py",
+        "line": 66,
+        "text": "def test_tddft_water_cis_and_b3lyp_native_result():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_tddft_rust.py",
+        "line": 68,
+        "text": "w = _water_spec()",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_tddft_rust.py",
+        "line": 119,
+        "text": "w = _water_spec()",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_vibration_and_thermo.py",
+        "line": 10,
+        "text": "def test_rust_core_run_frequency_water():",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_vibration_and_thermo.py",
+        "line": 11,
+        "text": "\"\"\"Tests rust_core.run_frequency on water with B3LYP/STO-3G.\"\"\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_vibration_and_thermo.py",
+        "line": 50,
+        "text": "assert f > 1000.0, f\"Water frequency should be > 1000 cm^-1, got {f}\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_vibration_and_thermo.py",
+        "line": 75,
+        "text": "assert thermo.zpve_hartree > 0.015  # ~0.02 Hartree for water",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_vibration_and_thermo.py",
+        "line": 213,
+        "text": "name=\"Water_OPV\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_vibration_and_thermo.py",
+        "line": 217,
+        "text": "assert res.name == \"Water_OPV\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 95,
+        "text": "# Case 1: Water H2O (6-31G(d,p) / B3LYP) - ChemDatas Standard Reference",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 97,
+        "text": "print(\"\\n[1/3] Benchmark System 1: Water (H2O) B3LYP/6-31G(d,p)\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 111,
+        "text": "# (b) Gaussian 16 Reference from E:\\YDW\\ChemDatas\\Gjf\\water_B3LYP_631Gdp_sp_29d5fbd36387.log",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 119,
+        "text": "# (d) REST Reference from E:\\YDW\\REST\\001\\results\\01_energy\\01_high_precision_water.log (def2-TZVP)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 120,
+        "text": "rest_h2o_log = r\"E:\\YDW\\REST\\001\\results\\01_energy\\01_high_precision_water.log\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 135,
+        "text": "# Case 2: Benzene C6H6 (6-31G(d,p) / B3LYP, 120 AOs) - ChemDatas vs REST 20_massive350",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 137,
+        "text": "print(\"\\n[2/3] Benchmark System 2: Benzene (C6H6, 12 atoms, 120 basis functions) B3LYP/6-31G(d,p)\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 164,
+        "text": "rest_c6h6_log = r\"E:\\YDW\\REST\\001\\tasks\\20_massive350\\06_opt_organic\\benzene_opt.log\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 2,
+        "text": "\"\"\"CalChem Industrial Benchmark Suite: Authentic OPV Photovoltaic Systems (PM6, Y6, BTP, IC-2F, MD Clusters).",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 6,
+        "text": "1. `ydw-IC_FF.log` / `.fchk`: Optimized Y6 IC-2F acceptor terminal unit (22 atoms, C13H4F2N2O)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 7,
+        "text": "2. `ydw-BTP.log`: Optimized Y6 central BTP core unit (159 atoms, C60H90N4S5)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 8,
+        "text": "3. `ydw-BTP-4F.log`: Optimized full Y6 (BTP-4F) molecule (199 atoms, C86H94F4N8O2S5)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 9,
+        "text": "4. `ydw-PM6-opt01.gjf`: Full PM6 donor polymer repeat monomer (158 atoms, C68H78F2O2S8)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 10,
+        "text": "5. `00cluster_PM6-L8BO-2ac_rank1_donor-BDD1_Acceptor2-NC1.log` / `.gjf`:",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 11,
+        "text": "MD-extracted 60-atom interfacial donor-acceptor stacking cluster (32-atom donor-BDD1 + 28-atom Acceptor2-NC1)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 30,
+        "text": "get_pm6_fragment,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 56,
+        "text": "ic2f = get_real_opv_system(\"y6_ic_ff\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 59,
+        "text": "pm6_monomer = get_real_opv_system(\"pm6_monomer\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 60,
+        "text": "md_cluster = get_real_opv_system(\"pm6_l8bo_cluster\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 61,
+        "text": "donor_bdd1 = get_real_opv_system(\"donor_bdd1\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 65,
+        "text": "(\"Y6 Terminal (IC-2F)\", ic2f),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 66,
+        "text": "(\"Y6 Central Core (BTP)\", btp_core),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 67,
+        "text": "(\"Y6 Full Molecule (BTP-4F)\", y6_full),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 68,
+        "text": "(\"PM6 Full Repeat Monomer\", pm6_monomer),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 69,
+        "text": "(\"PM6:L8-BO MD D-A Cluster\", md_cluster),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 70,
+        "text": "(\"PM6 Cluster Donor (BDD1)\", donor_bdd1),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 78,
+        "text": "# 2. Ground State DFT on Authentic IC-2F (22 atoms) & PM6 Donor-BDD1 (32 atoms)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 90,
+        "text": "res_d = wf.single_point(donor_bdd1.to_spec(), method=m_code, basis=\"sto-3g\", name=f\"Donor_BDD1_{m_code}\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 91,
+        "text": "res_a = wf.single_point(ic2f.to_spec(), method=m_code, basis=\"sto-3g\", name=f\"IC2F_{m_code}\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 97,
+        "text": "\"donor_bdd1_energy_eh\": res_d.scf_energy_hartree,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 98,
+        "text": "\"donor_bdd1_homo_ev\": res_d.homo_ev,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 99,
+        "text": "\"donor_bdd1_lumo_ev\": res_d.lumo_ev,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 100,
+        "text": "\"donor_bdd1_gap_ev\": res_d.gap_ev,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 101,
+        "text": "\"ic2f_energy_eh\": res_a.scf_energy_hartree,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 102,
+        "text": "\"ic2f_homo_ev\": res_a.homo_ev,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 103,
+        "text": "\"ic2f_lumo_ev\": res_a.lumo_ev,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 104,
+        "text": "\"ic2f_gap_ev\": res_a.gap_ev,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 105,
+        "text": "\"ic2f_g16_wb97xd_631gdp_ref_eh\": CHEMDATAS_REFERENCE_DATA[\"y6_ic_ff\"][\"scf_energy_hartree\"],",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 110,
+        "text": "f\"      PM6 Donor-BDD1 (32 atoms) : E = {res_d.scf_energy_hartree:13.6f} Eh | \"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 114,
+        "text": "f\"      Y6 IC-2F       (22 atoms) : E = {res_a.scf_energy_hartree:13.6f} Eh | \"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 119,
+        "text": "# 3. Authentic 60-Atom MD Interfacial Stacking Cluster (Donor-BDD1 + Acceptor2-NC1)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 127,
+        "text": "donor_bdd1.to_spec(), method=\"camb3lyp\", basis=\"sto-3g\", dispersion=\"d3bj\", name=\"Donor_BDD1_32\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 143,
+        "text": "print(f\"  * 60-Atom MD Cluster (32-atom BDD1 + 28-atom NC1) in {dt_cluster:.2f}s:\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 144,
+        "text": "print(f\"      E_tot(Donor-BDD1, 32 atoms)    = {sp_donor.total_energy_hartree:16.8f} Eh\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 155,
+        "text": "(\"chlorobenzene\", 5.62, \"Processing Solvent\"),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 162,
+        "text": "donor_bdd1.to_spec(), solvent=solv_name, method=\"b3lyp\", basis=\"sto-3g\", name=f\"BDD1_{solv_name}\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 165,
+        "text": "ic2f.to_spec(), solvent=solv_name, method=\"b3lyp\", basis=\"sto-3g\", name=f\"IC2F_{solv_name}\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 173,
+        "text": "\"donor_bdd1_delta_g_solv_kcal\": s_d.delta_g_solv_kcal_mol,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 174,
+        "text": "\"donor_bdd1_sasa_ang2\": s_d.cavity_surface_area_angstrom2,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 175,
+        "text": "\"ic2f_delta_g_solv_kcal\": s_a.delta_g_solv_kcal_mol,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 176,
+        "text": "\"ic2f_sasa_ang2\": s_a.cavity_surface_area_angstrom2,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 180,
+        "text": "f\"      PM6 Donor-BDD1 (32 atoms) : Delta_G_solv = {s_d.delta_g_solv_kcal_mol:8.2f} kcal/mol | \"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 184,
+        "text": "f\"      Y6 IC-2F       (22 atoms) : Delta_G_solv = {s_a.delta_g_solv_kcal_mol:8.2f} kcal/mol | \"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 189,
+        "text": "# 5. TDDFT Linear Response on Authentic 22-Atom IC-2F Acceptor Terminal",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 191,
+        "text": "print(\"\\n[5/5] TDDFT Linear Response Excited States on Authentic 22-Atom IC-2F:\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 193,
+        "text": "abs_ic2f = wf.optical_absorption(",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 194,
+        "text": "ic2f.to_spec(),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 200,
+        "text": "name=\"IC2F_CAM-B3LYP_TDDFT\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 203,
+        "text": "print(f\"  * Y6 IC-2F Optical Absorption (CAM-B3LYP/TDA, 22 atoms) in {dt_tddft:.2f}s:\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 205,
+        "text": "f\"      Optical Gap E_g^opt (S1) = {abs_ic2f.optical_gap_ev:5.2f} eV \"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 206,
+        "text": "f\"({abs_ic2f.wavelength_max_nm:5.1f} nm, f = {abs_ic2f.oscillator_strength_max:.4f})\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 208,
+        "text": "print(f\"      Kohn-Sham Gap            = {abs_ic2f.ks_gap_ev:5.2f} eV\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 209,
+        "text": "if abs_ic2f.states:",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 211,
+        "text": "for s in abs_ic2f.states:",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 227,
+        "text": "\"y6_ic_ff\": {\"n_atoms\": len(ic2f.symbols), \"formula\": _formula_str(ic2f.symbols), **CHEMDATAS_REFERENCE_DATA[\"y6_ic_ff\"]},",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 230,
+        "text": "\"pm6_monomer\": {\"n_atoms\": len(pm6_monomer.symbols), \"formula\": _formula_str(pm6_monomer.symbols), **CHEMDATAS_REFERENCE_DATA[\"pm6_monomer\"]},",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 231,
+        "text": "\"pm6_l8bo_cluster\": {\"n_atoms\": len(md_cluster.symbols), \"formula\": _formula_str(md_cluster.symbols), **CHEMDATAS_REFERENCE_DATA[\"pm6_l8bo_cluster\"]},",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 235,
+        "text": "\"e_donor_bdd1_eh\": sp_donor.total_energy_hartree,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 238,
+        "text": "\"g16_ref_b3lyp_631gd_eh\": CHEMDATAS_REFERENCE_DATA[\"pm6_l8bo_cluster\"][\"scf_energy_hartree\"],",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 243,
+        "text": "\"ic2f_optical\": {",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 244,
+        "text": "\"optical_gap_ev\": abs_ic2f.optical_gap_ev,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 245,
+        "text": "\"wavelength_max_nm\": abs_ic2f.wavelength_max_nm,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 246,
+        "text": "\"oscillator_strength_max\": abs_ic2f.oscillator_strength_max,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 247,
+        "text": "\"ks_gap_ev\": abs_ic2f.ks_gap_ev,",
+        "rust_test_block": false
+      }
+    ],
+    "literal_drives": [
+      {
+        "file": "calchem/backends/rest.py",
+        "line": 7,
+        "text": "4. 原生兼容并加载 E:\\\\YDW\\\\REST\\\\001\\\\tasks\\\\20_massive350 大规模基准库",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/backends/rest.py",
+        "line": 173,
+        "text": "r\"Dipole Moment in DEBYE:\\s*(-?\\d+\\.\\d+)\\s*,\\s*(-?\\d+\\.\\d+)\\s*,\\s*(-?\\d+\\.\\d+)\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/config/loader.py",
+        "line": 19,
+        "text": "r\"D:\\G16W\\g16.exe\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/config/loader.py",
+        "line": 20,
+        "text": "r\"C:\\G16W\\g16.exe\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/config/loader.py",
+        "line": 21,
+        "text": "r\"D:\\Gaussian\\g16.exe\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/config/loader.py",
+        "line": 24,
+        "text": "r\"E:\\ORCA\\software\\ORCA6.1.1\\orca.exe\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/config/loader.py",
+        "line": 25,
+        "text": "r\"D:\\ORCA\\orca.exe\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/config/loader.py",
+        "line": 26,
+        "text": "r\"C:\\ORCA\\orca.exe\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/config/loader.py",
+        "line": 31,
+        "text": "r\"D:\\xtb\\bin\\xtb.exe\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/config/loader.py",
+        "line": 32,
+        "text": "r\"C:\\xtb\\bin\\xtb.exe\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/config/models.py",
+        "line": 15,
+        "text": "d_dir = Path(\"D:/CalChemData\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 104,
+        "text": "3. E:\\\\YDW\\\\ChemDatas（本机开发环境默认路径）",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 110,
+        "text": "dev_default = Path(r\"E:\\YDW\\ChemDatas\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 123,
+        "text": "return str(Path(r\"E:\\YDW\\ChemDatas\") / rel_path)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 198,
+        "text": "# Source: E:\\YDW\\ChemDatas\\ydw01\\IC\\ydw-IC_FF.log (SCF Done = -881.833266861 Eh)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 229,
+        "text": "# Source: E:\\YDW\\ChemDatas\\TH\\00cluster_PM6-L8BO-2ac_rank1_donor-BDD1_Acceptor2-NC1(2).gjf (indices 0..23, 51..58)",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 559,
+        "text": "\"\"\"Returns an authentic, Gaussian-verified OPV molecular system from `E:\\\\YDW\\\\ChemDatas`.",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/acceptance.py",
+        "line": 11,
+        "text": "sys.path.insert(0, r\"E:\\YDW\\Trae_Gaussian\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/acceptance.py",
+        "line": 32,
+        "text": "svc = TaskService(data_root=r\"E:\\YDW\\Trae_Gaussian\\_acceptance_data\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/conftest.py",
+        "line": 9,
+        "text": "GAUSSIAN_TEST_DIR = Path(r\"D:\\G16W\\tests\\gjf\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/gui/test_gui_fast.py",
+        "line": 3,
+        "text": "sys.path.insert(0, r'D:\\YDW\\CalChem\\gui')",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/gui/test_gui_fast.py",
+        "line": 4,
+        "text": "sys.path.insert(0, r'D:\\YDW\\Trae_Gaussian')",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/gui/test_gui_methods.py",
+        "line": 3,
+        "text": "sys.path.insert(0, r'D:\\YDW\\CalChem\\gui')",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/gui/test_gui_methods.py",
+        "line": 4,
+        "text": "sys.path.insert(0, r'D:\\YDW\\Trae_Gaussian')",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 6,
+        "text": "2. Gaussian 16 (Rev A.03 Ground Truth from E:\\\\YDW\\\\ChemDatas)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 7,
+        "text": "3. ORCA 6.1.1 (High-Performance External Engine at E:\\\\ORCA\\\\software\\\\ORCA6.1.1)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 8,
+        "text": "4. REST 2026.1.1 (Rust DFT Engine from Fudan / E:\\\\YDW\\\\REST\\\\001\\\\tasks\\\\20_massive350)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 9,
+        "text": "5. MolForge Integration (E:\\\\YDW\\\\Trae_Chemdraw\\\\MolForge interactive workbench bridge)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 32,
+        "text": "ORCA_EXE = r\"E:\\ORCA\\software\\ORCA6.1.1\\orca.exe\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 33,
+        "text": "REST_MASSIVE350_DIR = r\"E:\\YDW\\REST\\001\\tasks\\20_massive350\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 34,
+        "text": "CHEMDATAS_DIR = r\"E:\\YDW\\ChemDatas\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 35,
+        "text": "MOLFORGE_DIR = r\"E:\\YDW\\Trae_Chemdraw\\MolForge\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 111,
+        "text": "# (b) Gaussian 16 Reference from E:\\YDW\\ChemDatas\\Gjf\\water_B3LYP_631Gdp_sp_29d5fbd36387.log",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 119,
+        "text": "# (d) REST Reference from E:\\YDW\\REST\\001\\results\\01_energy\\01_high_precision_water.log (def2-TZVP)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 120,
+        "text": "rest_h2o_log = r\"E:\\YDW\\REST\\001\\results\\01_energy\\01_high_precision_water.log\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 164,
+        "text": "rest_c6h6_log = r\"E:\\YDW\\REST\\001\\tasks\\20_massive350\\06_opt_organic\\benzene_opt.log\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 201,
+        "text": "rest_furan_log = r\"E:\\YDW\\REST\\001\\tasks\\20_massive350\\06_opt_organic\\furan_opt.log\"",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 212,
+        "text": "print(\"   MolForge (E:\\\\YDW\\\\Trae_Chemdraw\\\\MolForge) Integration Verification\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 5,
+        "text": "research data in `E:\\\\YDW\\\\ChemDatas`:",
+        "rust_test_block": false
+      }
+    ],
+    "placeholder": [
+      {
+        "file": "tests/unit/test_service_and_queue.py",
+        "line": 56,
+        "text": "job = queue.submit('{\"dummy\": true}')",
+        "rust_test_block": false
+      }
+    ],
+    "absolute_energy_literal": [
+      {
+        "file": "crates/calchem-scf/tests/kohn_sham_dft.rs",
+        "line": 65,
+        "text": "// Canonical B3LYP / 6-31G(d) (Cartesian 6D) NIST CCCBDB reference for H2O is ~ -76.40895 Eh.",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/kohn_sham_dft.rs",
+        "line": 75,
+        "text": "(wf_fine.total_energy_hartree - (-76.40895)).abs() < 1.5e-3,",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/kohn_sham_dft.rs",
+        "line": 76,
+        "text": "\"H2O B3LYP/6-31G(d) energy {} drifted from NIST reference -76.40895 Eh\",",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/polarization_and_ecp.rs",
+        "line": 59,
+        "text": "// Standard Pople RHF/6-31G(d) (6D Cartesian) water energy at experimental geometry ~ -76.01075 Eh",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/polarization_and_ecp.rs",
+        "line": 61,
+        "text": "(wf_631gd.total_energy_hartree - (-76.01075)).abs() < 5e-4,",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/rhf_631g.rs",
+        "line": 71,
+        "text": "// Golden mathematical RHF/6-31G energy: -75.800277509588 Eh",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/rhf_631g.rs",
+        "line": 72,
+        "text": "let ref_energy = -75.800277509588_f64;",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/rhf_sto3g.rs",
+        "line": 55,
+        "text": "//   E_exact = -74.69531911423618 Eh (verified with 60-digit arbitrary precision).",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/rhf_sto3g.rs",
+        "line": 56,
+        "text": "// Note: Legacy Python BASELINE.md recorded -74.6953191771 Eh because python_reference/one_electron.py",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/rhf_sto3g.rs",
+        "line": 60,
+        "text": "let exact_ref = -74.69531911423618_f64;",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/rhf_sto3g.rs",
+        "line": 61,
+        "text": "let legacy_py_baseline = -74.6953191771_f64;",
+        "rust_test_block": false
+      },
+      {
+        "file": "crates/calchem-scf/tests/rhf_sto3g.rs",
+        "line": 104,
+        "text": "assert!((wf_h2o.total_energy_hartree - (-75.800277509588)).abs() < 1e-9);",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/tests/test_scf_direct.py",
+        "line": 80,
+        "text": "print(\"参考值 (标准参考): ~ -74.94208 Hartree\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/tests/test_scf_direct.py",
+        "line": 96,
+        "text": "ref = -74.94208",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 136,
+        "text": "\"scf_energy_hartree\": -881.833266861,",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 190,
+        "text": "\"scf_energy_hartree\": -3469.55737880,",
+        "rust_test_block": false
+      },
+      {
+        "file": "calchem/workflows/opv.py",
+        "line": 198,
+        "text": "# Source: E:\\YDW\\ChemDatas\\ydw01\\IC\\ydw-IC_FF.log (SCF Done = -881.833266861 Eh)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/acceptance.py",
+        "line": 59,
+        "text": "check(\"A3 H2O/STO-3G (Szabo)\", abs(r_h2o.scf_energy_hartree - (-74.6953191771)) < 1e-6,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/integrals/test_comprehensive.py",
+        "line": 106,
+        "text": "print(f\"   参考: -74.963212 Eh (STO-3G 标准几何)\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/integrals/test_comprehensive.py",
+        "line": 107,
+        "text": "print(f\"   差值: {e_h2o - (-74.963212):+.2e} Eh\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/integrals/test_p_eri_check.py",
+        "line": 295,
+        "text": "print(f\"  参考能量: -74.94208 Eh\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/integrals/test_p_eri_check.py",
+        "line": 296,
+        "text": "print(f\"  差值: {e_new - (-74.94208):.6f} Eh\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/posthf/test_regression.py",
+        "line": 27,
+        "text": "'H2O_RHF': -74.69531918,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/posthf/test_regression.py",
+        "line": 28,
+        "text": "'H2O_MP2': -74.71482338,",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/scf/test_h2o.py",
+        "line": 13,
+        "text": "print(\"参考值 (标准): ~ -74.94208 Hartree\", flush=True)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/scf/test_h2o.py",
+        "line": 35,
+        "text": "ref = -74.94208",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/scf/test_h2o_analysis.py",
+        "line": 135,
+        "text": "print(f\"总能量差值: {e_tot - (-74.94208):.6f} Eh\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/scf/test_h2o_quick.py",
+        "line": 13,
+        "text": "print(\"参考值 (标准): ~ -74.94208 Hartree\", flush=True)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/scf/test_h2o_quick.py",
+        "line": 39,
+        "text": "ref = -74.94208",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/scf/test_scf_energy.py",
+        "line": 136,
+        "text": "print(f\"参考值:  -74.942078 Eh (Szabo)\")",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/scratch/_test_mp.py",
+        "line": 328,
+        "text": "# E_HF = -74.963",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_adapters.py",
+        "line": 26,
+        "text": "SCF Done:  E(RB3LYP) =  -76.4000000000     A.U. after   10 cycles",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_adapters.py",
+        "line": 29,
+        "text": "SCF Done:  E(RB3LYP) =  -76.4250000000     A.U. after    8 cycles",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_adapters.py",
+        "line": 37,
+        "text": "# Must be -76.425, NOT the initial -76.400!",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_adapters.py",
+        "line": 38,
+        "text": "assert parsed[\"energy_hartree\"] == pytest.approx(-76.425)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_adapters.py",
+        "line": 39,
+        "text": "assert parsed[\"scf_energy_hartree\"] == pytest.approx(-76.425)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_adapters.py",
+        "line": 46,
+        "text": "SCF Done:  E(RHF) =  -76.0100000000     A.U. after    8 cycles",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_adapters.py",
+        "line": 60,
+        "text": "SCF Done:  E(RHF) =  -74.9600000000     A.U. after    7 cycles",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_adapters.py",
+        "line": 98,
+        "text": "FINAL SINGLE POINT ENERGY       -76.412345678901",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_adapters.py",
+        "line": 126,
+        "text": "assert res.total_energy_hartree == pytest.approx(-76.412345678901)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_core_rust.py",
+        "line": 33,
+        "text": "-74.695319114, 1e-7),",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_core_rust.py",
+        "line": 145,
+        "text": "assert abs(wf_pol.total_energy_hartree - (-76.01075)) < 5e-4",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_dft_rust.py",
+        "line": 48,
+        "text": "# NIST CCCBDB B3LYP/6-31G(d) (Cartesian 6D) reference for H2O is ~ -76.40895 Eh",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_dft_rust.py",
+        "line": 49,
+        "text": "assert wf.total_energy_hartree == pytest.approx(-76.40895, abs=1.5e-3)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 60,
+        "text": "assert ic2f.reference_data[\"scf_energy_hartree\"] == pytest.approx(-881.833266861, abs=1e-6)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 66,
+        "text": "assert ic2f_fchk.reference_data[\"scf_energy_hartree\"] == pytest.approx(-881.833266861, abs=1e-6)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 93,
+        "text": "assert cluster.reference_data[\"scf_energy_hartree\"] == pytest.approx(-3469.55737880, abs=1e-5)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+        "line": 136,
+        "text": "assert res_cam.scf_energy_hartree == pytest.approx(-886.392360, abs=1e-3)",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_multi_program.py",
+        "line": 112,
+        "text": "g16_h2o_e = -76.4196224301",
+        "rust_test_block": false
+      },
+      {
+        "file": "tools/dev/benchmark_opv_pv.py",
+        "line": 146,
+        "text": "print(f\"      E_tot(MD Cluster, 60 atoms)    = {sp_cluster.total_energy_hartree:16.8f} Eh (G16 6-31G(d) Ref: -3469.55737880 Eh)\")",
+        "rust_test_block": false
+      }
+    ]
+  },
+  "total_lines": 65244,
+  "rust_crates": [
+    "calchem-basis",
+    "calchem-dft",
+    "calchem-grad",
+    "calchem-int",
+    "calchem-model",
+    "calchem-opt",
+    "calchem-prop",
+    "calchem-py",
+    "calchem-scf",
+    "calchem-solv",
+    "calchem-tddft",
+    "calchem-tensor",
+    "calchem-vib"
+  ]
+}

@@ -1,0 +1,12 @@
+[package]
+name = "calchem-grad"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+calchem-model = { path = "../calchem-model" }
+calchem-basis = { path = "../calchem-basis" }
+calchem-int = { path = "../calchem-int" }
+calchem-scf = { path = "../calchem-scf" }
+calchem-tensor = { path = "../calchem-tensor" }
+rayon = { workspace = true }

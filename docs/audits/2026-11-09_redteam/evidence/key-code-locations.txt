@@ -1,0 +1,107 @@
+crates\calchem-vib\src\thermo.rs:21:const AMU_BOHR2_TO_KG_M2: f64 = 4.6509653e-48;
+crates\calchem-vib\src\thermo.rs:144:        let i_kg_m2 = i_amu_bohr2 * AMU_BOHR2_TO_KG_M2;
+crates\calchem-vib\src\thermo.rs:155:        let ia = vib.moments_of_inertia_amu_bohr2[0] * AMU_BOHR2_TO_KG_M2;
+crates\calchem-vib\src\thermo.rs:156:        let ib = vib.moments_of_inertia_amu_bohr2[1] * AMU_BOHR2_TO_KG_M2;
+crates\calchem-vib\src\thermo.rs:157:        let ic = vib.moments_of_inertia_amu_bohr2[2] * AMU_BOHR2_TO_KG_M2;
+crates\calchem-vib\src\modes.rs:9:    HESSIAN_EVAL_TO_INV_CM, IR_INTENSITY_PREFACTOR_KM_MOL, atomic_mass_amu,
+crates\calchem-vib\src\modes.rs:311:        let ir_intensity = IR_INTENSITY_PREFACTOR_KM_MOL * dmu_sq;
+crates\calchem-vib\src\masses.rs:22:pub const IR_INTENSITY_PREFACTOR_KM_MOL: f64 = 42.2561;
+crates\calchem-grad\tests\rhf_gradient.rs:11:    let wf = rhf(&mol, &basis, &ScfOptions::default()).unwrap();
+crates\calchem-grad\tests\rhf_gradient.rs:102:    let wf = rhf(&mol, &basis, &opts).unwrap();
+crates\calchem-grad\tests\rhf_gradient.rs:175:    let wf = rhf(&mol, &basis, &opts).unwrap();
+crates\calchem-vib\src\lib.rs:22:    HARTREE_TO_EV, HARTREE_TO_KCAL_MOL, HESSIAN_EVAL_TO_INV_CM, IR_INTENSITY_PREFACTOR_KM_MOL,
+crates\calchem-grad\tests\polarization_and_ecp_gradient.rs:73:    let wf = rhf(&h2o, &bs, &opts).unwrap();
+crates\calchem-py\src\lib.rs:561:pub fn run_single_point(
+crates\calchem-py\src\lib.rs:764:            let wf = rhf(&mol, &bs, &opts).map_err(to_py_err)?;
+crates\calchem-py\src\lib.rs:803:pub fn run_optimize(
+crates\calchem-py\src\lib.rs:2836:    let cds_kcal_mol = if solv_opts.include_cds {
+crates\calchem-py\src\lib.rs:2983:        data: density.as_slice().unwrap().to_vec(),
+crates\calchem-scf\tests\rhf_sto3g.rs:16:    let wf = rhf(&mol, &basis, &ScfOptions::default()).unwrap();
+crates\calchem-scf\tests\rhf_sto3g.rs:25:    let wf = rhf(&mol, &basis, &ScfOptions::default()).unwrap();
+crates\calchem-scf\tests\rhf_sto3g.rs:34:    let wf = rhf(&mol, &basis, &ScfOptions::default()).unwrap();
+crates\calchem-scf\tests\rhf_sto3g.rs:51:    let wf = rhf(&mol, &basis, &ScfOptions::default()).unwrap();
+crates\calchem-dft\src\xc.rs:78:    pub fn exact_exchange_fraction(self) -> f64 {
+crates\calchem-dft\src\xc.rs:83:            Self::CamB3lyp => 0.42,
+crates\calchem-dft\src\xc.rs:150:            out.add_scaled(1.0, pbe_c(ra, rb, gaa, gamma_ab, gbb));
+crates\calchem-dft\src\xc.rs:172:            out.add_scaled(1.00, pbe_c(ra, rb, gaa, gamma_ab, gbb));
+crates\calchem-dft\src\xc.rs:615:fn pbe_c(ra: f64, rb: f64, gaa: f64, gab: f64, gbb: f64) -> XcPointOut {
+crates\calchem-dft\src\xc.rs:833:    const C0: f64 = 0.778;
+crates\calchem-dft\src\xc.rs:854:    let c_pbe = pbe_c(ra, rb, gaa, gab, gbb);
+crates\calchem-tddft\tests\tddft_and_cis.rs:98:    let c_hf = xc.exact_exchange_fraction();
+crates\calchem-tddft\tests\tddft_and_cis.rs:302:    let c_hf = xc.map_or(1.0, |(f, _)| f.exact_exchange_fraction());
+crates\calchem-scf\tests\rhf_631g.rs:68:    let wf = rhf(&mol, &bs, &opts).unwrap();
+crates\calchem-tddft\src\lib.rs:515:        Some((func, _)) => func.exact_exchange_fraction(),
+crates\calchem-tddft\src\lib.rs:841:    let c_hf = xc.map_or(1.0, |f| f.exact_exchange_fraction());
+crates\calchem-opt\src\prfo.rs:335:        if is_converged {
+crates\calchem-int\src\lib.rs:354:                            mu as u16,
+crates\calchem-int\src\lib.rs:355:                            nu as u16,
+crates\calchem-int\src\lib.rs:356:                            lam as u16,
+crates\calchem-int\src\lib.rs:357:                            sig as u16,
+crates\calchem-solv\src\scrf.rs:112:    let cds_kcal_mol = if opts.include_cds {
+crates\calchem-solv\src\scrf.rs:285:    let cds_kcal_mol = if opts.include_cds {
+crates\calchem-solv\src\scrf.rs:295:    let gas_energy = e_prev - e_solv_elec;
+crates\calchem-solv\src\scrf.rs:420:        let g_2e = build_two_electron_rks(&p, &eri, xc.exact_exchange_fraction());
+crates\calchem-solv\src\scrf.rs:486:    let cds_kcal_mol = if opts.include_cds {
+crates\calchem-solv\src\scrf.rs:496:    let gas_energy = e_prev - e_solv_elec;
+crates\calchem-opt\src\irc.rs:177:    let ds = opts.step_size_bohr;
+crates\calchem-opt\src\irc.rs:211:        let mut last_eg: Option<(f64, Vec<f64>, Molecule)> = None;
+crates\calchem-opt\src\irc.rs:214:            last_eg = Some((e_eval, g_q.clone(), pt_m));
+crates\calchem-opt\src\irc.rs:252:        let (e_k, g_k, pt_mol) = if let Some(eg) = last_eg {
+crates\calchem-opt\src\irc.rs:275:            converged_to_min = true;
+crates\calchem-opt\src\irc.rs:281:            converged_to_min = true;
+crates\calchem-opt\src\irc.rs:291:            converged_to_min = true;
+crates\calchem-prop\tests\isosurface_and_cube.rs:197:    let wf = rhf(&mol, &bs, &ScfOptions::default()).unwrap();
+crates\calchem-prop\tests\isosurface_and_cube.rs:218:        (norm_sq - 1.0).abs() < 0.005,
+crates\calchem-prop\tests\isosurface_and_cube.rs:325:        (integrated_spin - 1.0).abs() < 0.005,
+crates\calchem-grad\src\lib.rs:359:        xc.exact_exchange_fraction(),
+crates\calchem-grad\src\lib.rs:441:        xc.exact_exchange_fraction(),
+crates\calchem-basis\data\6-31gd.json:298:          -0.005587423,
+crates\calchem-basis\data\6-31gd.json:618:          -0.005975683,
+crates\calchem-basis\data\6-31gd.json:1910:          -0.005056378,
+crates\calchem-basis\data\6-31gd.json:2082:          -0.005330845,
+crates\calchem-basis\data\6-31gd.json:3059:          0.00500165971,
+crates\calchem-basis\data\6-31gd.json:3906:          -0.005752618,
+crates\calchem-basis\data\6-31gd.json:4411:          0.08005452654,
+crates\calchem-opt\src\lib.rs:106:            let wf = rhf(mol, bs, o)?;
+crates\calchem-opt\src\lib.rs:205:    if let Some(ref solv_str) = opts.solvent {
+crates\calchem-opt\src\lib.rs:208:        let wf = rhf(mol, bs, &opts.scf_options)?;
+crates\calchem-opt\src\lib.rs:474:                let small_step = 0.05;
+crates\calchem-opt\src\lib.rs:476:                    x_new[i] = x[i] - small_step * g[i];
+crates\calchem-opt\src\lib.rs:480:                    if scf_energy_with_options(&trial_mol, &trial_bs, opts).is_ok() {
+crates\calchem-prop\tests\esp_and_population.rs:60:    let wf = rhf(&mol, &bs, &ScfOptions::default()).unwrap();
+crates\calchem-prop\tests\esp_and_population.rs:113:    let wf = rhf(&mol, &bs, &ScfOptions::default()).unwrap();
+crates\calchem-prop\tests\esp_and_population.rs:176:    let wf = rhf(&mol, &bs, &ScfOptions::default()).unwrap();
+crates\calchem-prop\tests\esp_and_population.rs:224:    let wf = rhf(&mol, &bs, &ScfOptions::default()).unwrap();
+crates\calchem-basis\data\sto-3g.json:4103:          0.9570200509
+crates\calchem-basis\data\sto-3g.json:4116:          0.9570200509
+crates\calchem-basis\data\sto-3g.json:4129:          0.9570200509
+crates\calchem-dft\src\grid.rs:437:                    if r > 18.0 {
+crates\calchem-scf\src\rhf.rs:235:        if comm_norm > 1e-6 {
+crates\calchem-basis\data\6-31g.json:280:          -0.005587423,
+crates\calchem-basis\data\6-31g.json:573:          -0.005975683,
+crates\calchem-basis\data\6-31g.json:1784:          -0.005056378,
+crates\calchem-basis\data\6-31g.json:1947:          -0.005330845,
+crates\calchem-basis\data\6-31g.json:2861:          0.0050017,
+crates\calchem-basis\data\6-31g.json:3645:          -0.005752618,
+crates\calchem-basis\data\6-31g.json:4123:          0.08005452654,
+crates\calchem-basis\data\6-31gdp.json:298:          -0.005587423,
+crates\calchem-basis\data\6-31gdp.json:618:          -0.005975683,
+crates\calchem-basis\data\6-31gdp.json:1910:          -0.005056378,
+crates\calchem-basis\data\6-31gdp.json:2082:          -0.005330845,
+crates\calchem-basis\data\6-31gdp.json:3077:          0.00500165971,
+crates\calchem-basis\data\6-31gdp.json:3924:          -0.005752618,
+crates\calchem-basis\data\6-31gdp.json:4429:          0.08005452654,
+crates\calchem-scf\src\uks.rs:76:    let (ga, gb) = build_two_electron_uks(pa, pb, eri, xc.exact_exchange_fraction());
+crates\calchem-scf\src\uks.rs:329:    if !fp_converged && comm_norm > 1e-6 {
+crates\calchem-scf\src\uhf.rs:260:    if !fp_converged && comm_norm > 1e-6 {
+crates\calchem-scf\src\rks.rs:34:    let g_2e = build_two_electron_rks(p, eri, xc.exact_exchange_fraction());
+crates\calchem-scf\src\rks.rs:230:    let max_fp_steps = if n >= 40 { 2 } else { 30 };
+crates\calchem-scf\src\rks.rs:288:        if comm_norm > 1e-6 {
+crates\calchem-solv\src\gradient.rs:36:    let e_cds = 0.005 * (surface_area_angstrom2 / 627.509474);
+crates\calchem-solv\src\gradient.rs:45:pub fn compute_pcm_gradient_fd(
+crates\calchem-solv\src\gradient.rs:200:pub fn run_pcm_gradient(
+crates\calchem-solv\src\gradient.rs:207:    compute_pcm_gradient_fd(mol, basis, density, solvent, cavity_opts, 1e-4)
+crates\calchem-dft\src\d3.rs:125:                // Default to PBE parameters if unknown
+crates\calchem-dft\src\d3.rs:284:                // Combination rule: harmonic mean of C6
+crates\calchem-dft\src\d3.rs:606:    base * (-0.05 * delta).exp()
+crates\calchem-solv\src\lib.rs:19:    compute_pcm_gradient_analytic, compute_pcm_gradient_fd, run_pcm_gradient,

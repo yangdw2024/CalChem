@@ -1,0 +1,8 @@
+{"test": "pbe_sto", "gaussian": -75.225509211, "native": [{"grid": "coarse", "energy": -75.22554925738993}, {"grid": "medium", "energy": -75.22553031649592}, {"grid": "fine", "energy": -75.22552650252842}]}
+{"test": "d3_bj", "gaussian_dispersion": ["Dispersion=GD3BJ NoSymm SCF=(Tight,MaxCycle=1", "R6Disp:  Grimme-D3(BJ) Dispersion energy=       -0.0005738766 Hartrees.", "Dispersion=GD3BJ NoSymm SCF=(Tight,MaxC"], "native_dispersion": -0.0011545373474959968}
+{"test": "cis", "gaussian_states": [["1", "13.1929", "0.0035"], ["2", "15.1487", "0.0000"], ["3", "16.7764", "0.0773"]], "native_states": [{"energy_ev": 13.192877687784488, "oscillator_strength": 0.0035427605997909732}, {"energy_ev": 15.148746797066577, "oscillator_strength": 1.463879128056767e-31}, {"energy_ev": 16.776005807206694, "oscillator_strength": 0.07724969816683717}]}
+{"test": "tddft_b3lyp", "gaussian_states": [["1", "11.6647", "0.0023"], ["2", "13.9716", "0.0000"], ["3", "14.5121", "0.0639"]], "native_states": [{"energy_ev": 11.664709515106377, "oscillator_strength": 0.0023395446600882755}, {"energy_ev": 13.97164645850861, "oscillator_strength": 1.633659226740987e-29}, {"energy_ev": 14.512075847029239, "oscillator_strength": 0.06392608666897721}]}
+Traceback (most recent call last):
+  File "E:\YDW\Trae_Gaussian\docs\audits\2026-11-09_redteam\probes\external_followup.py", line 39, in <module>
+    o=c.run_optimize(syms,(xyz/.529177210903).tolist(),method='rhf',basis='sto-3g',max_force=1e-6,rms_force=5e-7,max_displacement=1e-5,max_steps=80)
+TypeError: run_optimize() got an unexpected keyword argument 'max_force'

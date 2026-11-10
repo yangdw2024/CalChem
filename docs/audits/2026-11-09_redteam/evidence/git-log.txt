@@ -1,0 +1,20 @@
+c9fd62e939f62caffbe7d2d382f1c5fe0f65cf9a 2026-10-30T14:11:11+08:00 chore: project root cleanup - archive old handoffs, delete temp test dirs
+ced006bf5377a46d297920894e8631c03428efa1 2026-10-30T14:05:40+08:00 v1.0 Stage 2: proper Obara-Saika VRR, p-type integrals correct
+6fed3a16ec600998997cf8095f50d73f3b5b714e 2026-10-30T09:35:58+08:00 v1.0 Stage 1.5: DIIS + dual-track native backend
+ee567ee6d0b7999c7dc79b6952872afb15d2c446 2026-10-30T08:58:31+08:00 v1.0 Stage 1: Rust RHF core - s-type integrals verified
+4da99f05385ad34e196408d59c61f17109ada171 2026-10-30T08:45:30+08:00 v1.0 Stage 0: Rust workspace compiles + Python baseline preserved
+30dc50811ab038feccca10263cef8392ce192639 2026-10-29T02:01:24+08:00 v0.6.0: actual_method + Gaussian optimize/frequency
+4795ad05964e3ed950f7b9233598b83245d120ea 2026-10-29T01:43:05+08:00 v0.4.0-v0.5.0: geometry opt + numerical frequency
+64b82420e8ceee1374a187cc3f47f94a901ba7c3 2026-10-29T01:29:59+08:00 v0.3.0-v0.4.0: global lock in TaskService, parsers module, geometry optimization
+6a44f65af838e68d8c082c29d943a9074cc40da5 2026-10-29T01:24:16+08:00 v0.3.0: pyproject fix, global lock, periodic table
+479edea188e390ad4507665f600be5edb997b56e 2026-10-28T23:18:36+08:00 v0.2.0 complete: all P0 fixes + config loader + tests
+89aa81dc6d8772f612264688d55f0edba1bfe9fe 2026-10-28T22:56:38+08:00 v0.2.0 P0 fixes: no fake values, real dispatcher, clean CLI JSON
+30eb1fcce3d5c8a64d83eb70e331cc485c9eec29 2026-10-28T21:55:42+08:00 Phase I final: PyInstaller build verified, handoff package created
+c6c37bce025fa2ea7d053d8684895b99bd036a61 2026-10-28T21:52:44+08:00 Fix ORCA backend: basis mapping, stdout parsing, error detection
+b299190aa4730fd1b1df9bccf919eb211bbe2ed3 2026-10-28T21:44:50+08:00 Phase E+H+I: optional backends, OPV workflow, acceptance report
+3a8489a939732e617979eb9a965151ec59f47a2b 2026-10-28T21:42:11+08:00 Phase G: PyQt6 GUI main window
+a9899095d84065221380c0e444f4f63ea2ced79e 2026-10-28T21:35:22+08:00 Phase F: Click+Rich CLI (backends/doctor/run commands)
+a8db044f65b7c59cc61838acd31ca9ababdb767b 2026-10-28T21:33:52+08:00 Phase F core: TaskService + JobQueue + state machine
+e0bf01505146fd2023f873c39c852b6a1736eda1 2026-10-28T21:32:40+08:00 Phase D: Gaussian 16 backend (verified) + ORCA adapter
+741710cb421824c89b0c7fb4629ed2b51af7400a 2026-10-28T21:27:10+08:00 Phase B+C: core data contracts + NativeCalchem backend
+b8397ebff8199b33f19ff1a75d990ecceec4f29c 2026-10-28T21:21:35+08:00 Phase A: pre-refactor baseline

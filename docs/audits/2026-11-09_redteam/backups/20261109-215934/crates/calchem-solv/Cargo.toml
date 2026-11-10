@@ -1,0 +1,17 @@
+[package]
+name = "calchem-solv"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+calchem-model = { path = "../calchem-model" }
+calchem-basis = { path = "../calchem-basis" }
+calchem-tensor = { path = "../calchem-tensor" }
+calchem-int = { path = "../calchem-int" }
+calchem-dft = { path = "../calchem-dft" }
+calchem-scf = { path = "../calchem-scf" }
+calchem-prop = { path = "../calchem-prop" }
+faer = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,44 @@
+﻿[
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-dft\\src\\lib.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-184945-655\\files\\crates\\calchem-dft\\src\\lib.rs",
+        "SHA256":  "4162860031778B87618D172AD431B25FF82C0681094A62C9F5F3E6F7ADDBA278",
+        "LastWriteTimeUtc":  "2026-11-06T05:57:51.3291056Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-grad\\src\\lib.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-184945-655\\files\\crates\\calchem-grad\\src\\lib.rs",
+        "SHA256":  "BB1441BCDF113E5298371A3AD2C2EB3B3BFE5A5DAF19E0E4ACD6E0D1DF469436",
+        "LastWriteTimeUtc":  "2026-11-06T02:20:58.8646485Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-opt\\src\\lib.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-184945-655\\files\\crates\\calchem-opt\\src\\lib.rs",
+        "SHA256":  "1F36BE8074FA3F86C42270AEB2985E9E68F9E720EF08507373887401F6A59611",
+        "LastWriteTimeUtc":  "2026-11-06T07:54:56.2152518Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-py\\src\\lib.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-184945-655\\files\\crates\\calchem-py\\src\\lib.rs",
+        "SHA256":  "266B97FCC81209212E689805915A3EA1C30FB7FE01E4C31AA4474249D8ADC729",
+        "LastWriteTimeUtc":  "2026-11-06T09:01:11.9033836Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\calchem\\_core.pyi",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-184945-655\\files\\calchem\\_core.pyi",
+        "SHA256":  "F0CA1486D7579BB1FE2CDBE616786C263B887B7BD19F1049E253997868ACC106",
+        "LastWriteTimeUtc":  "2026-11-06T08:50:00.7067425Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\calchem\\dft\\d3.py",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-184945-655\\files\\calchem\\dft\\d3.py",
+        "SHA256":  "99CBCA62CD76CEAC594D6EA2787B17983A2122659EB7B57A18D756131B0C1A70",
+        "LastWriteTimeUtc":  "2026-07-06T07:57:24.8306351Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\calchem\\backends\\native.py",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261106-184945-655\\files\\calchem\\backends\\native.py",
+        "SHA256":  "995252E92EBC7DE3910597B9FF5E3C4AAD0FFFD45BAC6460910198C36C53CF8E",
+        "LastWriteTimeUtc":  "2026-11-06T09:47:13.6900852Z"
+    }
+]

@@ -1,0 +1,462 @@
+ M .github/workflows/ci.yml
+ M Cargo.lock
+ M Cargo.toml
+ M calchem/_core.pyi
+ M calchem/api/high_level.py
+ M calchem/api/service.py
+ M calchem/backends/external.py
+ M calchem/backends/gaussian.py
+ M calchem/backends/native.py
+ M calchem/backends/orca.py
+ M calchem/backends/rest.py
+ M calchem/config/loader.py
+ M calchem/config/models.py
+ M calchem/core/calculator.py
+ M calchem/core/request.py
+ M calchem/core/result.py
+ M calchem/core/units.py
+ M calchem/dft/d3.py
+ M calchem/jobs/dispatcher.py
+ M calchem/jobs/models.py
+ M calchem/jobs/queue.py
+ M calchem/opt/numeric_optimizer.py
+ M calchem/post_hf/casscf.py
+ M calchem/post_hf/ccd.py
+ M calchem/post_hf/ccsd.py
+ M calchem/post_hf/ccsd_t.py
+ M calchem/post_hf/mp2.py
+ M calchem/post_hf/mp4.py
+ M calchem/props/__init__.py
+ M calchem/props/cube.py
+ M calchem/props/population.py
+ M calchem/scf/dft.py
+ M calchem/solvent/pcm.py
+ M calchem/solvent/smd.py
+ M calchem/workflows/__init__.py
+ M calchem/workflows/opv.py
+ M crates/calchem-basis/data/6-31g.json
+ M crates/calchem-basis/data/sto-3g.json
+ M crates/calchem-basis/src/lib.rs
+ M crates/calchem-basis/tests/basis_normalization.rs
+ M crates/calchem-grad/Cargo.toml
+ M crates/calchem-grad/src/lib.rs
+ M crates/calchem-int/src/lib.rs
+ M crates/calchem-int/src/one_electron.rs
+ M crates/calchem-int/tests/boys.rs
+ M crates/calchem-int/tests/eri_reference.rs
+ M crates/calchem-int/tests/one_electron.rs
+ M crates/calchem-model/src/lib.rs
+ M crates/calchem-opt/Cargo.toml
+ M crates/calchem-opt/src/lib.rs
+ M crates/calchem-prop/Cargo.toml
+ M crates/calchem-prop/src/lib.rs
+ M crates/calchem-py/Cargo.toml
+ M crates/calchem-py/src/lib.rs
+ M crates/calchem-scf/Cargo.toml
+ M crates/calchem-scf/src/diis.rs
+ M crates/calchem-scf/src/lib.rs
+ M crates/calchem-scf/src/rhf.rs
+ M pyproject.toml
+ M tests/unit/test_core_rust.py
+?? .github/workflows/release_pypi.yml
+?? CalChem_Stage3_Design.md
+?? calchem/props/isosurface.py
+?? crates/calchem-basis/data/6-31gd.json
+?? crates/calchem-basis/data/6-31gdp.json
+?? crates/calchem-basis/data/lanl2dz.json
+?? crates/calchem-basis/data/lanl2dzdp.json
+?? crates/calchem-dft/Cargo.toml
+?? crates/calchem-dft/src/ao_grid.rs
+?? crates/calchem-dft/src/d3.rs
+?? crates/calchem-dft/src/fxc.rs
+?? crates/calchem-dft/src/grid.rs
+?? crates/calchem-dft/src/lebedev.rs
+?? crates/calchem-dft/src/lib.rs
+?? crates/calchem-dft/src/vxc.rs
+?? crates/calchem-dft/src/xc.rs
+?? crates/calchem-dft/tests/d3_dispersion.rs
+?? crates/calchem-grad/src/derivatives.rs
+?? crates/calchem-grad/tests/dft_gradient.rs
+?? crates/calchem-grad/tests/polarization_and_ecp_gradient.rs
+?? crates/calchem-grad/tests/rhf_gradient.rs
+?? crates/calchem-grad/tests/uhf_gradient.rs
+?? crates/calchem-int/src/ecp.rs
+?? crates/calchem-int/src/screening.rs
+?? crates/calchem-int/tests/screening_and_parallel.rs
+?? crates/calchem-opt/src/irc.rs
+?? crates/calchem-opt/src/prfo.rs
+?? crates/calchem-opt/tests/dft_optimization.rs
+?? crates/calchem-opt/tests/ecp_optimization.rs
+?? crates/calchem-opt/tests/optimization.rs
+?? crates/calchem-opt/tests/ts_and_irc.rs
+?? crates/calchem-opt/tests/uhf_optimization.rs
+?? crates/calchem-prop/src/esp.rs
+?? crates/calchem-prop/src/marching_cubes.rs
+?? crates/calchem-prop/tests/esp_and_population.rs
+?? crates/calchem-prop/tests/isosurface_and_cube.rs
+?? crates/calchem-scf/src/rks.rs
+?? crates/calchem-scf/src/uhf.rs
+?? crates/calchem-scf/src/uks.rs
+?? crates/calchem-scf/tests/kohn_sham_dft.rs
+?? crates/calchem-scf/tests/polarization_and_ecp.rs
+?? crates/calchem-scf/tests/rhf_631g.rs
+?? crates/calchem-scf/tests/uhf.rs
+?? crates/calchem-solv/Cargo.toml
+?? crates/calchem-solv/src/cavity.rs
+?? crates/calchem-solv/src/gradient.rs
+?? crates/calchem-solv/src/lib.rs
+?? crates/calchem-solv/src/matrix.rs
+?? crates/calchem-solv/src/potential.rs
+?? crates/calchem-solv/src/scrf.rs
+?? crates/calchem-solv/src/solvent.rs
+?? crates/calchem-solv/tests/pcm_and_scrf.rs
+?? crates/calchem-tddft/Cargo.toml
+?? crates/calchem-tddft/src/davidson.rs
+?? crates/calchem-tddft/src/lib.rs
+?? crates/calchem-tddft/tests/tddft_and_cis.rs
+?? crates/calchem-vib/Cargo.toml
+?? crates/calchem-vib/src/hessian.rs
+?? crates/calchem-vib/src/lib.rs
+?? crates/calchem-vib/src/masses.rs
+?? crates/calchem-vib/src/modes.rs
+?? crates/calchem-vib/src/thermo.rs
+?? crates/calchem-vib/tests/frequencies_and_thermo.rs
+?? docs/ARCHITECTURE_PRINCIPLES.md
+?? docs/audits/2026-11-03/.gitignore
+?? docs/audits/2026-11-03/00_START_STATE.md
+?? docs/audits/2026-11-03/01_PLAN.md
+?? docs/audits/2026-11-03/02_STATUS_AND_WORKFLOW.md
+?? docs/audits/2026-11-03/03_FINDINGS_AND_NEXT_STEPS.md
+?? docs/audits/2026-11-03/04_RULES_AND_ROLLBACK.md
+?? docs/audits/2026-11-03/05_OPERATIONS.md
+?? docs/audits/2026-11-03/06_LESSONS.md
+?? docs/audits/2026-11-03/README.md
+?? docs/audits/2026-11-03/evidence/backup-manifest-path.txt
+?? docs/audits/2026-11-03/evidence/boys-reference-quadrature.json
+?? docs/audits/2026-11-03/evidence/boys-reference-quadrature.log
+?? docs/audits/2026-11-03/evidence/checks-attempt1.json
+?? docs/audits/2026-11-03/evidence/checks.json
+?? docs/audits/2026-11-03/evidence/deep-checks.json
+?? docs/audits/2026-11-03/evidence/deep-checks.log
+?? docs/audits/2026-11-03/evidence/design-hash-before.csv
+?? docs/audits/2026-11-03/evidence/directory-sizes.csv
+?? docs/audits/2026-11-03/evidence/file-inventory.txt
+?? docs/audits/2026-11-03/evidence/git-history.txt
+?? docs/audits/2026-11-03/evidence/git-status-after.txt
+?? docs/audits/2026-11-03/evidence/git-status-before.txt
+?? docs/audits/2026-11-03/evidence/inspect-integrals-build.log
+?? docs/audits/2026-11-03/evidence/inspect-integrals.jsonl
+?? docs/audits/2026-11-03/evidence/integrity-after.json
+?? docs/audits/2026-11-03/evidence/kinetic-reference.json
+?? docs/audits/2026-11-03/evidence/kinetic-reference.log
+?? docs/audits/2026-11-03/evidence/pytest.log
+?? docs/audits/2026-11-03/evidence/python-checks-attempt1.log
+?? docs/audits/2026-11-03/evidence/python-checks.log
+?? docs/audits/2026-11-03/evidence/python-inventory.json
+?? docs/audits/2026-11-03/evidence/ruff-critical.json
+?? docs/audits/2026-11-03/evidence/rust-basis-scf-tests.log
+?? docs/audits/2026-11-03/evidence/rust-exit.txt
+?? docs/audits/2026-11-03/evidence/rust-integral-subsets.log
+?? docs/audits/2026-11-03/evidence/rust-lib-tests.log
+?? docs/audits/2026-11-03/evidence/rust-remaining-integrals-exit.txt
+?? docs/audits/2026-11-03/evidence/rust-remaining-integrals.log
+?? docs/audits/2026-11-03/evidence/rust-subsets-exit.json
+?? docs/audits/2026-11-03/evidence/rust-tests.log
+?? docs/audits/2026-11-03/evidence/rust-toolchain.txt
+?? docs/audits/2026-11-03/evidence/source-hashes-before.csv
+?? docs/audits/2026-11-03/evidence/test-structure.json
+?? docs/audits/2026-11-03/evidence/tracked-files.txt
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/.github/workflows/ci.yml
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/CalChem_Stage3_Design.md
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/Cargo.lock
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/HANDOFF_PROMPT_CalChem_Rust_v3.md
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/README.md
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/api/high_level.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/api/service.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/backends/gaussian.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/backends/orca.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/config/loader.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/gui/worker.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/jobs/dispatcher.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/jobs/global_lock.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/calchem/jobs/queue.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/crates/calchem-int/tests/boys.rs
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/crates/calchem-int/tests/eri_reference.rs
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/crates/calchem-scf/src/rhf.rs
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/pyproject.toml
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/files/tests/unit/test_core_rust.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-112009-717/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261103-211757-547/files/.github/workflows/ci.yml
+?? docs/audits/2026-11-03/rollback/backups/20261103-211757-547/files/crates/calchem-int/tests/boys.rs
+?? docs/audits/2026-11-03/rollback/backups/20261103-211757-547/files/crates/calchem-int/tests/eri_reference.rs
+?? docs/audits/2026-11-03/rollback/backups/20261103-211757-547/files/crates/calchem-int/tests/one_electron.rs
+?? docs/audits/2026-11-03/rollback/backups/20261103-211757-547/files/tests/unit/test_core_rust.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-211757-547/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/calchem/api/service.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/calchem/backends/external.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/calchem/backends/gaussian.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/calchem/backends/orca.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/calchem/cli.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/calchem/config/loader.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/calchem/config/models.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/files/crates/calchem-scf/src/rhf.rs
+?? docs/audits/2026-11-03/rollback/backups/20261103-211847-385/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/api/high_level.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/jobs/dispatcher.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/opt/numeric_optimizer.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/post_hf/casscf.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/post_hf/ccd.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/post_hf/ccsd.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/post_hf/ccsd_t.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/post_hf/mp2.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/post_hf/mp4.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/files/calchem/scf/dft.py
+?? docs/audits/2026-11-03/rollback/backups/20261103-213420-872/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-094122-766/files/crates/calchem-model/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-094122-766/files/crates/calchem-scf/src/rhf.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-094122-766/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-094422-929/files/crates/calchem-grad/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261105-094422-929/files/crates/calchem-grad/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-094422-929/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-094610-034/files/Cargo.lock
+?? docs/audits/2026-11-03/rollback/backups/20261105-094610-034/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-094810-776/files/crates/calchem-opt/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261105-094810-776/files/crates/calchem-opt/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-094810-776/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-095154-686/files/crates/calchem-prop/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261105-095154-686/files/crates/calchem-prop/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-095154-686/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-095251-497/files/crates/calchem-py/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261105-095251-497/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-095251-497/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-095415-133/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261105-095415-133/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-095651-706/files/tests/unit/test_core_rust.py
+?? docs/audits/2026-11-03/rollback/backups/20261105-095651-706/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-095742-181/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261105-095742-181/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-103928-658/files/crates/calchem-int/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261105-103928-658/files/crates/calchem-int/src/eri.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-103928-658/files/crates/calchem-int/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-103928-658/files/crates/calchem-scf/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261105-103928-658/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-104226-297/files/crates/calchem-grad/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261105-104226-297/files/crates/calchem-grad/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-104226-297/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-141355-915/files/crates/calchem-grad/src/derivatives.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-141355-915/files/crates/calchem-grad/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-141355-915/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-184116-869/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261105-184116-869/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/crates/calchem-grad/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/crates/calchem-model/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/crates/calchem-opt/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/crates/calchem-scf/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/crates/calchem-scf/src/rhf.rs
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/files/tests/unit/test_opv_workflow.py
+?? docs/audits/2026-11-03/rollback/backups/20261105-202306-252/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261105-212617-899/files/calchem/workflows/__init__.py
+?? docs/audits/2026-11-03/rollback/backups/20261105-212617-899/files/tests/unit/test_core_rust.py
+?? docs/audits/2026-11-03/rollback/backups/20261105-212617-899/files/tests/unit/test_native_backend.py
+?? docs/audits/2026-11-03/rollback/backups/20261105-212617-899/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-basis/data/6-31g.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-basis/data/sto-3g.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-basis/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-grad/src/derivatives.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-grad/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-int/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-int/src/one_electron.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-model/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-prop/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-scf/src/rhf.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/crates/calchem-scf/src/uhf.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/tests/unit/test_core_rust.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/tests/unit/test_native_backend.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/files/tests/unit/test_opv_workflow.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-083925-088/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-085619-508/files/crates/calchem-basis/tests/basis_normalization.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-085619-508/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-091122-325/files/Cargo.lock
+?? docs/audits/2026-11-03/rollback/backups/20261106-091122-325/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261106-091122-325/files/calchem/props/__init__.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-091122-325/files/calchem/props/cube.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-091122-325/files/crates/calchem-prop/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-091122-325/files/crates/calchem-prop/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-091122-325/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-091122-325/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/Cargo.lock
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/crates/calchem-grad/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/crates/calchem-grad/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/crates/calchem-opt/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/crates/calchem-opt/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/crates/calchem-py/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/crates/calchem-scf/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/crates/calchem-scf/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/tests/unit/test_native_backend.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/files/tests/unit/test_opv_workflow.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-095416-737/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-105524-874/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261106-105524-874/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-105524-874/files/calchem/props/__init__.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-105524-874/files/calchem/props/isosurface.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-105524-874/files/crates/calchem-prop/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-105524-874/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-105524-874/files/tests/unit/test_dft_rust.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-105524-874/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-111142-792/files/calchem/core/result.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-111142-792/files/calchem/props/cube.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-111142-792/files/calchem/props/population.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-111142-792/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-111142-792/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-111606-346/files/calchem/workflows/__init__.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-111606-346/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/Cargo.lock
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/calchem/core/result.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/calchem/workflows/__init__.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/crates/calchem-dft/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/crates/calchem-py/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-135637-136/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-144031-130/files/calchem/core/calculator.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-144031-130/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-144431-024/files/calchem/core/request.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-144431-024/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/files/Cargo.lock
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/files/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/files/calchem/core/result.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/files/calchem/workflows/__init__.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/files/crates/calchem-py/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-145324-116/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/files/calchem/core/request.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/files/calchem/core/result.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/files/calchem/workflows/__init__.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/files/crates/calchem-opt/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/files/crates/calchem-opt/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-153621-803/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-160753-867/files/calchem/core/calculator.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-160753-867/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/calchem/core/request.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/calchem/core/result.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/calchem/solvent/pcm.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/calchem/solvent/smd.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/crates/calchem-py/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-163123-434/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-184945-655/files/calchem/_core.pyi
+?? docs/audits/2026-11-03/rollback/backups/20261106-184945-655/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-184945-655/files/calchem/dft/d3.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-184945-655/files/crates/calchem-dft/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-184945-655/files/crates/calchem-grad/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-184945-655/files/crates/calchem-opt/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-184945-655/files/crates/calchem-py/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-184945-655/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-192340-782/files/crates/calchem-opt/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-192340-782/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-200317-008/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-200317-008/files/crates/calchem-dft/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-200317-008/files/crates/calchem-dft/src/xc.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-200317-008/files/crates/calchem-grad/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-200317-008/files/crates/calchem-opt/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-200317-008/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-200854-014/files/crates/calchem-dft/Cargo.toml
+?? docs/audits/2026-11-03/rollback/backups/20261106-200854-014/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-204625-830/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-204625-830/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-204625-830/files/crates/calchem-dft/src/d3.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-204625-830/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-210440-909/files/crates/calchem-solv/src/matrix.rs
+?? docs/audits/2026-11-03/rollback/backups/20261106-210440-909/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261106-214349-630/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-214349-630/files/tests/unit/test_opv_cam_b3lyp_and_dimer.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-214349-630/files/tools/dev/benchmark_opv_pv.py
+?? docs/audits/2026-11-03/rollback/backups/20261106-214349-630/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261109-084056-399/files/calchem/backends/native.py
+?? docs/audits/2026-11-03/rollback/backups/20261109-084056-399/files/crates/calchem-scf/src/rhf.rs
+?? docs/audits/2026-11-03/rollback/backups/20261109-084056-399/files/crates/calchem-scf/src/rks.rs
+?? docs/audits/2026-11-03/rollback/backups/20261109-084056-399/files/crates/calchem-solv/src/scrf.rs
+?? docs/audits/2026-11-03/rollback/backups/20261109-084056-399/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261109-090823-677/files/crates/calchem-int/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261109-090823-677/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261109-092807-228/files/crates/calchem-tddft/src/lib.rs
+?? docs/audits/2026-11-03/rollback/backups/20261109-092807-228/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261109-150138-298/files/calchem/backends/rest.py
+?? docs/audits/2026-11-03/rollback/backups/20261109-150138-298/manifest.json
+?? docs/audits/2026-11-03/rollback/backups/20261109-160456-057/files/calchem/api/service.py
+?? docs/audits/2026-11-03/rollback/backups/20261109-160456-057/files/calchem/backends/external.py
+?? docs/audits/2026-11-03/rollback/backups/20261109-160456-057/files/calchem/config/loader.py
+?? docs/audits/2026-11-03/rollback/backups/20261109-160456-057/files/calchem/config/models.py
+?? docs/audits/2026-11-03/rollback/backups/20261109-160456-057/files/calchem/workflows/opv.py
+?? docs/audits/2026-11-03/rollback/backups/20261109-160456-057/manifest.json
+?? docs/audits/2026-11-03/tools/backup_important.ps1
+?? docs/audits/2026-11-03/tools/check_boys_references.py
+?? docs/audits/2026-11-03/tools/check_kinetic_reference.py
+?? docs/audits/2026-11-03/tools/deep_checks.py
+?? docs/audits/2026-11-03/tools/inspect_integrals.rs
+?? docs/audits/2026-11-03/tools/quarantine_audit.ps1
+?? docs/audits/2026-11-03/tools/restore_backup.ps1
+?? docs/audits/2026-11-03/tools/run_checks.ps1
+?? docs/audits/2026-11-03/tools/run_checks.py
+?? docs/audits/2026-11-03/tools/run_integral_probe.ps1
+?? docs/audits/2026-11-03/tools/run_rust_checks.ps1
+?? docs/audits/2026-11-03/tools/run_rust_subsets.ps1
+?? docs/audits/2026-11-03/tools/verify_integrity.ps1
+?? docs/audits/2026-11-09_redteam/01_PLAN_AND_RULES.md
+?? docs/audits/2026-11-09_redteam/evidence/source_before.json
+?? docs/audits/2026-11-09_redteam/probes/env.ps1
+?? docs/audits/2026-11-09_redteam/probes/snapshot.ps1
+?? docs/audits/2026-11-09_redteam/probes/snapshot.py
+?? docs/audits/2026-11-09_redteam/rollback/source_snapshot.zip
+?? tests/unit/test_adapters.py
+?? tests/unit/test_d3_and_solv_gradient.py
+?? tests/unit/test_dft_rust.py
+?? tests/unit/test_esp_and_population.py
+?? tests/unit/test_isosurface_stream.py
+?? tests/unit/test_native_backend.py
+?? tests/unit/test_opv_cam_b3lyp_and_dimer.py
+?? tests/unit/test_opv_workflow.py
+?? tests/unit/test_service_and_queue.py
+?? tests/unit/test_solvation_and_scrf.py
+?? tests/unit/test_tddft_rust.py
+?? tests/unit/test_ts_and_irc.py
+?? tests/unit/test_vibration_and_thermo.py
+?? tools/dev/benchmark_baseline.py
+?? tools/dev/benchmark_multi_program.py
+?? tools/dev/benchmark_opv_pv.py
+?? tools/dev/build_ext.ps1
+?? tools/dev/check_all.ps1
+?? tools/dev/dev_env.ps1
+?? tools/dev/fetch_bse_basis.py
+?? tools/reference/gen_integral_refs.py

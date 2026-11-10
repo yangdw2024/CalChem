@@ -15,6 +15,8 @@ from typing import Callable, Optional
 
 from .models import Job, JobState
 from .queue import JobQueue
+from ..core.request import CalculationRequest
+from ..core.result import Result
 
 # 避免循环导入：TaskService 用 TYPE_CHECKING
 from typing import TYPE_CHECKING
@@ -25,9 +27,9 @@ if TYPE_CHECKING:
 class JobDispatcher:
     """单并发作业调度器。独立线程消费队列。"""
 
-    def __init__(self, service):
+    def __init__(self, service, queue: Optional[JobQueue] = None):
         self.service = service
-        self.queue = JobQueue()
+        self.queue = queue if queue is not None else getattr(service, "queue", JobQueue())
         self._lock = threading.Lock()
         self._running = False
         self._worker_thread: Optional[threading.Thread] = None

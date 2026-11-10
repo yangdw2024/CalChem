@@ -1,0 +1,128 @@
+   Compiling num-traits v0.2.19
+   Compiling syn v2.0.119
+   Compiling once_cell v1.21.4
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.47
+   Compiling rand_distr v0.4.3
+   Compiling matrixcompare v0.3.0
+   Compiling num-bigint v0.4.8
+   Compiling pulp v0.21.5
+   Compiling pulp v0.18.22
+   Compiling nano-gemm-c64 v0.1.0
+   Compiling nano-gemm-c32 v0.1.0
+   Compiling thiserror-impl v1.0.69
+   Compiling equator-macro v0.2.1
+   Compiling equator-macro v0.4.2
+   Compiling py_literal v0.4.0
+   Compiling faer-entity v0.20.1
+   Compiling npyz v0.8.4
+   Compiling gemm-common v0.18.2
+   Compiling equator v0.2.2
+   Compiling equator v0.4.2
+   Compiling gemm-c64 v0.18.2
+   Compiling gemm-f32 v0.18.2
+   Compiling gemm-c32 v0.18.2
+   Compiling gemm-f64 v0.18.2
+   Compiling thiserror v1.0.69
+   Compiling calchem-model v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-model)
+   Compiling calchem-basis v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-basis)
+   Compiling gemm v0.18.2
+   Compiling nano-gemm v0.1.3
+   Compiling faer v0.20.2
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+warning: value assigned to `mo_energies` is never read
+   --> crates\calchem-scf\src\rhf.rs:111:10
+    |
+111 |     let (mut mo_energies, mut c_mat, mut p) = diagonalize_fock(&h_core, &x, &xt, n_occ)?;
+    |          ^^^^^^^^^^^^^^^ this value is reassigned later and never used
+...
+198 |     mo_energies = final_eps;
+    |     ----------- `mo_energies` is overwritten here before the previous value is read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `mo_energies` is never read
+   --> crates\calchem-scf\src\rhf.rs:173:9
+    |
+173 |         mo_energies = eps_new;
+    |         ^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: value assigned to `c_mat` is never read
+   --> crates\calchem-scf\src\rhf.rs:111:27
+    |
+111 |     let (mut mo_energies, mut c_mat, mut p) = diagonalize_fock(&h_core, &x, &xt, n_occ)?;
+    |                           ^^^^^^^^^ this value is reassigned later and never used
+...
+199 |     c_mat = final_c;
+    |     ----- `c_mat` is overwritten here before the previous value is read
+
+warning: value assigned to `c_mat` is never read
+   --> crates\calchem-scf\src\rhf.rs:172:9
+    |
+172 |         c_mat = c_new;
+    |         ^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: value assigned to `f` is never read
+   --> crates\calchem-scf\src\rhf.rs:112:17
+    |
+112 |     let mut f = h_core.clone();
+    |                 ^^^^^^^^^^^^^^ this value is reassigned later and never used
+...
+194 |     f = build_fock_matrix(&h_core, &p, &eri);
+    |     - `f` is overwritten here before the previous value is read
+
+warning: `calchem-scf` (lib) generated 5 warnings
+warning: `calchem-scf` (lib test) generated 5 warnings (5 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.83s
+     Running unittests src\lib.rs (docs\audits\2026-11-03\runtime\rust-target\debug\deps\calchem_basis-f920421cde28e4ff.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\basis_normalization.rs (docs\audits\2026-11-03\runtime\rust-target\debug\deps\basis_normalization-124570b66200240c.exe)
+
+running 4 tests
+test test_d_shell_contraction_self_overlap ... ok
+test test_primitive_normalization_s_p_d ... ok
+test test_unknown_shell_type_rejected ... ok
+test test_sto3g_and_631g_contraction_self_overlap_is_one ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (docs\audits\2026-11-03\runtime\rust-target\debug\deps\calchem_scf-6ecb37d46764cca4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\rhf_sto3g.rs (docs\audits\2026-11-03\runtime\rust-target\debug\deps\rhf_sto3g-58f50c7c0d7ad04c.exe)
+
+running 6 tests
+test test_he_sto3g_rhf ... ok
+test test_h2_sto3g_rhf ... ok
+test test_ne_sto3g_rhf ... ok
+test test_rhf_returns_not_converged_error_when_max_iter_is_one ... ok
+test test_h2o_sto3g_rhf_szabo_geometry ... ok
+test test_631g_rhf_benchmarks ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+   Doc-tests calchem_basis
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_scf
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

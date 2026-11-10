@@ -1,0 +1,257 @@
+[
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_b3lyp\\input.gjf",
+    "sha256": "7C1612131A01D07985529CFBB56B46AAE4C99773F63ED1DAFADE2AB1BE2FF297",
+    "bytes": 321
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_b3lyp\\input.out",
+    "sha256": "1978ED4C4C0B1FBA15F3DE15E77E40E1D70013A923E3D9E200AC300018A96FD2",
+    "bytes": 43508
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_b3lyp\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_blyp\\input.gjf",
+    "sha256": "327FC986880DA1B81DDE541E113710939A1D8201CB7C358BD37193D5285549F4",
+    "bytes": 320
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_blyp\\input.out",
+    "sha256": "6CDE5384BF161A517841FF3B81C914D9AD73C019BFC9FA872EBEB5D51CB1C8FB",
+    "bytes": 43605
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_blyp\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_cam-b3lyp\\input.gjf",
+    "sha256": "92FA2741AF9A54E8028B7683E10925BE96B8891B3306F71782BB9CDC12113B55",
+    "bytes": 325
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_cam-b3lyp\\input.out",
+    "sha256": "75BE5FB1923FA80D21E556E77CE3B8508A0B87F30AD8E7B18F9D8A03241B52F4",
+    "bytes": 44299
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_cam-b3lyp\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_pbe\\input.gjf",
+    "sha256": "32FA18AC4AA8D48BB41930ED01B767E8BDFF7F4D0973812E6B7D7D190C5B7B64",
+    "bytes": 322
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_pbe\\input.out",
+    "sha256": "7EE37CBA0FDA2E5AA34BE2417EDEB213C03A829311B96547F0B61432E78267FA",
+    "bytes": 44190
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_pbe\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_rhf\\input.gjf",
+    "sha256": "D42DF471B2EEE819E00D8762318095CC3FBA33BBA671930BAC14E490832961EF",
+    "bytes": 318
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_rhf\\input.out",
+    "sha256": "061383750BB5E1282F29EA12D6A82F89DEAECED12CFB9209BE20E69F20895D09",
+    "bytes": 44232
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_rhf\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_svwn5\\input.gjf",
+    "sha256": "23828B8E97FAAB3243B1531FCB319BD221697DDEE3F6314079213E7FFC4DD969",
+    "bytes": 321
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_svwn5\\input.out",
+    "sha256": "7C6DA85AFE7625556FF5A3AC8ABAFC51EEF86C043DE383D00A67E3827980AC2D",
+    "bytes": 43613
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_svwn5\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_wb97x-d\\input.gjf",
+    "sha256": "D918C0243C17B3E1F3BFB802B8C8FA55073A1BCB2D9F5116C3752A8F3FCA34C0",
+    "bytes": 322
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_wb97x-d\\input.out",
+    "sha256": "7F631C46B2FEEA7E713F7AFF147CDF882591414BA549A242E97A469EDFEEB146",
+    "bytes": 45020
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\g16_wb97x-d\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\orca_b3lyp\\input.inp",
+    "sha256": "D2E0C9958FDB314483607DF7607BE6AF22D59CCFE805DE9A5959F583DA6FD8CF",
+    "bytes": 235
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\orca_b3lyp\\output.out",
+    "sha256": "3F6D9097A1B03B059EF2C412F41335CB70D2D8A69FA6B93AF6CE278536F3F585",
+    "bytes": 45079
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\orca_pbe\\input.inp",
+    "sha256": "AF2FAF1C9848A6758A45A6D8BFBE369B584AEC7E25B8A04E9A0FE2F8B2E8A4C3",
+    "bytes": 223
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\orca_pbe\\output.out",
+    "sha256": "AEDDC28E6361297E8ED4F34045989347691F6A106BB8A7A428984A196F28EF46",
+    "bytes": 44556
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\orca_rhf\\input.inp",
+    "sha256": "86C1C0C747B999C197B416C1BF275328EB822D8FB9E5885D534EB43B379A0B03",
+    "bytes": 223
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_alignment\\orca_rhf\\output.out",
+    "sha256": "011BE83EE8972C69484C44A70FD63AA7CB7BE44798768C13936DD289211A9C7B",
+    "bytes": 41759
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\b3lyp_d3\\input.gjf",
+    "sha256": "4B7F6BD30597154B7A12C9C8B485D6E6EEAD74B961BCBAF197EEA67B45762787",
+    "bytes": 302
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\b3lyp_d3\\input.out",
+    "sha256": "C645DA48E8797E338F54A250A7002DB7CE0CCD5EAF123FFD24854683DAE26EBC",
+    "bytes": 19587
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\b3lyp_d3\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\cis\\input.gjf",
+    "sha256": "CA4CBA3D3C171DF87B65438A891BD1DEA0926BC93EA764B643EE710A32BED326",
+    "bytes": 294
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\cis\\input.out",
+    "sha256": "9F7244FE701459D08468E43EA54F8FBBE4F89094BE6A807983E1EF6AF058472F",
+    "bytes": 25212
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\cis\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\frequency\\input.gjf",
+    "sha256": "0608BCDCA26CA996609CE8CEF9B0D7E13A7076E5CDB7D04921961B7E233D926D",
+    "bytes": 279
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\frequency\\input.out",
+    "sha256": "4519B80E97C697D438F8B31FE25E7FB470CBDC432E77F01246544C74FA364C80",
+    "bytes": 49236
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\frequency\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\pbe_sto\\input.gjf",
+    "sha256": "D1F425C1EBB2AA71E86AD58C9405C2075A81CEA543DA0BC64EBC4A1A408FC00E",
+    "bytes": 277
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\pbe_sto\\input.out",
+    "sha256": "7595D565367D49CA5D4001C5C00FAEDF43B738BD88365B24CC575E51F8467333",
+    "bytes": 19416
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\pbe_sto\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\tddft_b3lyp\\input.gjf",
+    "sha256": "4CE10C0F5404D56A27FF661C99BCD81BCE0A1A9066FB85629FF4D8EEEB2290FB",
+    "bytes": 299
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\tddft_b3lyp\\input.out",
+    "sha256": "C2580A714FB6A671A99930ECDD7CFCFDFB021DD19E760A9F435F8407323D4887",
+    "bytes": 26619
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_followup\\tddft_b3lyp\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_extra\\cis_full\\input.gjf",
+    "sha256": "B361021DA667C806FD8FEB2592DFFBBB9CC187206F122B7DCAFBE0405D5E9AB1",
+    "bytes": 314
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_extra\\cis_full\\input.out",
+    "sha256": "A7241EF78051D35F8115B7FCB67B88F109F5C849CE421BF9C5358047E9E19F9B",
+    "bytes": 25064
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_extra\\cis_full\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_extra\\hbr_b3lyp\\input.gjf",
+    "sha256": "53BBDBD487B3A70547ECC60F631B99EE7AA64028B00E5568B05BD23797EA42E5",
+    "bytes": 233
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_extra\\hbr_b3lyp\\input.out",
+    "sha256": "7C5FFBC779572977E769AA9E7BC5DC8850E7DC79A91DCE5F82FEC6D1EFEAF2F8",
+    "bytes": 19210
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_extra\\hbr_b3lyp\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_extra\\hbr_hf\\input.gjf",
+    "sha256": "CAF48EBC02CE642641EA4B00250FF35971F933752C2A364B26AC8F061ABE307A",
+    "bytes": 230
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_extra\\hbr_hf\\input.out",
+    "sha256": "A73F2A8DD479CC47E2FF76D928EE3FB874BBAF82941B8A664E86F5DA2AEE0645",
+    "bytes": 18444
+  },
+  {
+    "path": "E:\\YDW\\Trae_Gaussian\\build_target\\runtime\\redteam_20261109\\external_extra\\hbr_hf\\launcher.txt",
+    "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+    "bytes": 2
+  }
+]

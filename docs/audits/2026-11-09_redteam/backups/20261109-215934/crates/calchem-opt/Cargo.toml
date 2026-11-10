@@ -1,0 +1,15 @@
+[package]
+name = "calchem-opt"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+calchem-model = { path = "../calchem-model" }
+calchem-basis = { path = "../calchem-basis" }
+calchem-scf = { path = "../calchem-scf" }
+calchem-grad = { path = "../calchem-grad" }
+calchem-tensor = { path = "../calchem-tensor" }
+calchem-dft = { path = "../calchem-dft" }
+calchem-vib = { path = "../calchem-vib" }
+calchem-solv = { path = "../calchem-solv" }
+serde = { version = "1.0", features = ["derive"] }

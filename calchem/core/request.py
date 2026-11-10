@@ -16,7 +16,7 @@ from .units import ANGSTROM_TO_BOHR
 REQUEST_SCHEMA_VERSION = "1.0"
 RESULT_SCHEMA_VERSION = "1.0"
 
-TaskType = Literal["single_point", "optimize", "frequency"]
+TaskType = Literal["single_point", "optimize", "frequency", "tddft", "cis", "excited_states", "ts", "irc", "solvation"]
 BackendName = Literal["native", "gaussian", "orca", "pyscf", "xtb", "rest"]
 
 # 合法元素符号（H-118）
@@ -152,5 +152,7 @@ class CalculationRequest(BaseModel):
     method: str = Field(..., description="如 rhf, uhf, b3lyp, wb97xd, mp2, ccsd(t)")
     basis: str = Field(..., description="如 sto-3g, def2-svp, 6-31g(d)")
     xc: Optional[str] = Field(None, description="DFT 泛函（method=dft 时使用）")
+    solvent: Optional[str] = Field(None, description="连续介质溶剂名称，如 water, chlorobenzene, thf, toluene")
+    solvent_model: Optional[str] = Field("cpcm", description="溶剂模型，如 cpcm, cosmo, iefpcm")
     options: Dict = Field(default_factory=dict, description="后端特定选项")
     resources: ResourceLimits = Field(default_factory=ResourceLimits)

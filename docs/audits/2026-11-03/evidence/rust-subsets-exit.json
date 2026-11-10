@@ -1,0 +1,14 @@
+[
+  {
+    "Check": "workspace library tests",
+    "ExitCode": 0
+  },
+  {
+    "Check": "basis and SCF integration tests",
+    "ExitCode": 0
+  },
+  {
+    "Check": "Boys, one-electron and ERI symmetry",
+    "ExitCode": 101
+  }
+]

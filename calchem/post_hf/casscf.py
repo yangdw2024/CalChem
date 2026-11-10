@@ -20,7 +20,8 @@ from ..basis.basis_set import BasisSet
 from ..integrals.two_electron import compute_eri
 from ..integrals.one_electron import compute_overlap, compute_kinetic, compute_nuclear
 from ..mol.molecule import Molecule
-from ..scf.hf import RHF, nuclear_repulsion, _symmetric_orthogonalize, _eigh_safe, _matmul
+from ..scf.hf import RHF, nuclear_repulsion
+from ..scf.guess import _symmetric_orthogonalize, _eigh_safe, _matmul
 
 
 def generate_cas_determinants(n_orb: int, n_elec: int, multiplicity: int = 1) -> np.ndarray:
@@ -296,6 +297,10 @@ class CASSCF:
         self.e_nn: float = 0.0
         self.converged: bool = False
         self.n_cycles: int = 0
+
+    @property
+    def energy(self) -> float:
+        return self.e_tot
 
         self.mo_energy = None
         self.mo_coeff = None

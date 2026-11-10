@@ -1,0 +1,39 @@
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:44:1
+   |
+44 | create_exception!(_core, RustCoreError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `calchem-py` (lib) generated 4 warnings (1 duplicate)
+    Finished `release` profile [optimized] target(s) in 1.60s

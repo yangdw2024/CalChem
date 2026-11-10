@@ -51,6 +51,7 @@ impl DiisState {
         let mut b = Matrix2D::zeros(dim, dim);
         let mut rhs = vec![0.0; dim];
 
+        let mut max_diag: f64 = 0.0;
         for i in 0..m {
             b.set(i, m, -1.0);
             b.set(m, i, -1.0);
@@ -61,8 +62,19 @@ impl DiisState {
                     .zip(errs[j].data.iter())
                     .map(|(x, y)| x * y)
                     .sum();
+                if i == j && dot > max_diag {
+                    max_diag = dot;
+                }
                 b.set(i, j, dot);
                 b.set(j, i, dot);
+            }
+        }
+        if !max_diag.is_finite() || max_diag <= 1e-30 {
+            return None;
+        }
+        for i in 0..m {
+            for j in 0..m {
+                b.set(i, j, b.get(i, j) / max_diag);
             }
         }
         b.set(m, m, 0.0);
@@ -73,9 +85,12 @@ impl DiisState {
         if !weight_sum.is_finite() || (weight_sum - 1.0).abs() > 1e-6 {
             return None;
         }
+        // Reject nearly collinear subspaces with huge cancellation weights
+        if coeffs.iter().take(m).any(|&c| !c.is_finite() || c.abs() > 50.0) {
+            return None;
+        }
 
-        let n = focks[0].rows;
-        let mut out = Matrix2D::zeros(n, n);
+        let mut out = Matrix2D::zeros(focks[0].rows, focks[0].cols);
         for (k, fk) in focks.iter().enumerate() {
             let ck = coeffs[k];
             for idx in 0..out.data.len() {

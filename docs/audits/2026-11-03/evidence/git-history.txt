@@ -1,0 +1,20 @@
+c9fd62e 2026-10-30T14:11:11+08:00 chore: project root cleanup - archive old handoffs, delete temp test dirs
+ced006b 2026-10-30T14:05:40+08:00 v1.0 Stage 2: proper Obara-Saika VRR, p-type integrals correct
+6fed3a1 2026-10-30T09:35:58+08:00 v1.0 Stage 1.5: DIIS + dual-track native backend
+ee567ee 2026-10-30T08:58:31+08:00 v1.0 Stage 1: Rust RHF core - s-type integrals verified
+4da99f0 2026-10-30T08:45:30+08:00 v1.0 Stage 0: Rust workspace compiles + Python baseline preserved
+30dc508 2026-10-29T02:01:24+08:00 v0.6.0: actual_method + Gaussian optimize/frequency
+4795ad0 2026-10-29T01:43:05+08:00 v0.4.0-v0.5.0: geometry opt + numerical frequency
+64b8242 2026-10-29T01:29:59+08:00 v0.3.0-v0.4.0: global lock in TaskService, parsers module, geometry optimization
+6a44f65 2026-10-29T01:24:16+08:00 v0.3.0: pyproject fix, global lock, periodic table
+479edea 2026-10-28T23:18:36+08:00 v0.2.0 complete: all P0 fixes + config loader + tests
+89aa81d 2026-10-28T22:56:38+08:00 v0.2.0 P0 fixes: no fake values, real dispatcher, clean CLI JSON
+30eb1fc 2026-10-28T21:55:42+08:00 Phase I final: PyInstaller build verified, handoff package created
+c6c37bc 2026-10-28T21:52:44+08:00 Fix ORCA backend: basis mapping, stdout parsing, error detection
+b299190 2026-10-28T21:44:50+08:00 Phase E+H+I: optional backends, OPV workflow, acceptance report
+3a8489a 2026-10-28T21:42:11+08:00 Phase G: PyQt6 GUI main window
+a989909 2026-10-28T21:35:22+08:00 Phase F: Click+Rich CLI (backends/doctor/run commands)
+a8db044 2026-10-28T21:33:52+08:00 Phase F core: TaskService + JobQueue + state machine
+e0bf015 2026-10-28T21:32:40+08:00 Phase D: Gaussian 16 backend (verified) + ORCA adapter
+741710c 2026-10-28T21:27:10+08:00 Phase B+C: core data contracts + NativeCalchem backend
+b8397eb 2026-10-28T21:21:35+08:00 Phase A: pre-refactor baseline

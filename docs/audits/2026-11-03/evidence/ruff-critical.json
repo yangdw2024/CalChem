@@ -1,0 +1,97 @@
+[
+  {
+    "cell": null,
+    "code": "F821",
+    "end_location": {
+      "column": 25,
+      "row": 390
+    },
+    "filename": "E:\\YDW\\Trae_Gaussian\\calchem\\api\\high_level.py",
+    "fix": null,
+    "location": {
+      "column": 21,
+      "row": 390
+    },
+    "message": "Undefined name `List`",
+    "name": "undefined-name",
+    "noqa_row": 390,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/undefined-name"
+  },
+  {
+    "cell": null,
+    "code": "F821",
+    "end_location": {
+      "column": 46,
+      "row": 190
+    },
+    "filename": "E:\\YDW\\Trae_Gaussian\\calchem\\backends\\orca.py",
+    "fix": null,
+    "location": {
+      "column": 36,
+      "row": 190
+    },
+    "message": "Undefined name `dipole_mag`",
+    "name": "undefined-name",
+    "noqa_row": 190,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/undefined-name"
+  },
+  {
+    "cell": null,
+    "code": "F821",
+    "end_location": {
+      "column": 49,
+      "row": 41
+    },
+    "filename": "E:\\YDW\\Trae_Gaussian\\calchem\\jobs\\dispatcher.py",
+    "fix": null,
+    "location": {
+      "column": 31,
+      "row": 41
+    },
+    "message": "Undefined name `CalculationRequest`",
+    "name": "undefined-name",
+    "noqa_row": 41,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/undefined-name"
+  },
+  {
+    "cell": null,
+    "code": "F821",
+    "end_location": {
+      "column": 50,
+      "row": 47
+    },
+    "filename": "E:\\YDW\\Trae_Gaussian\\calchem\\jobs\\dispatcher.py",
+    "fix": null,
+    "location": {
+      "column": 32,
+      "row": 47
+    },
+    "message": "Undefined name `CalculationRequest`",
+    "name": "undefined-name",
+    "noqa_row": 47,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/undefined-name"
+  },
+  {
+    "cell": null,
+    "code": "F821",
+    "end_location": {
+      "column": 61,
+      "row": 47
+    },
+    "filename": "E:\\YDW\\Trae_Gaussian\\calchem\\jobs\\dispatcher.py",
+    "fix": null,
+    "location": {
+      "column": 55,
+      "row": 47
+    },
+    "message": "Undefined name `Result`",
+    "name": "undefined-name",
+    "noqa_row": 47,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/undefined-name"
+  }
+]

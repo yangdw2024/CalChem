@@ -1,4 +1,4 @@
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 BOHR_TO_ANGSTROM = 0.529177210903
 ANGSTROM_TO_BOHR = 1.0 / BOHR_TO_ANGSTROM

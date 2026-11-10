@@ -67,6 +67,18 @@ impl Atom {
     }
 }
 
+const PERIODIC_TABLE_SYMBOLS: [&str; 86] = [
+    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
+    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+    "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
+    "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
+    "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
+    "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
+    "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+    "Tl", "Pb", "Bi", "Po", "At", "Rn",
+];
+
 pub fn atomic_number_from_symbol(sym: &str) -> Result<u8, CalcError> {
     let clean = sym.trim();
     if clean.is_empty() {
@@ -76,48 +88,24 @@ pub fn atomic_number_from_symbol(sym: &str) -> Result<u8, CalcError> {
     let first = chars.next().unwrap().to_ascii_uppercase();
     let rest: String = chars.map(|c| c.to_ascii_lowercase()).collect();
     let norm = format!("{}{}", first, rest);
-    match norm.as_str() {
-        "H" => Ok(1),
-        "He" => Ok(2),
-        "Li" => Ok(3),
-        "Be" => Ok(4),
-        "B" => Ok(5),
-        "C" => Ok(6),
-        "N" => Ok(7),
-        "O" => Ok(8),
-        "F" => Ok(9),
-        "Ne" => Ok(10),
-        "Na" => Ok(11),
-        "Mg" => Ok(12),
-        "Al" => Ok(13),
-        "Si" => Ok(14),
-        "P" => Ok(15),
-        "S" => Ok(16),
-        "Cl" => Ok(17),
-        "Ar" => Ok(18),
-        "K" => Ok(19),
-        "Ca" => Ok(20),
-        "Sc" => Ok(21),
-        "Ti" => Ok(22),
-        "V" => Ok(23),
-        "Cr" => Ok(24),
-        "Mn" => Ok(25),
-        "Fe" => Ok(26),
-        "Co" => Ok(27),
-        "Ni" => Ok(28),
-        "Cu" => Ok(29),
-        "Zn" => Ok(30),
-        "Ga" => Ok(31),
-        "Ge" => Ok(32),
-        "As" => Ok(33),
-        "Se" => Ok(34),
-        "Br" => Ok(35),
-        "Kr" => Ok(36),
-        _ => Err(CalcError::InvalidMolecule(format!(
-            "Unsupported element symbol: {}",
-            sym
-        ))),
+    for (idx, &known) in PERIODIC_TABLE_SYMBOLS.iter().enumerate() {
+        if known == norm {
+            return Ok((idx + 1) as u8);
+        }
     }
+    Err(CalcError::InvalidMolecule(format!(
+        "Unsupported element symbol: {}",
+        sym
+    )))
+}
+
+pub fn symbol_from_atomic_number(z: u8) -> Result<String, CalcError> {
+    if z == 0 || (z as usize) > PERIODIC_TABLE_SYMBOLS.len() {
+        return Err(CalcError::InvalidMolecule(format!(
+            "Unsupported atomic number: {z}"
+        )));
+    }
+    Ok(PERIODIC_TABLE_SYMBOLS[(z - 1) as usize].to_string())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -307,13 +295,99 @@ pub struct ScfWavefunction {
     pub n_mo: usize,
     pub mo_energies: Vec<f64>,
     pub mo_occupations: Vec<f64>,
+    /// Molecular orbital coefficient matrix (flattened row-major, index `mu * n_mo + i`).
     pub mo_coefficients: Vec<f64>,
+    /// Alpha spin density matrix (flattened row-major).
+    /// NOTE: In RHF (closed-shell), this field stores the *spin-summed* total density matrix:
+    /// `P = 2 * C_occ * C_occ^T`. Do not multiply by 2 again.
     pub density_alpha: Vec<f64>,
+    /// Beta spin density matrix (flattened row-major). None for RHF.
     pub density_beta: Option<Vec<f64>>,
     pub fock_alpha: Vec<f64>,
     pub overlap_matrix: Vec<f64>,
     pub h_core_matrix: Vec<f64>,
     pub diagnostics: ScfDiagnostics,
+}
+
+/// Unrestricted Hartree-Fock wavefunction (separate alpha / beta spin orbitals).
+///
+/// All matrices are flattened row-major `n_ao x n_ao`. Densities are *per-spin*
+/// (`P^a = C^a_occ C^a_occ^T`, `P^b = C^b_occ C^b_occ^T`), never spin-summed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UhfWavefunction {
+    pub converged: bool,
+    pub iterations: usize,
+    pub total_energy_hartree: f64,
+    pub electronic_energy_hartree: f64,
+    pub nuclear_repulsion_hartree: f64,
+    pub n_ao: usize,
+    pub n_alpha: usize,
+    pub n_beta: usize,
+    pub mo_energies_alpha: Vec<f64>,
+    pub mo_energies_beta: Vec<f64>,
+    /// Alpha MO coefficients, index `mu * n_ao + i`.
+    pub mo_coefficients_alpha: Vec<f64>,
+    /// Beta MO coefficients, index `mu * n_ao + i`.
+    pub mo_coefficients_beta: Vec<f64>,
+    pub density_alpha: Vec<f64>,
+    pub density_beta: Vec<f64>,
+    /// Expectation value `<S^2>`; exact value is `S(S+1)`, excess is spin contamination.
+    pub s_squared: f64,
+    pub overlap_matrix: Vec<f64>,
+    pub diagnostics: ScfDiagnostics,
+}
+
+impl UhfWavefunction {
+    /// Spin-summed density `P = P^a + P^b`.
+    pub fn total_density(&self) -> Vec<f64> {
+        self.density_alpha
+            .iter()
+            .zip(&self.density_beta)
+            .map(|(a, b)| a + b)
+            .collect()
+    }
+
+    /// Highest occupied spin-orbital energy across both spins (SOMO for doublets).
+    pub fn homo_energy(&self) -> Option<f64> {
+        let a = self.mo_energies_alpha.iter().take(self.n_alpha).cloned();
+        let b = self.mo_energies_beta.iter().take(self.n_beta).cloned();
+        a.chain(b).fold(None, |acc: Option<f64>, e| Some(acc.map_or(e, |m| m.max(e))))
+    }
+
+    /// Lowest unoccupied spin-orbital energy across both spins.
+    pub fn lumo_energy(&self) -> Option<f64> {
+        let a = self.mo_energies_alpha.iter().skip(self.n_alpha).cloned();
+        let b = self.mo_energies_beta.iter().skip(self.n_beta).cloned();
+        a.chain(b).fold(None, |acc: Option<f64>, e| Some(acc.map_or(e, |m| m.min(e))))
+    }
+}
+
+impl Molecule {
+    /// Validates the molecule for an unrestricted (UHF) calculation.
+    /// Returns `(n_alpha, n_beta)`; any multiplicity consistent with the electron count is allowed.
+    pub fn validate_uhf(&self) -> Result<(usize, usize), CalcError> {
+        if self.atoms.is_empty() {
+            return Err(CalcError::InvalidMolecule("Molecule has no atoms".into()));
+        }
+        for i in 0..self.atoms.len() {
+            for j in (i + 1)..self.atoms.len() {
+                let a = self.atoms[i].position_bohr;
+                let b = self.atoms[j].position_bohr;
+                let d2 = (a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2);
+                if d2.sqrt() < 1e-3 {
+                    return Err(CalcError::InvalidMolecule(format!(
+                        "Atoms {i} and {j} are coincident (distance {:.3e} Bohr)",
+                        d2.sqrt()
+                    )));
+                }
+            }
+        }
+        let (n_alpha, n_beta) = self.n_alpha_beta()?;
+        if n_alpha == 0 {
+            return Err(CalcError::InvalidMolecule("Molecule has no electrons".into()));
+        }
+        Ok((n_alpha, n_beta))
+    }
 }
 
 #[cfg(test)]

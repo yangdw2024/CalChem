@@ -57,6 +57,16 @@ pub fn shell_kinetic_block(sh_a: &Shell, sh_b: &Shell) -> Matrix2D {
 }
 
 pub fn shell_nuclear_block(sh_a: &Shell, sh_b: &Shell, mol: &Molecule) -> Matrix2D {
+    let charges: Vec<f64> = mol.atoms.iter().map(|a| a.z as f64).collect();
+    shell_nuclear_block_with_charges(sh_a, sh_b, mol, &charges)
+}
+
+pub fn shell_nuclear_block_with_charges(
+    sh_a: &Shell,
+    sh_b: &Shell,
+    mol: &Molecule,
+    charges: &[f64],
+) -> Matrix2D {
     let comps_a = sh_a.components();
     let comps_b = sh_b.components();
     let max_m = (sh_a.shell_type.angular_momentum() + sh_b.shell_type.angular_momentum()) as usize;
@@ -73,14 +83,14 @@ pub fn shell_nuclear_block(sh_a: &Shell, sh_b: &Shell, mol: &Molecule) -> Matrix
                     let pair =
                         GaussianPair::new(pa.exponent, sh_a.center, pb.exponent, sh_b.center);
                     let weight = pa.coeff * pb.coeff * norm_a * norm_b;
-                    for atom in &mol.atoms {
+                    for (atom, &z_eff) in mol.atoms.iter().zip(charges.iter()) {
                         let c = atom.position_bohr;
                         let pc2 = (pair.p[0] - c[0]).powi(2)
                             + (pair.p[1] - c[1]).powi(2)
                             + (pair.p[2] - c[2]).powi(2);
                         boys_batch(max_m, pair.gamma * pc2, &mut boys_vals);
                         let v = nuclear_vrr(ca, cb, 0, &pair, c, &boys_vals);
-                        sum -= (atom.z as f64) * weight * v;
+                        sum -= z_eff * weight * v;
                     }
                 }
             }
@@ -121,10 +131,13 @@ pub fn compute_kinetic(basis: &BasisSet) -> Matrix2D {
 }
 
 pub fn compute_nuclear(basis: &BasisSet, mol: &Molecule) -> Matrix2D {
+    let charges: Vec<f64> = (0..mol.atoms.len())
+        .map(|i| basis.effective_nuclear_charge(mol, i))
+        .collect();
     let mut v_mat = Matrix2D::zeros(basis.n_ao, basis.n_ao);
     for sh_a in &basis.shells {
         for sh_b in &basis.shells {
-            let block = shell_nuclear_block(sh_a, sh_b, mol);
+            let block = shell_nuclear_block_with_charges(sh_a, sh_b, mol, &charges);
             for ia in 0..block.rows {
                 for ib in 0..block.cols {
                     v_mat.set(sh_a.ao_offset + ia, sh_b.ao_offset + ib, block.get(ia, ib));

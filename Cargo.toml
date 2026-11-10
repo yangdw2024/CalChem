@@ -5,10 +5,14 @@ members = [
     "crates/calchem-basis",
     "crates/calchem-tensor",
     "crates/calchem-int",
+    "crates/calchem-dft",
     "crates/calchem-scf",
+    "crates/calchem-tddft",
+    "crates/calchem-vib",
     "crates/calchem-grad",
     "crates/calchem-prop",
     "crates/calchem-opt",
+    "crates/calchem-solv",
     "crates/calchem-py",
 ]
 
@@ -26,4 +30,4 @@ sha2 = "0.10"
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-panic = "abort"
+panic = "unwind"

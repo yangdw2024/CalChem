@@ -60,13 +60,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "calchem-grad"
+name = "calchem-dft"
 version = "0.2.0"
 dependencies = [
  "calchem-basis",
  "calchem-int",
  "calchem-model",
+ "calchem-tensor",
+ "rayon",
+ "serde",
+]
+
+[[package]]
+name = "calchem-grad"
+version = "0.2.0"
+dependencies = [
+ "calchem-basis",
+ "calchem-dft",
+ "calchem-int",
+ "calchem-model",
  "calchem-scf",
+ "calchem-tensor",
+ "rayon",
 ]
 
 [[package]]
@@ -91,16 +106,27 @@ dependencies = [
 name = "calchem-opt"
 version = "0.2.0"
 dependencies = [
+ "calchem-basis",
+ "calchem-dft",
  "calchem-grad",
  "calchem-model",
+ "calchem-scf",
+ "calchem-solv",
+ "calchem-tensor",
+ "calchem-vib",
+ "serde",
 ]
 
 [[package]]
 name = "calchem-prop"
 version = "0.2.0"
 dependencies = [
+ "calchem-basis",
+ "calchem-int",
  "calchem-model",
  "calchem-scf",
+ "calchem-tensor",
+ "rayon",
 ]
 
 [[package]]
@@ -108,12 +134,17 @@ name = "calchem-py"
 version = "0.2.0"
 dependencies = [
  "calchem-basis",
+ "calchem-dft",
  "calchem-grad",
  "calchem-int",
  "calchem-model",
+ "calchem-opt",
  "calchem-prop",
  "calchem-scf",
+ "calchem-solv",
+ "calchem-tddft",
  "calchem-tensor",
+ "calchem-vib",
  "numpy",
  "pyo3",
 ]
@@ -123,9 +154,42 @@ name = "calchem-scf"
 version = "0.2.0"
 dependencies = [
  "calchem-basis",
+ "calchem-dft",
+ "calchem-grad",
  "calchem-int",
  "calchem-model",
  "calchem-tensor",
+]
+
+[[package]]
+name = "calchem-solv"
+version = "0.2.0"
+dependencies = [
+ "calchem-basis",
+ "calchem-dft",
+ "calchem-int",
+ "calchem-model",
+ "calchem-prop",
+ "calchem-scf",
+ "calchem-tensor",
+ "faer",
+ "rayon",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "calchem-tddft"
+version = "0.2.0"
+dependencies = [
+ "calchem-basis",
+ "calchem-dft",
+ "calchem-int",
+ "calchem-model",
+ "calchem-scf",
+ "calchem-tensor",
+ "rayon",
+ "serde",
 ]
 
 [[package]]
@@ -135,6 +199,22 @@ dependencies = [
  "calchem-model",
  "faer",
  "rayon",
+]
+
+[[package]]
+name = "calchem-vib"
+version = "0.2.0"
+dependencies = [
+ "calchem-basis",
+ "calchem-dft",
+ "calchem-grad",
+ "calchem-int",
+ "calchem-model",
+ "calchem-prop",
+ "calchem-scf",
+ "calchem-tensor",
+ "rayon",
+ "serde",
 ]
 
 [[package]]

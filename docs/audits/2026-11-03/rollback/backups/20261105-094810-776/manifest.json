@@ -1,0 +1,14 @@
+﻿[
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-opt\\Cargo.toml",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-094810-776\\files\\crates\\calchem-opt\\Cargo.toml",
+        "SHA256":  "9AB58AA8AE8E299206650CA8193C9620CB38508249282379AE36C4152EB55FDC",
+        "LastWriteTimeUtc":  "2026-10-29T19:25:54.0000000Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-opt\\src\\lib.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-094810-776\\files\\crates\\calchem-opt\\src\\lib.rs",
+        "SHA256":  "DF4B69E33EB04BD54B7EF7B78C57E6102F6FA483CF79EEEB87E62DAB8117C282",
+        "LastWriteTimeUtc":  "2026-10-29T19:25:54.0000000Z"
+    }
+]

@@ -1,0 +1,24 @@
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.57s
+     Running tests\boys.rs (docs\audits\2026-11-03\runtime\rust-target\debug\deps\boys-3ef2e69ffcdd35a6.exe)
+
+running 3 tests
+test test_boys_batch_recurrence_consistency ... ok
+test test_erf_approx_precision ... ok
+test test_boys_known_values_and_stability ... FAILED
+
+failures:
+
+---- test_boys_known_values_and_stability stdout ----
+
+thread 'test_boys_known_values_and_stability' (26892) panicked at crates\calchem-int\tests\boys.rs:43:9:
+n=0, t=25: got=1.7724538509027923e-1, expected=1.7724538509055160e-1, diff=2.7236546351616653e-13
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    test_boys_known_values_and_stability
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p calchem-int --test boys`

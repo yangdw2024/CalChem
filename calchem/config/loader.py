@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Optional
 
 from .models import AppConfig, BackendPaths, ResourceConfig
 
 
-# 本机已知的常见安装路径（用于自动检测）
+# 常见默认安装候选路径（作为系统 PATH 与环境变量之后的后备）
 _KNOWN_GAUSSIAN_PATHS = [
     r"D:\G16W\g16.exe",
     r"C:\G16W\g16.exe",
@@ -23,11 +24,44 @@ _KNOWN_ORCA_PATHS = [
     r"E:\ORCA\software\ORCA6.1.1\orca.exe",
     r"D:\ORCA\orca.exe",
     r"C:\ORCA\orca.exe",
+    "/usr/bin/orca",
+    "/usr/local/bin/orca",
 ]
 _KNOWN_XTB_PATHS = [
     r"D:\xtb\bin\xtb.exe",
     r"C:\xtb\bin\xtb.exe",
+    "/usr/bin/xtb",
+    "/usr/local/bin/xtb",
 ]
+
+
+def _detect_executable(
+    env_vars: list[str],
+    command_names: list[str],
+    candidate_paths: list[str],
+) -> str:
+    """动态探测外部可执行程序路径。
+
+    优先级：
+    1. 指定环境变量（如 CALCHEM_GAUSSIAN_EXE, GAUSSIAN_EXE, G16_EXE）
+    2. 系统 PATH 查找（如 shutil.which("g16")）
+    3. 常见默认安装路径（作为后备）
+    """
+    for ev in env_vars:
+        val = os.environ.get(ev)
+        if val and Path(val).is_file():
+            return val
+
+    for cmd in command_names:
+        which = shutil.which(cmd)
+        if which:
+            return which
+
+    for p in candidate_paths:
+        if p and Path(p).is_file():
+            return p
+
+    return ""
 
 
 def _find_first_existing(paths: list[str]) -> str:
@@ -38,11 +72,23 @@ def _find_first_existing(paths: list[str]) -> str:
 
 
 def auto_detect_paths() -> BackendPaths:
-    """自动检测本机已知路径的外部程序。"""
+    """自动检测外部程序路径（环境变量优先，其次 PATH，再次常见路径）。"""
     return BackendPaths(
-        gaussian_exe=_find_first_existing(_KNOWN_GAUSSIAN_PATHS),
-        orca_exe=_find_first_existing(_KNOWN_ORCA_PATHS),
-        xtb_exe=_find_first_existing(_KNOWN_XTB_PATHS),
+        gaussian_exe=_detect_executable(
+            env_vars=["CALCHEM_GAUSSIAN_EXE", "GAUSSIAN_EXE", "G16_EXE"],
+            command_names=["g16", "g09", "gaussian"],
+            candidate_paths=_KNOWN_GAUSSIAN_PATHS,
+        ),
+        orca_exe=_detect_executable(
+            env_vars=["CALCHEM_ORCA_EXE", "ORCA_EXE"],
+            command_names=["orca"],
+            candidate_paths=_KNOWN_ORCA_PATHS,
+        ),
+        xtb_exe=_detect_executable(
+            env_vars=["CALCHEM_XTB_EXE", "XTB_EXE"],
+            command_names=["xtb"],
+            candidate_paths=_KNOWN_XTB_PATHS,
+        ),
     )
 
 

@@ -1,0 +1,30 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running tests\eri_symmetry.rs (docs\audits\2026-11-03\runtime\rust-target\debug\deps\eri_symmetry-aed59094e90a1f7b.exe)
+
+running 1 test
+test test_eri_8fold_symmetry_h2o_sto3g ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\one_electron.rs (docs\audits\2026-11-03\runtime\rust-target\debug\deps\one_electron-e69484d2ea1bb825.exe)
+
+running 3 tests
+test test_cartesian_d_shell_one_electron_reference ... ok
+test test_h2_sto3g_one_electron_reference ... FAILED
+test test_h2o_sto3g_one_electron_symmetry_and_reference ... ok
+
+failures:
+
+---- test_h2_sto3g_one_electron_reference stdout ----
+
+thread 'test_h2_sto3g_one_electron_reference' (18408) panicked at crates\calchem-int\tests\one_electron.rs:29:5:
+assertion failed: (t.get(0, 1) - 0.236454655845882).abs() < 1e-12
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    test_h2_sto3g_one_electron_reference
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p calchem-int --test one_electron`

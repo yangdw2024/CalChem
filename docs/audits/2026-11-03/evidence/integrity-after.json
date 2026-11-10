@@ -1,0 +1,12 @@
+{
+  "Date": "2026-11-03",
+  "SourceFilesChecked": 286,
+  "ChangedSourceFiles": [],
+  "ExistingStage3DesignUnchanged": true,
+  "BackupFilesChecked": 21,
+  "DamagedBackups": [],
+  "PowerShellParseErrors": [],
+  "MissingDocumentLinks": [],
+  "TrackedDiffExitCode": 0,
+  "Note": "Restore was previewed with WhatIf only. No source restoration or deletion was performed."
+}

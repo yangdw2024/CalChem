@@ -8,3 +8,7 @@ calchem-model = { path = "../calchem-model" }
 calchem-basis = { path = "../calchem-basis" }
 calchem-tensor = { path = "../calchem-tensor" }
 calchem-int = { path = "../calchem-int" }
+calchem-dft = { path = "../calchem-dft" }
+
+[dev-dependencies]
+calchem-grad = { path = "../calchem-grad" }

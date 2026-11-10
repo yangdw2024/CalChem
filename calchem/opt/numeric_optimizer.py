@@ -99,7 +99,7 @@ def optimize_geometry(
         jac=jacobian,
         method="BFGS",
         callback=callback,
-        options={"maxiter": max_iter, "ftol": ftol, "gtol": gtol},
+        options={"maxiter": max_iter, "gtol": gtol},
     )
 
     final_mol = unpack_coords(result.x)

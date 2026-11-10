@@ -53,6 +53,10 @@ class CCD:
         self.converged: bool = False
         self.n_cycles: int = 0
 
+    @property
+    def energy(self) -> float:
+        return self.e_tot
+
         self.mo_energy = None
         self.mo_coeff = None
         self.t2 = None

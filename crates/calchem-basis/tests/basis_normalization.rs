@@ -50,8 +50,9 @@ fn test_primitive_normalization_s_p_d() {
 
 #[test]
 fn test_unknown_shell_type_rejected() {
+    assert_eq!(ShellType::from_str("f").unwrap(), ShellType::F);
     assert!(matches!(
-        ShellType::from_str("f"),
+        ShellType::from_str("g"),
         Err(CalcError::UnsupportedBasis(_))
     ));
     assert!(matches!(

@@ -55,7 +55,9 @@ class JobQueue:
                 return
             job.result_json = result_json
             job.error = error
-            if not_converged:
+            if job.state == JobState.CANCEL_REQUESTED:
+                job.transition_to(JobState.CANCELLED)
+            elif not_converged:
                 job.transition_to(JobState.NOT_CONVERGED)
             elif success:
                 job.transition_to(JobState.SUCCEEDED)

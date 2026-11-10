@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/calchem-model",
+    "crates/calchem-basis",
+    "crates/calchem-tensor",
+    "crates/calchem-int",
+    "crates/calchem-dft",
+    "crates/calchem-scf",
+    "crates/calchem-grad",
+    "crates/calchem-prop",
+    "crates/calchem-opt",
+    "crates/calchem-py",
+]
+
+[workspace.dependencies]
+faer = { version = "0.20", features = ["rayon", "std"] }
+rayon = "1.10"
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
+numpy = "0.22"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+sha2 = "0.10"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"

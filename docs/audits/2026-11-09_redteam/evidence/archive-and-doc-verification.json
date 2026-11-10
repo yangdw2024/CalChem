@@ -1,0 +1,18 @@
+{
+  "snapshot_crc_error": null,
+  "snapshot_entries": 376,
+  "snapshot_hash_mismatches": [],
+  "restore_rehearsal": [
+    {
+      "file": "Cargo.toml",
+      "hash_matches": true
+    },
+    {
+      "file": "crates/calchem-dft/src/xc.rs",
+      "hash_matches": true
+    }
+  ],
+  "external_crc_error": null,
+  "external_raw_files": 51,
+  "broken_absolute_links": []
+}

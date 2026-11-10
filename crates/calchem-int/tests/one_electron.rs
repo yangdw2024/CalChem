@@ -26,10 +26,15 @@ fn test_h2_sto3g_one_electron_reference() {
     assert!((s.get(1, 0) - 0.659318206134864).abs() < 1e-12);
 
     assert!((t.get(0, 0) - 0.760031883566609).abs() < 1e-12);
-    assert!((t.get(0, 1) - 0.236454655845882).abs() < 1e-12);
+    // Closed-form s/s kinetic integral, mpmath dps=50 (tools/reference/gen_integral_refs.py).
+    // The former reference 0.236454655845882 was off by 1.34e-10.
+    assert!((t.get(0, 1) - 0.2364546559796740044).abs() < 1e-12);
 
-    assert!((v.get(0, 0) - (-1.880440891908111)).abs() < 1e-12);
-    assert!((v.get(0, 1) - (-1.194834622962271)).abs() < 1e-12);
+    // Closed-form s/s nuclear attraction (both nuclei), mpmath dps=50 with quadrature Boys
+    // (tools/reference/gen_integral_refs.py). Former values -1.880440891908111 /
+    // -1.194834622962271 deviated by 5.7e-10 / 2.6e-9 (legacy Python Boys error).
+    assert!((v.get(0, 0) - (-1.8804408924734455503)).abs() < 1e-12);
+    assert!((v.get(0, 1) - (-1.1948346203692893879)).abs() < 1e-12);
 }
 
 #[test]

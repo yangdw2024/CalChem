@@ -26,6 +26,22 @@ class MP2:
         self.e_corr = 0.0
         self.e_tot = 0.0
 
+    @property
+    def energy(self) -> float:
+        return self.e_tot
+
+    @property
+    def converged(self) -> bool:
+        return getattr(self.mf, "converged", True)
+
+    @property
+    def mo_energy(self):
+        return getattr(self.mf, "mo_energy", None)
+
+    @property
+    def mo_occ(self):
+        return getattr(self.mf, "mo_occ", None)
+
     def _compute_eri(self):
         if self._eri is None:
             self._eri = compute_eri(self.basis_set, self.mol)
@@ -42,6 +58,8 @@ class RMP2(MP2):
 
     def kernel(self) -> float:
         mf = self.mf
+        if getattr(mf, "mo_coeff", None) is None or not getattr(mf, "converged", False):
+            mf.kernel()
         mo_coeff = mf.mo_coeff
         mo_energy = mf.mo_energy
         nocc = mf.mol.nelectron // 2
@@ -80,6 +98,8 @@ class UMP2(MP2):
 
     def kernel(self) -> float:
         mf = self.mf
+        if getattr(mf, "mo_coeff", None) is None or not getattr(mf, "converged", False):
+            mf.kernel()
         mo_coeff_a = mf.mo_coeff[0]
         mo_coeff_b = mf.mo_coeff[1]
         mo_energy_a = mf.mo_energy[0]

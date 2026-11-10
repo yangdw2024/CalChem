@@ -1,0 +1,14 @@
+﻿[
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-grad\\src\\lib.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-141355-915\\files\\crates\\calchem-grad\\src\\lib.rs",
+        "SHA256":  "ECA7059921C2DBCB13101A432EFD41AAC301202AC3E4C0DCC9DAD5D33538A830",
+        "LastWriteTimeUtc":  "2026-11-05T02:42:46.2723850Z"
+    },
+    {
+        "Original":  "E:\\YDW\\Trae_Gaussian\\crates\\calchem-grad\\src\\derivatives.rs",
+        "Backup":  "E:\\YDW\\Trae_Gaussian\\docs\\audits\\2026-11-03\\rollback\\backups\\20261105-141355-915\\files\\crates\\calchem-grad\\src\\derivatives.rs",
+        "SHA256":  "01181252413FC5F6F38768BC1241F1F7556FA15626CE396E4D05747B1D307172",
+        "LastWriteTimeUtc":  "2026-11-05T01:47:40.2875454Z"
+    }
+]

@@ -1,0 +1,1533 @@
+{
+  "files": [
+    {
+      "path": "calchem\\__init__.py",
+      "lines": 52,
+      "pytest_functions": [],
+      "bytes": 1108
+    },
+    {
+      "path": "calchem\\__main__.py",
+      "lines": 6,
+      "pytest_functions": [],
+      "bytes": 118
+    },
+    {
+      "path": "calchem\\api\\__init__.py",
+      "lines": 7,
+      "pytest_functions": [],
+      "bytes": 126
+    },
+    {
+      "path": "calchem\\api\\high_level.py",
+      "lines": 567,
+      "pytest_functions": [],
+      "bytes": 17252
+    },
+    {
+      "path": "calchem\\api\\service.py",
+      "lines": 117,
+      "pytest_functions": [],
+      "bytes": 4381
+    },
+    {
+      "path": "calchem\\backends\\__init__.py",
+      "lines": 8,
+      "pytest_functions": [],
+      "bytes": 266
+    },
+    {
+      "path": "calchem\\backends\\external.py",
+      "lines": 104,
+      "pytest_functions": [],
+      "bytes": 3579
+    },
+    {
+      "path": "calchem\\backends\\gaussian.py",
+      "lines": 352,
+      "pytest_functions": [],
+      "bytes": 12751
+    },
+    {
+      "path": "calchem\\backends\\native.py",
+      "lines": 327,
+      "pytest_functions": [],
+      "bytes": 11758
+    },
+    {
+      "path": "calchem\\backends\\orca.py",
+      "lines": 195,
+      "pytest_functions": [],
+      "bytes": 6688
+    },
+    {
+      "path": "calchem\\backends\\parsers\\__init__.py",
+      "lines": 1,
+      "pytest_functions": [],
+      "bytes": 2
+    },
+    {
+      "path": "calchem\\backends\\parsers\\base.py",
+      "lines": 54,
+      "pytest_functions": [],
+      "bytes": 1808
+    },
+    {
+      "path": "calchem\\backends\\pyscf.py",
+      "lines": 37,
+      "pytest_functions": [],
+      "bytes": 1283
+    },
+    {
+      "path": "calchem\\backends\\rest.py",
+      "lines": 39,
+      "pytest_functions": [],
+      "bytes": 1272
+    },
+    {
+      "path": "calchem\\backends\\xtb.py",
+      "lines": 31,
+      "pytest_functions": [],
+      "bytes": 905
+    },
+    {
+      "path": "calchem\\basis\\__init__.py",
+      "lines": 11,
+      "pytest_functions": [],
+      "bytes": 250
+    },
+    {
+      "path": "calchem\\basis\\basis_data.py",
+      "lines": 1595,
+      "pytest_functions": [],
+      "bytes": 67236
+    },
+    {
+      "path": "calchem\\basis\\basis_set.py",
+      "lines": 138,
+      "pytest_functions": [],
+      "bytes": 4235
+    },
+    {
+      "path": "calchem\\basis\\gto.py",
+      "lines": 229,
+      "pytest_functions": [],
+      "bytes": 7507
+    },
+    {
+      "path": "calchem\\basis\\library.py",
+      "lines": 48,
+      "pytest_functions": [],
+      "bytes": 1024
+    },
+    {
+      "path": "calchem\\cli.py",
+      "lines": 166,
+      "pytest_functions": [],
+      "bytes": 5509
+    },
+    {
+      "path": "calchem\\config\\__init__.py",
+      "lines": 6,
+      "pytest_functions": [],
+      "bytes": 265
+    },
+    {
+      "path": "calchem\\config\\loader.py",
+      "lines": 110,
+      "pytest_functions": [],
+      "bytes": 3218
+    },
+    {
+      "path": "calchem\\config\\models.py",
+      "lines": 49,
+      "pytest_functions": [],
+      "bytes": 1343
+    },
+    {
+      "path": "calchem\\core\\__init__.py",
+      "lines": 58,
+      "pytest_functions": [],
+      "bytes": 1386
+    },
+    {
+      "path": "calchem\\core\\calculator.py",
+      "lines": 138,
+      "pytest_functions": [],
+      "bytes": 4786
+    },
+    {
+      "path": "calchem\\core\\capabilities.py",
+      "lines": 47,
+      "pytest_functions": [],
+      "bytes": 1380
+    },
+    {
+      "path": "calchem\\core\\errors.py",
+      "lines": 47,
+      "pytest_functions": [],
+      "bytes": 1145
+    },
+    {
+      "path": "calchem\\core\\periodic_table.py",
+      "lines": 66,
+      "pytest_functions": [],
+      "bytes": 2797
+    },
+    {
+      "path": "calchem\\core\\request.py",
+      "lines": 156,
+      "pytest_functions": [],
+      "bytes": 6435
+    },
+    {
+      "path": "calchem\\core\\result.py",
+      "lines": 91,
+      "pytest_functions": [],
+      "bytes": 2598
+    },
+    {
+      "path": "calchem\\core\\units.py",
+      "lines": 21,
+      "pytest_functions": [],
+      "bytes": 526
+    },
+    {
+      "path": "calchem\\dft\\d3.py",
+      "lines": 255,
+      "pytest_functions": [],
+      "bytes": 6235
+    },
+    {
+      "path": "calchem\\dft\\dft.py",
+      "lines": 632,
+      "pytest_functions": [],
+      "bytes": 22959
+    },
+    {
+      "path": "calchem\\dft\\fock.py",
+      "lines": 254,
+      "pytest_functions": [],
+      "bytes": 8107
+    },
+    {
+      "path": "calchem\\dft\\functionals.py",
+      "lines": 1169,
+      "pytest_functions": [],
+      "bytes": 35553
+    },
+    {
+      "path": "calchem\\dft\\grid.py",
+      "lines": 608,
+      "pytest_functions": [],
+      "bytes": 19235
+    },
+    {
+      "path": "calchem\\excited\\__init__.py",
+      "lines": 9,
+      "pytest_functions": [],
+      "bytes": 143
+    },
+    {
+      "path": "calchem\\excited\\cis.py",
+      "lines": 113,
+      "pytest_functions": [],
+      "bytes": 3765
+    },
+    {
+      "path": "calchem\\excited\\spectra.py",
+      "lines": 51,
+      "pytest_functions": [],
+      "bytes": 1502
+    },
+    {
+      "path": "calchem\\excited\\tddft.py",
+      "lines": 56,
+      "pytest_functions": [],
+      "bytes": 1660
+    },
+    {
+      "path": "calchem\\excited\\tddft_native.py",
+      "lines": 371,
+      "pytest_functions": [],
+      "bytes": 12857
+    },
+    {
+      "path": "calchem\\gpu\\__init__.py",
+      "lines": 6,
+      "pytest_functions": [],
+      "bytes": 112
+    },
+    {
+      "path": "calchem\\gpu\\fock.py",
+      "lines": 42,
+      "pytest_functions": [],
+      "bytes": 923
+    },
+    {
+      "path": "calchem\\grad\\__init__.py",
+      "lines": 7,
+      "pytest_functions": [],
+      "bytes": 118
+    },
+    {
+      "path": "calchem\\grad\\analytical.py",
+      "lines": 348,
+      "pytest_functions": [],
+      "bytes": 12618
+    },
+    {
+      "path": "calchem\\grad\\dft_grad.py",
+      "lines": 65,
+      "pytest_functions": [],
+      "bytes": 2153
+    },
+    {
+      "path": "calchem\\grad\\finite_difference.py",
+      "lines": 64,
+      "pytest_functions": [],
+      "bytes": 1835
+    },
+    {
+      "path": "calchem\\grad\\hf_grad.py",
+      "lines": 78,
+      "pytest_functions": [],
+      "bytes": 2574
+    },
+    {
+      "path": "calchem\\gui\\__init__.py",
+      "lines": 1,
+      "pytest_functions": [],
+      "bytes": 25
+    },
+    {
+      "path": "calchem\\gui\\__main__.py",
+      "lines": 6,
+      "pytest_functions": [],
+      "bytes": 107
+    },
+    {
+      "path": "calchem\\gui\\main_window.py",
+      "lines": 354,
+      "pytest_functions": [],
+      "bytes": 13834
+    },
+    {
+      "path": "calchem\\gui\\worker.py",
+      "lines": 66,
+      "pytest_functions": [],
+      "bytes": 2277
+    },
+    {
+      "path": "calchem\\integrals\\__init__.py",
+      "lines": 76,
+      "pytest_functions": [],
+      "bytes": 1542
+    },
+    {
+      "path": "calchem\\integrals\\direct_scf.py",
+      "lines": 254,
+      "pytest_functions": [],
+      "bytes": 7849
+    },
+    {
+      "path": "calchem\\integrals\\one_electron.py",
+      "lines": 901,
+      "pytest_functions": [],
+      "bytes": 30043
+    },
+    {
+      "path": "calchem\\integrals\\ri.py",
+      "lines": 515,
+      "pytest_functions": [],
+      "bytes": 16804
+    },
+    {
+      "path": "calchem\\integrals\\screening.py",
+      "lines": 122,
+      "pytest_functions": [],
+      "bytes": 4218
+    },
+    {
+      "path": "calchem\\integrals\\two_electron.py",
+      "lines": 593,
+      "pytest_functions": [],
+      "bytes": 23422
+    },
+    {
+      "path": "calchem\\io\\__init__.py",
+      "lines": 15,
+      "pytest_functions": [],
+      "bytes": 341
+    },
+    {
+      "path": "calchem\\io\\checkpoint.py",
+      "lines": 122,
+      "pytest_functions": [],
+      "bytes": 3875
+    },
+    {
+      "path": "calchem\\io\\input.py",
+      "lines": 239,
+      "pytest_functions": [],
+      "bytes": 7109
+    },
+    {
+      "path": "calchem\\io\\output.py",
+      "lines": 62,
+      "pytest_functions": [],
+      "bytes": 1797
+    },
+    {
+      "path": "calchem\\io\\project.py",
+      "lines": 115,
+      "pytest_functions": [],
+      "bytes": 4072
+    },
+    {
+      "path": "calchem\\jobs\\__init__.py",
+      "lines": 8,
+      "pytest_functions": [],
+      "bytes": 288
+    },
+    {
+      "path": "calchem\\jobs\\dispatcher.py",
+      "lines": 96,
+      "pytest_functions": [],
+      "bytes": 3224
+    },
+    {
+      "path": "calchem\\jobs\\global_lock.py",
+      "lines": 128,
+      "pytest_functions": [],
+      "bytes": 3817
+    },
+    {
+      "path": "calchem\\jobs\\models.py",
+      "lines": 74,
+      "pytest_functions": [],
+      "bytes": 2171
+    },
+    {
+      "path": "calchem\\jobs\\queue.py",
+      "lines": 91,
+      "pytest_functions": [],
+      "bytes": 3089
+    },
+    {
+      "path": "calchem\\md\\__init__.py",
+      "lines": 7,
+      "pytest_functions": [],
+      "bytes": 121
+    },
+    {
+      "path": "calchem\\md\\ff_fit.py",
+      "lines": 47,
+      "pytest_functions": [],
+      "bytes": 1459
+    },
+    {
+      "path": "calchem\\md\\gromacs_io.py",
+      "lines": 55,
+      "pytest_functions": [],
+      "bytes": 1649
+    },
+    {
+      "path": "calchem\\mol\\__init__.py",
+      "lines": 9,
+      "pytest_functions": [],
+      "bytes": 156
+    },
+    {
+      "path": "calchem\\mol\\geometry.py",
+      "lines": 169,
+      "pytest_functions": [],
+      "bytes": 5360
+    },
+    {
+      "path": "calchem\\mol\\molecule.py",
+      "lines": 270,
+      "pytest_functions": [],
+      "bytes": 8647
+    },
+    {
+      "path": "calchem\\mol\\symmetry.py",
+      "lines": 72,
+      "pytest_functions": [],
+      "bytes": 2153
+    },
+    {
+      "path": "calchem\\molforge_bridge.py",
+      "lines": 16,
+      "pytest_functions": [],
+      "bytes": 646
+    },
+    {
+      "path": "calchem\\oniom\\__init__.py",
+      "lines": 193,
+      "pytest_functions": [],
+      "bytes": 5748
+    },
+    {
+      "path": "calchem\\opt\\__init__.py",
+      "lines": 9,
+      "pytest_functions": [],
+      "bytes": 138
+    },
+    {
+      "path": "calchem\\opt\\berny.py",
+      "lines": 21,
+      "pytest_functions": [],
+      "bytes": 548
+    },
+    {
+      "path": "calchem\\opt\\bfgs.py",
+      "lines": 113,
+      "pytest_functions": [],
+      "bytes": 3252
+    },
+    {
+      "path": "calchem\\opt\\irc.py",
+      "lines": 202,
+      "pytest_functions": [],
+      "bytes": 6453
+    },
+    {
+      "path": "calchem\\opt\\numeric_optimizer.py",
+      "lines": 114,
+      "pytest_functions": [],
+      "bytes": 3029
+    },
+    {
+      "path": "calchem\\opt\\optimizer.py",
+      "lines": 80,
+      "pytest_functions": [],
+      "bytes": 2421
+    },
+    {
+      "path": "calchem\\opt\\ts_search.py",
+      "lines": 330,
+      "pytest_functions": [],
+      "bytes": 10577
+    },
+    {
+      "path": "calchem\\post_hf\\__init__.py",
+      "lines": 7,
+      "pytest_functions": [],
+      "bytes": 83
+    },
+    {
+      "path": "calchem\\post_hf\\casscf.py",
+      "lines": 597,
+      "pytest_functions": [],
+      "bytes": 19763
+    },
+    {
+      "path": "calchem\\post_hf\\ccd.py",
+      "lines": 189,
+      "pytest_functions": [],
+      "bytes": 6178
+    },
+    {
+      "path": "calchem\\post_hf\\ccsd.py",
+      "lines": 307,
+      "pytest_functions": [],
+      "bytes": 10292
+    },
+    {
+      "path": "calchem\\post_hf\\ccsd_t.py",
+      "lines": 96,
+      "pytest_functions": [],
+      "bytes": 2845
+    },
+    {
+      "path": "calchem\\post_hf\\mp2.py",
+      "lines": 137,
+      "pytest_functions": [],
+      "bytes": 3921
+    },
+    {
+      "path": "calchem\\post_hf\\mp4.py",
+      "lines": 429,
+      "pytest_functions": [],
+      "bytes": 16238
+    },
+    {
+      "path": "calchem\\props\\__init__.py",
+      "lines": 12,
+      "pytest_functions": [],
+      "bytes": 273
+    },
+    {
+      "path": "calchem\\props\\charges.py",
+      "lines": 41,
+      "pytest_functions": [],
+      "bytes": 1214
+    },
+    {
+      "path": "calchem\\props\\cube.py",
+      "lines": 112,
+      "pytest_functions": [],
+      "bytes": 3635
+    },
+    {
+      "path": "calchem\\props\\multipole.py",
+      "lines": 33,
+      "pytest_functions": [],
+      "bytes": 844
+    },
+    {
+      "path": "calchem\\props\\multipole_native.py",
+      "lines": 278,
+      "pytest_functions": [],
+      "bytes": 10292
+    },
+    {
+      "path": "calchem\\props\\population.py",
+      "lines": 65,
+      "pytest_functions": [],
+      "bytes": 1821
+    },
+    {
+      "path": "calchem\\scf\\__init__.py",
+      "lines": 22,
+      "pytest_functions": [],
+      "bytes": 350
+    },
+    {
+      "path": "calchem\\scf\\dft.py",
+      "lines": 420,
+      "pytest_functions": [],
+      "bytes": 14610
+    },
+    {
+      "path": "calchem\\scf\\diis.py",
+      "lines": 206,
+      "pytest_functions": [],
+      "bytes": 5832
+    },
+    {
+      "path": "calchem\\scf\\guess.py",
+      "lines": 198,
+      "pytest_functions": [],
+      "bytes": 5680
+    },
+    {
+      "path": "calchem\\scf\\hf.py",
+      "lines": 682,
+      "pytest_functions": [],
+      "bytes": 22091
+    },
+    {
+      "path": "calchem\\scf\\results.py",
+      "lines": 92,
+      "pytest_functions": [],
+      "bytes": 3620
+    },
+    {
+      "path": "calchem\\solvent\\__init__.py",
+      "lines": 7,
+      "pytest_functions": [],
+      "bytes": 79
+    },
+    {
+      "path": "calchem\\solvent\\pcm.py",
+      "lines": 211,
+      "pytest_functions": [],
+      "bytes": 7631
+    },
+    {
+      "path": "calchem\\solvent\\smd.py",
+      "lines": 24,
+      "pytest_functions": [],
+      "bytes": 591
+    },
+    {
+      "path": "calchem\\tests\\test_debug.py",
+      "lines": 50,
+      "pytest_functions": [],
+      "bytes": 1230
+    },
+    {
+      "path": "calchem\\tests\\test_h2_sto3g.py",
+      "lines": 147,
+      "pytest_functions": [
+        "test_h2_sto3g"
+      ],
+      "bytes": 4511
+    },
+    {
+      "path": "calchem\\tests\\test_scf.py",
+      "lines": 82,
+      "pytest_functions": [
+        "test_h2_sto3g_rhf",
+        "test_h2_sto3g_uhf"
+      ],
+      "bytes": 1957
+    },
+    {
+      "path": "calchem\\tests\\test_scf_direct.py",
+      "lines": 119,
+      "pytest_functions": [
+        "test_h2_sto3g_rhf",
+        "test_h2_sto3g_uhf",
+        "test_h2o_sto3g_rhf"
+      ],
+      "bytes": 2864
+    },
+    {
+      "path": "calchem\\utils\\__init__.py",
+      "lines": 67,
+      "pytest_functions": [],
+      "bytes": 1408
+    },
+    {
+      "path": "calchem\\utils\\accelerate.py",
+      "lines": 281,
+      "pytest_functions": [],
+      "bytes": 8714
+    },
+    {
+      "path": "calchem\\utils\\config.py",
+      "lines": 51,
+      "pytest_functions": [],
+      "bytes": 1901
+    },
+    {
+      "path": "calchem\\utils\\constants.py",
+      "lines": 135,
+      "pytest_functions": [],
+      "bytes": 2273
+    },
+    {
+      "path": "calchem\\utils\\exceptions.py",
+      "lines": 26,
+      "pytest_functions": [],
+      "bytes": 345
+    },
+    {
+      "path": "calchem\\utils\\logging_utils.py",
+      "lines": 45,
+      "pytest_functions": [],
+      "bytes": 1067
+    },
+    {
+      "path": "calchem\\utils\\units.py",
+      "lines": 61,
+      "pytest_functions": [],
+      "bytes": 1369
+    },
+    {
+      "path": "calchem\\vib\\__init__.py",
+      "lines": 6,
+      "pytest_functions": [],
+      "bytes": 109
+    },
+    {
+      "path": "calchem\\vib\\frequency.py",
+      "lines": 164,
+      "pytest_functions": [],
+      "bytes": 5144
+    },
+    {
+      "path": "calchem\\vib\\numeric_frequency.py",
+      "lines": 162,
+      "pytest_functions": [],
+      "bytes": 4922
+    },
+    {
+      "path": "calchem\\workflows\\__init__.py",
+      "lines": 5,
+      "pytest_functions": [],
+      "bytes": 150
+    },
+    {
+      "path": "calchem\\workflows\\opv.py",
+      "lines": 66,
+      "pytest_functions": [],
+      "bytes": 2110
+    },
+    {
+      "path": "tests\\__init__.py",
+      "lines": 1,
+      "pytest_functions": [],
+      "bytes": 2
+    },
+    {
+      "path": "tests\\acceptance.py",
+      "lines": 162,
+      "pytest_functions": [],
+      "bytes": 5647
+    },
+    {
+      "path": "tests\\conftest.py",
+      "lines": 50,
+      "pytest_functions": [],
+      "bytes": 1319
+    },
+    {
+      "path": "tests\\debug\\calc_eri_ref.py",
+      "lines": 319,
+      "pytest_functions": [],
+      "bytes": 10350
+    },
+    {
+      "path": "tests\\debug\\debug_eri.py",
+      "lines": 132,
+      "pytest_functions": [],
+      "bytes": 3840
+    },
+    {
+      "path": "tests\\debug\\debug_h2o.py",
+      "lines": 117,
+      "pytest_functions": [],
+      "bytes": 3534
+    },
+    {
+      "path": "tests\\debug\\debug_ne_detail.py",
+      "lines": 121,
+      "pytest_functions": [],
+      "bytes": 4466
+    },
+    {
+      "path": "tests\\debug\\debug_ne_integrals.py",
+      "lines": 235,
+      "pytest_functions": [],
+      "bytes": 8399
+    },
+    {
+      "path": "tests\\debug\\debug_spherical.py",
+      "lines": 1424,
+      "pytest_functions": [],
+      "bytes": 55164
+    },
+    {
+      "path": "tests\\debug\\debug_vrr.py",
+      "lines": 343,
+      "pytest_functions": [],
+      "bytes": 12178
+    },
+    {
+      "path": "tests\\debug\\debug_vrr_coeff.py",
+      "lines": 109,
+      "pytest_functions": [],
+      "bytes": 3814
+    },
+    {
+      "path": "tests\\debug\\old_cli_package\\__init__.py",
+      "lines": 3,
+      "pytest_functions": [],
+      "bytes": 41
+    },
+    {
+      "path": "tests\\debug\\old_cli_package\\main.py",
+      "lines": 278,
+      "pytest_functions": [],
+      "bytes": 9950
+    },
+    {
+      "path": "tests\\debug\\verify_d_eri.py",
+      "lines": 253,
+      "pytest_functions": [],
+      "bytes": 9768
+    },
+    {
+      "path": "tests\\debug\\verify_eri_analytic.py",
+      "lines": 429,
+      "pytest_functions": [],
+      "bytes": 15168
+    },
+    {
+      "path": "tests\\debug\\verify_eri_spherical.py",
+      "lines": 60,
+      "pytest_functions": [],
+      "bytes": 1788
+    },
+    {
+      "path": "tests\\debug\\verify_eri_systematic.py",
+      "lines": 204,
+      "pytest_functions": [],
+      "bytes": 6685
+    },
+    {
+      "path": "tests\\debug\\verify_integrals.py",
+      "lines": 152,
+      "pytest_functions": [],
+      "bytes": 5897
+    },
+    {
+      "path": "tests\\debug\\verify_pp_eri.py",
+      "lines": 57,
+      "pytest_functions": [],
+      "bytes": 1938
+    },
+    {
+      "path": "tests\\debug\\verify_pp_eri2.py",
+      "lines": 97,
+      "pytest_functions": [],
+      "bytes": 3194
+    },
+    {
+      "path": "tests\\dft\\test_grid_h.py",
+      "lines": 19,
+      "pytest_functions": [],
+      "bytes": 664
+    },
+    {
+      "path": "tests\\dft\\test_grid_h2.py",
+      "lines": 20,
+      "pytest_functions": [],
+      "bytes": 756
+    },
+    {
+      "path": "tests\\dft\\test_grid_he.py",
+      "lines": 20,
+      "pytest_functions": [],
+      "bytes": 704
+    },
+    {
+      "path": "tests\\dft\\test_grid_phi.py",
+      "lines": 24,
+      "pytest_functions": [],
+      "bytes": 1111
+    },
+    {
+      "path": "tests\\dft\\test_grid_phi2.py",
+      "lines": 25,
+      "pytest_functions": [],
+      "bytes": 1115
+    },
+    {
+      "path": "tests\\dft\\test_grid_verify.py",
+      "lines": 23,
+      "pytest_functions": [],
+      "bytes": 813
+    },
+    {
+      "path": "tests\\dft\\test_lda_convergence.py",
+      "lines": 24,
+      "pytest_functions": [],
+      "bytes": 706
+    },
+    {
+      "path": "tests\\dft\\test_lda_debug.py",
+      "lines": 61,
+      "pytest_functions": [],
+      "bytes": 2085
+    },
+    {
+      "path": "tests\\dft\\test_lda_no_diis.py",
+      "lines": 15,
+      "pytest_functions": [],
+      "bytes": 482
+    },
+    {
+      "path": "tests\\dft\\test_lda_quick.py",
+      "lines": 15,
+      "pytest_functions": [],
+      "bytes": 463
+    },
+    {
+      "path": "tests\\dft\\test_lda_vs_pbe.py",
+      "lines": 74,
+      "pytest_functions": [],
+      "bytes": 2616
+    },
+    {
+      "path": "tests\\dft\\test_lebedev.py",
+      "lines": 8,
+      "pytest_functions": [],
+      "bytes": 374
+    },
+    {
+      "path": "tests\\dft\\test_pbe_convergence.py",
+      "lines": 24,
+      "pytest_functions": [],
+      "bytes": 710
+    },
+    {
+      "path": "tests\\dft\\test_pbe_diagnose.py",
+      "lines": 64,
+      "pytest_functions": [],
+      "bytes": 2021
+    },
+    {
+      "path": "tests\\dft\\test_pbe_gamma_diagnose.py",
+      "lines": 55,
+      "pytest_functions": [],
+      "bytes": 2119
+    },
+    {
+      "path": "tests\\dft\\test_pbe_quick.py",
+      "lines": 16,
+      "pytest_functions": [],
+      "bytes": 482
+    },
+    {
+      "path": "tests\\dft\\test_tpss_fix.py",
+      "lines": 25,
+      "pytest_functions": [],
+      "bytes": 740
+    },
+    {
+      "path": "tests\\dft\\test_vwn5_num.py",
+      "lines": 80,
+      "pytest_functions": [],
+      "bytes": 2014
+    },
+    {
+      "path": "tests\\dft\\test_vxc_detailed.py",
+      "lines": 64,
+      "pytest_functions": [],
+      "bytes": 2515
+    },
+    {
+      "path": "tests\\dft\\test_vxc_direct.py",
+      "lines": 76,
+      "pytest_functions": [],
+      "bytes": 3007
+    },
+    {
+      "path": "tests\\dft\\test_vxc_sign.py",
+      "lines": 58,
+      "pytest_functions": [],
+      "bytes": 2295
+    },
+    {
+      "path": "tests\\external\\__init__.py",
+      "lines": 1,
+      "pytest_functions": [],
+      "bytes": 2
+    },
+    {
+      "path": "tests\\gui\\__init__.py",
+      "lines": 1,
+      "pytest_functions": [],
+      "bytes": 2
+    },
+    {
+      "path": "tests\\gui\\test_gui_fast.py",
+      "lines": 73,
+      "pytest_functions": [],
+      "bytes": 2156
+    },
+    {
+      "path": "tests\\gui\\test_gui_methods.py",
+      "lines": 72,
+      "pytest_functions": [],
+      "bytes": 2100
+    },
+    {
+      "path": "tests\\integrals\\test_comprehensive.py",
+      "lines": 118,
+      "pytest_functions": [],
+      "bytes": 4004
+    },
+    {
+      "path": "tests\\integrals\\test_eri.py",
+      "lines": 37,
+      "pytest_functions": [],
+      "bytes": 1152
+    },
+    {
+      "path": "tests\\integrals\\test_eri_detailed.py",
+      "lines": 171,
+      "pytest_functions": [],
+      "bytes": 6575
+    },
+    {
+      "path": "tests\\integrals\\test_eri_index.py",
+      "lines": 64,
+      "pytest_functions": [],
+      "bytes": 2453
+    },
+    {
+      "path": "tests\\integrals\\test_eri_verify.py",
+      "lines": 222,
+      "pytest_functions": [],
+      "bytes": 8642
+    },
+    {
+      "path": "tests\\integrals\\test_he_eri.py",
+      "lines": 56,
+      "pytest_functions": [],
+      "bytes": 1923
+    },
+    {
+      "path": "tests\\integrals\\test_integral_check.py",
+      "lines": 67,
+      "pytest_functions": [],
+      "bytes": 2645
+    },
+    {
+      "path": "tests\\integrals\\test_jk_verify.py",
+      "lines": 93,
+      "pytest_functions": [],
+      "bytes": 3069
+    },
+    {
+      "path": "tests\\integrals\\test_kinetic_check.py",
+      "lines": 181,
+      "pytest_functions": [],
+      "bytes": 6799
+    },
+    {
+      "path": "tests\\integrals\\test_nuclear_check.py",
+      "lines": 63,
+      "pytest_functions": [],
+      "bytes": 2190
+    },
+    {
+      "path": "tests\\integrals\\test_o_eri.py",
+      "lines": 53,
+      "pytest_functions": [],
+      "bytes": 1877
+    },
+    {
+      "path": "tests\\integrals\\test_p_1e.py",
+      "lines": 63,
+      "pytest_functions": [],
+      "bytes": 2117
+    },
+    {
+      "path": "tests\\integrals\\test_p_eri.py",
+      "lines": 143,
+      "pytest_functions": [],
+      "bytes": 4867
+    },
+    {
+      "path": "tests\\integrals\\test_p_eri_check.py",
+      "lines": 304,
+      "pytest_functions": [
+        "test_same_center_relations",
+        "test_h2o_integrals_summary"
+      ],
+      "bytes": 10994
+    },
+    {
+      "path": "tests\\numerical\\__init__.py",
+      "lines": 1,
+      "pytest_functions": [],
+      "bytes": 2
+    },
+    {
+      "path": "tests\\numerical\\test_scf.py",
+      "lines": 40,
+      "pytest_functions": [
+        "test_hf_water_sto3g",
+        "test_dft_water_b3lyp"
+      ],
+      "bytes": 1078
+    },
+    {
+      "path": "tests\\parser\\__init__.py",
+      "lines": 1,
+      "pytest_functions": [],
+      "bytes": 2
+    },
+    {
+      "path": "tests\\posthf\\test_audit.py",
+      "lines": 133,
+      "pytest_functions": [
+        "test_casscf_h2",
+        "test_mp4_h2o",
+        "test_ccsd_t_h2o",
+        "test_rohf_ch3",
+        "test_roks_o2",
+        "test_metagga_h2o"
+      ],
+      "bytes": 3893
+    },
+    {
+      "path": "tests\\posthf\\test_ccsd_t_convergence.py",
+      "lines": 30,
+      "pytest_functions": [],
+      "bytes": 1014
+    },
+    {
+      "path": "tests\\posthf\\test_regression.py",
+      "lines": 313,
+      "pytest_functions": [
+        "test_h2",
+        "test_he",
+        "test_ne",
+        "test_h2o_standard_vs_direct",
+        "test_h2o_mp2_ccsd",
+        "test_o2_uhf"
+      ],
+      "bytes": 8501
+    },
+    {
+      "path": "tests\\scf\\test_be_atom.py",
+      "lines": 70,
+      "pytest_functions": [],
+      "bytes": 1981
+    },
+    {
+      "path": "tests\\scf\\test_diis.py",
+      "lines": 66,
+      "pytest_functions": [],
+      "bytes": 2105
+    },
+    {
+      "path": "tests\\scf\\test_energy_formula.py",
+      "lines": 71,
+      "pytest_functions": [],
+      "bytes": 2841
+    },
+    {
+      "path": "tests\\scf\\test_fock_eig.py",
+      "lines": 57,
+      "pytest_functions": [],
+      "bytes": 2072
+    },
+    {
+      "path": "tests\\scf\\test_guess.py",
+      "lines": 28,
+      "pytest_functions": [],
+      "bytes": 821
+    },
+    {
+      "path": "tests\\scf\\test_h2.py",
+      "lines": 61,
+      "pytest_functions": [],
+      "bytes": 1732
+    },
+    {
+      "path": "tests\\scf\\test_h2_full.py",
+      "lines": 66,
+      "pytest_functions": [],
+      "bytes": 1727
+    },
+    {
+      "path": "tests\\scf\\test_h2_manual.py",
+      "lines": 105,
+      "pytest_functions": [],
+      "bytes": 2928
+    },
+    {
+      "path": "tests\\scf\\test_h2_sto3g.py",
+      "lines": 154,
+      "pytest_functions": [
+        "test_h2_sto3g"
+      ],
+      "bytes": 4718
+    },
+    {
+      "path": "tests\\scf\\test_h2o.py",
+      "lines": 60,
+      "pytest_functions": [],
+      "bytes": 1679
+    },
+    {
+      "path": "tests\\scf\\test_h2o_analysis.py",
+      "lines": 152,
+      "pytest_functions": [],
+      "bytes": 4000
+    },
+    {
+      "path": "tests\\scf\\test_h2o_bohr.py",
+      "lines": 68,
+      "pytest_functions": [],
+      "bytes": 1824
+    },
+    {
+      "path": "tests\\scf\\test_h2o_diis_debug.py",
+      "lines": 93,
+      "pytest_functions": [],
+      "bytes": 2714
+    },
+    {
+      "path": "tests\\scf\\test_h2o_direct.py",
+      "lines": 61,
+      "pytest_functions": [],
+      "bytes": 1509
+    },
+    {
+      "path": "tests\\scf\\test_h2o_integrals.py",
+      "lines": 64,
+      "pytest_functions": [],
+      "bytes": 1936
+    },
+    {
+      "path": "tests\\scf\\test_h2o_nodiis.py",
+      "lines": 26,
+      "pytest_functions": [],
+      "bytes": 849
+    },
+    {
+      "path": "tests\\scf\\test_h2o_quick.py",
+      "lines": 51,
+      "pytest_functions": [],
+      "bytes": 1372
+    },
+    {
+      "path": "tests\\scf\\test_he_atom.py",
+      "lines": 65,
+      "pytest_functions": [],
+      "bytes": 1771
+    },
+    {
+      "path": "tests\\scf\\test_hf_vs_dft.py",
+      "lines": 36,
+      "pytest_functions": [],
+      "bytes": 996
+    },
+    {
+      "path": "tests\\scf\\test_init_density.py",
+      "lines": 38,
+      "pytest_functions": [],
+      "bytes": 1415
+    },
+    {
+      "path": "tests\\scf\\test_manual_scf.py",
+      "lines": 67,
+      "pytest_functions": [],
+      "bytes": 1977
+    },
+    {
+      "path": "tests\\scf\\test_ne_atom.py",
+      "lines": 32,
+      "pytest_functions": [],
+      "bytes": 878
+    },
+    {
+      "path": "tests\\scf\\test_o_atom.py",
+      "lines": 50,
+      "pytest_functions": [],
+      "bytes": 1615
+    },
+    {
+      "path": "tests\\scf\\test_quick.py",
+      "lines": 35,
+      "pytest_functions": [],
+      "bytes": 875
+    },
+    {
+      "path": "tests\\scf\\test_rhf_quick.py",
+      "lines": 15,
+      "pytest_functions": [],
+      "bytes": 431
+    },
+    {
+      "path": "tests\\scf\\test_scf_energy.py",
+      "lines": 140,
+      "pytest_functions": [],
+      "bytes": 5086
+    },
+    {
+      "path": "tests\\scratch\\_analyze_mp3.py",
+      "lines": 177,
+      "pytest_functions": [],
+      "bytes": 5803
+    },
+    {
+      "path": "tests\\scratch\\_correct_mp3.py",
+      "lines": 287,
+      "pytest_functions": [],
+      "bytes": 7871
+    },
+    {
+      "path": "tests\\scratch\\_debug_ccsd.py",
+      "lines": 51,
+      "pytest_functions": [],
+      "bytes": 1446
+    },
+    {
+      "path": "tests\\scratch\\_debug_dft.py",
+      "lines": 33,
+      "pytest_functions": [],
+      "bytes": 1091
+    },
+    {
+      "path": "tests\\scratch\\_debug_eri.py",
+      "lines": 57,
+      "pytest_functions": [],
+      "bytes": 1927
+    },
+    {
+      "path": "tests\\scratch\\_decompose_mp3.py",
+      "lines": 196,
+      "pytest_functions": [],
+      "bytes": 5928
+    },
+    {
+      "path": "tests\\scratch\\_full_mp3.py",
+      "lines": 314,
+      "pytest_functions": [],
+      "bytes": 9126
+    },
+    {
+      "path": "tests\\scratch\\_test_mp.py",
+      "lines": 657,
+      "pytest_functions": [],
+      "bytes": 24173
+    },
+    {
+      "path": "tests\\scratch\\_validate_mp3.py",
+      "lines": 261,
+      "pytest_functions": [],
+      "bytes": 7331
+    },
+    {
+      "path": "tests\\scratch\\test_dot.py",
+      "lines": 31,
+      "pytest_functions": [],
+      "bytes": 803
+    },
+    {
+      "path": "tests\\scratch\\test_eig.py",
+      "lines": 21,
+      "pytest_functions": [],
+      "bytes": 602
+    },
+    {
+      "path": "tests\\scratch\\test_eigh.py",
+      "lines": 27,
+      "pytest_functions": [],
+      "bytes": 722
+    },
+    {
+      "path": "tests\\scratch\\test_einsum.py",
+      "lines": 38,
+      "pytest_functions": [],
+      "bytes": 902
+    },
+    {
+      "path": "tests\\scratch\\test_flush.py",
+      "lines": 26,
+      "pytest_functions": [],
+      "bytes": 800
+    },
+    {
+      "path": "tests\\scratch\\test_matmul.py",
+      "lines": 31,
+      "pytest_functions": [],
+      "bytes": 857
+    },
+    {
+      "path": "tests\\scratch\\test_matrix.py",
+      "lines": 39,
+      "pytest_functions": [],
+      "bytes": 1095
+    },
+    {
+      "path": "tests\\scratch\\test_numpy_config.py",
+      "lines": 5,
+      "pytest_functions": [],
+      "bytes": 152
+    },
+    {
+      "path": "tests\\scratch\\test_ortho_detail.py",
+      "lines": 32,
+      "pytest_functions": [],
+      "bytes": 810
+    },
+    {
+      "path": "tests\\scratch\\test_pieces.py",
+      "lines": 45,
+      "pytest_functions": [],
+      "bytes": 1410
+    },
+    {
+      "path": "tests\\scratch\\test_simple.py",
+      "lines": 18,
+      "pytest_functions": [],
+      "bytes": 450
+    },
+    {
+      "path": "tests\\scratch\\test_steps.py",
+      "lines": 79,
+      "pytest_functions": [],
+      "bytes": 1858
+    },
+    {
+      "path": "tests\\unit\\__init__.py",
+      "lines": 1,
+      "pytest_functions": [],
+      "bytes": 2
+    },
+    {
+      "path": "tests\\unit\\test_atoms.py",
+      "lines": 82,
+      "pytest_functions": [
+        "test_he_sto3g",
+        "test_be_sto3g",
+        "test_ne_sto3g"
+      ],
+      "bytes": 2289
+    },
+    {
+      "path": "tests\\unit\\test_basis_norm.py",
+      "lines": 28,
+      "pytest_functions": [],
+      "bytes": 991
+    },
+    {
+      "path": "tests\\unit\\test_core_rust.py",
+      "lines": 88,
+      "pytest_functions": [
+        "test_energy_baseline",
+        "test_h2_orbital_energies",
+        "test_h2o_dipole",
+        "test_h2_gradient",
+        "test_h2_optimization",
+        "test_orbital_cube_zero_copy"
+      ],
+      "bytes": 2799
+    },
+    {
+      "path": "tests\\unit\\test_gto_detail.py",
+      "lines": 41,
+      "pytest_functions": [],
+      "bytes": 1606
+    },
+    {
+      "path": "tests\\unit\\test_imports.py",
+      "lines": 40,
+      "pytest_functions": [],
+      "bytes": 894
+    },
+    {
+      "path": "tests\\unit\\test_io.py",
+      "lines": 54,
+      "pytest_functions": [
+        "test_read_xyz_string",
+        "test_read_gjf_simple",
+        "test_read_gjf_route_section"
+      ],
+      "bytes": 1066
+    },
+    {
+      "path": "tests\\unit\\test_molecule.py",
+      "lines": 55,
+      "pytest_functions": [
+        "test_molecule_from_xyz_string",
+        "test_molecule_from_xyz_with_charge",
+        "test_molecule_formula",
+        "test_bond_length",
+        "test_bond_angle"
+      ],
+      "bytes": 1421
+    },
+    {
+      "path": "tests\\unit\\test_request_validation.py",
+      "lines": 99,
+      "pytest_functions": [
+        "test_valid_water",
+        "test_unknown_element_rejected",
+        "test_nan_coordinate_rejected",
+        "test_inf_coordinate_rejected",
+        "test_wrong_coord_dimension",
+        "test_symbols_coords_mismatch",
+        "test_negative_electron_charge",
+        "test_multiplicity_too_high",
+        "test_h_atom_doublet_correct",
+        "test_h_atom_singlet_wrong",
+        "test_element_case_insensitive"
+      ],
+      "bytes": 2567
+    }
+  ],
+  "failures": []
+}

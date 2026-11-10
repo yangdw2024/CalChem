@@ -1,0 +1,3 @@
+{"check":"H2_integrals","T01":0.23645465597967397,"S01":0.65931820613486392}
+{"check":"water_final_state","options":"default","iterations":9,"energy_recomputed_minus_reported":0.00000000000000000e0,"max_F_of_returned_P_minus_returned_F":1.24278420887691254e-10}
+{"check":"water_final_state","options":"loose","iterations":4,"energy_recomputed_minus_reported":-6.46609521481877891e-9,"max_F_of_returned_P_minus_returned_F":8.28180019141200319e-6}
