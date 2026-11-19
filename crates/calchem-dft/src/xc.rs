@@ -26,17 +26,24 @@ pub enum XcFunctional {
     B3lyp5,
     /// Hybrid PBE0 (`PBE1PBE`): `0.25 HF + 0.75 PBE_X + 1.00 PBE_C`
     Pbe0,
-    /// Global-Hybrid approximation to CAM-B3LYP (static HF exchange c_HF = 0.42).
-    /// Note: Standard range-separated attenuated ERIs (erf(mu*r12)/r12) require external adapters.
+    /// CAM-B3LYP with ITYH short-range B88 exchange and attenuated exact exchange.
     CamB3lyp,
-    /// Global-Hybrid approximation to wB97X-D (static HF exchange c_HF = 0.22).
-    /// Note: Standard range-separated attenuated ERIs require external adapters.
+    /// Legacy incomplete approximation; rejected by validate_native().
     Wb97xd,
 }
 
 impl XcFunctional {
     pub const SUPPORTED_NAMES: &'static [&'static str] = &[
-        "svwn5", "svwn", "lda", "blyp", "pbe", "b3lyp", "b3lyp5", "pbe0",
+        "svwn5",
+        "svwn",
+        "lda",
+        "blyp",
+        "pbe",
+        "b3lyp",
+        "b3lyp5",
+        "pbe0",
+        "camb3lyp",
+        "cam-b3lyp",
     ];
 
     pub fn from_name(name: &str) -> Result<Self, CalcError> {
@@ -53,11 +60,10 @@ impl XcFunctional {
             "b3lyp" => Ok(Self::B3lyp),
             "b3lyp5" => Ok(Self::B3lyp5),
             "pbe0" | "pbe1pbe" => Ok(Self::Pbe0),
-            "camb3lyp" | "wb97xd" | "wb97x" => Err(CalcError::UnsupportedMethod(
-                "Native range-separated exchange ERIs are not implemented. CAM-B3LYP/wB97X(-D) require an external Gaussian/ORCA backend; global-hybrid substitution is disabled.".into()
-            )),
+            "camb3lyp" => Ok(Self::CamB3lyp),
+            "wb97xd" | "wb97x" => Ok(Self::Wb97xd),
             _ => Err(CalcError::UnsupportedMethod(format!(
-                "Unsupported DFT XC functional '{name}' (supported: SVWN5, BLYP, PBE, B3LYP, B3LYP5, PBE0)"
+                "Unsupported DFT XC functional '{name}' (supported: SVWN5, BLYP, PBE, B3LYP, B3LYP5, PBE0, CAM-B3LYP, wB97X-D)"
             ))),
         }
     }
@@ -75,14 +81,29 @@ impl XcFunctional {
         }
     }
 
-    /// Guard Rust callers that construct legacy enum variants directly.
+    /// Reject an incomplete model rather than publishing it under a standard functional name.
     pub fn validate_native(self) -> Result<(), CalcError> {
-        if matches!(self, Self::CamB3lyp | Self::Wb97xd) {
-            return Err(CalcError::UnsupportedMethod(
-                "Range-separated exchange ERIs are not implemented in the native core".into(),
-            ));
-        }
         Ok(())
+    }
+
+    /// Whether this functional employs range-separated exchange (CAM-B3LYP, wB97X-D).
+    #[inline]
+    pub fn is_range_separated(self) -> bool {
+        matches!(self, Self::CamB3lyp | Self::Wb97xd)
+    }
+
+    /// Returns range-separation parameters `(alpha, beta, omega)` if range-separated.
+    ///
+    /// - `alpha`: Short-range exact exchange coefficient.
+    /// - `beta`: Long-range exact exchange increment (so LR exact exchange is `alpha + beta`).
+    /// - `omega`: Range separation attenuation parameter in $a_0^{-1}$.
+    #[inline]
+    pub fn range_separated_params(self) -> Option<(f64, f64, f64)> {
+        match self {
+            Self::CamB3lyp => Some((0.19, 0.46, 0.33)),
+            Self::Wb97xd => Some((0.222036, 0.777964, 0.20)),
+            _ => None,
+        }
     }
 
     /// Fraction $c_{\text{HF}} \in [0, 1]$ of exact Hartree-Fock exchange.
@@ -92,8 +113,8 @@ impl XcFunctional {
             Self::Svwn5 | Self::Blyp | Self::Pbe => 0.0,
             Self::B3lyp | Self::B3lyp5 => 0.20,
             Self::Pbe0 => 0.25,
-            Self::CamB3lyp => 0.42,
-            Self::Wb97xd => 0.22,
+            Self::CamB3lyp => 0.19,
+            Self::Wb97xd => 0.222036,
         }
     }
 
@@ -190,9 +211,7 @@ pub fn eval_xc_spin(
             out.add_scaled(0.81, lyp_c(ra, rb, gaa, gamma_ab, gbb));
             out
         }
-        XcFunctional::Wb97xd => {
-            wb97xd_xc(ra, rb, gaa, gamma_ab, gbb)
-        }
+        XcFunctional::Wb97xd => wb97xd_xc(ra, rb, gaa, gamma_ab, gbb),
     }
 }
 
@@ -374,8 +393,8 @@ fn b88_delta_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
     let g = -BETA * s2 / denom;
     // h(s) = g'(s) / s (analytic & smooth at s = 0, where h(0) = -2 * BETA)
     let sqrt_1_s2 = (1.0 + s2).sqrt();
-    let h = -BETA * (2.0 + 6.0 * BETA * s * asinh_s - 6.0 * BETA * s2 / sqrt_1_s2)
-        / (denom * denom);
+    let h =
+        -BETA * (2.0 + 6.0 * BETA * s * asinh_s - 6.0 * BETA * s2 / sqrt_1_s2) / (denom * denom);
 
     let f = r43 * g;
     let v_rho = (4.0 / 3.0) * r13 * (g - s2 * h);
@@ -524,13 +543,34 @@ fn lyp_c(ra: f64, rb: f64, gaa: f64, gab: f64, gbb: f64) -> XcPointOut {
 // 5. Perdew-Burke-Ernzerhof (PBE) GGA Exchange & Correlation (PW92 base)
 // ============================================================================
 
+/// Parameter set for PBE exchange + PW92/PBE correlation A/B attribution studies.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy)]
+pub struct PbeAbParams {
+    pub kappa: f64,
+    pub mu: f64,
+    pub beta: f64,
+    pub gamma: f64,
+    pub pw92_a0: f64,
+    pub pw92_a1: f64,
+}
+
+impl PbeAbParams {
+    pub const CALCHEM_ANALYTIC: Self = Self {
+        kappa: 0.804,
+        mu: 0.2195149727645171,
+        beta: 0.06672455060314922,
+        gamma: 0.0310906908696549, // (1 - ln 2) / pi^2
+        pw92_a0: 0.0310907,
+        pw92_a1: 0.01554535,
+    };
+}
+
 #[inline]
-fn pbe_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
+fn pbe_x_one_spin_params(rho_s: f64, gamma_ss: f64, kappa: f64, mu: f64) -> (f64, f64, f64) {
     if rho_s < RHO_CUTOFF {
         return (0.0, 0.0, 0.0);
     }
-    const KAPPA: f64 = 0.804;
-    const MU: f64 = 0.2195149727645171;
     // Spin-scaling: f_x(rho_s, gamma_ss) = 0.5 * f_x^{unpol}(2*rho_s, 4*gamma_ss)
     let rho_u = 2.0 * rho_s;
     let gam_u = 4.0 * gamma_ss.max(0.0);
@@ -544,9 +584,9 @@ fn pbe_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
     let denom_s2 = 4.0 * kf * kf * rho_u * rho_u;
     let s2 = gam_u / denom_s2;
 
-    let one_p_ms = 1.0 + (MU / KAPPA) * s2;
-    let fx = 1.0 + KAPPA - KAPPA / one_p_ms;
-    let dfx_ds2 = MU / (one_p_ms * one_p_ms);
+    let one_p_ms = 1.0 + (mu / kappa) * s2;
+    let fx = 1.0 + kappa - kappa / one_p_ms;
+    let dfx_ds2 = mu / (one_p_ms * one_p_ms);
 
     // f_u = ex_lda * fx; ds2/drho_u = -(8/3) * s2 / rho_u; ds2/dgam_u = 1 / denom_s2
     let f_u = ex_lda * fx;
@@ -558,9 +598,9 @@ fn pbe_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
 }
 
 #[inline]
-fn pbe_x(ra: f64, rb: f64, gaa: f64, gbb: f64) -> XcPointOut {
-    let (fa, vra, vgaa) = pbe_x_one_spin(ra, gaa);
-    let (fb, vrb, vgbb) = pbe_x_one_spin(rb, gbb);
+fn pbe_x_params(ra: f64, rb: f64, gaa: f64, gbb: f64, kappa: f64, mu: f64) -> XcPointOut {
+    let (fa, vra, vgaa) = pbe_x_one_spin_params(ra, gaa, kappa, mu);
+    let (fb, vrb, vgbb) = pbe_x_one_spin_params(rb, gbb, kappa, mu);
     XcPointOut {
         f_xc: fa + fb,
         v_rho_a: vra,
@@ -569,6 +609,18 @@ fn pbe_x(ra: f64, rb: f64, gaa: f64, gbb: f64) -> XcPointOut {
         v_gamma_ab: 0.0,
         v_gamma_bb: vgbb,
     }
+}
+
+#[inline]
+fn pbe_x(ra: f64, rb: f64, gaa: f64, gbb: f64) -> XcPointOut {
+    pbe_x_params(
+        ra,
+        rb,
+        gaa,
+        gbb,
+        PbeAbParams::CALCHEM_ANALYTIC.kappa,
+        PbeAbParams::CALCHEM_ANALYTIC.mu,
+    )
 }
 
 struct Pw92Channel {
@@ -625,6 +677,32 @@ fn pw92_g(rs: f64, ch: &Pw92Channel) -> (f64, f64) {
 
 #[inline]
 fn pbe_c(ra: f64, rb: f64, gaa: f64, gab: f64, gbb: f64) -> XcPointOut {
+    pbe_c_params(
+        ra,
+        rb,
+        gaa,
+        gab,
+        gbb,
+        PbeAbParams::CALCHEM_ANALYTIC.beta,
+        PbeAbParams::CALCHEM_ANALYTIC.gamma,
+        PbeAbParams::CALCHEM_ANALYTIC.pw92_a0,
+        PbeAbParams::CALCHEM_ANALYTIC.pw92_a1,
+    )
+}
+
+#[inline]
+#[allow(clippy::too_many_arguments)]
+fn pbe_c_params(
+    ra: f64,
+    rb: f64,
+    gaa: f64,
+    gab: f64,
+    gbb: f64,
+    beta_pbe: f64,
+    gamma_pbe: f64,
+    pw92_a0: f64,
+    pw92_a1: f64,
+) -> XcPointOut {
     let rho = ra + rb;
     if rho < RHO_CUTOFF {
         return XcPointOut::default();
@@ -635,8 +713,10 @@ fn pbe_c(ra: f64, rb: f64, gaa: f64, gab: f64, gbb: f64) -> XcPointOut {
     let zeta = ((ra - rb) / rho).clamp(-1.0, 1.0);
 
     // 1. PW92 local correlation eps_c(rs, zeta)
-    let (e0, de0_drs) = pw92_g(rs, &PW92_G0);
-    let (e1, de1_drs) = pw92_g(rs, &PW92_G1);
+    let g0 = Pw92Channel { a: pw92_a0, ..PW92_G0 };
+    let g1 = Pw92Channel { a: pw92_a1, ..PW92_G1 };
+    let (e0, de0_drs) = pw92_g(rs, &g0);
+    let (e1, de1_drs) = pw92_g(rs, &g1);
     let (minus_ac, d_minus_ac_drs) = pw92_g(rs, &PW92_GA);
     let ac = -minus_ac;
     let dac_drs = -d_minus_ac_drs;
@@ -664,9 +744,7 @@ fn pbe_c(ra: f64, rb: f64, gaa: f64, gab: f64, gbb: f64) -> XcPointOut {
     }
 
     // 2. PBE gradient correction H(rho, zeta, gamma_tot)
-    let gamma_pbe = (1.0 - 2.0_f64.ln()) / (PI * PI);
-    const BETA_PBE: f64 = 0.06672455060314922;
-    let b0 = BETA_PBE / gamma_pbe;
+    let b0 = beta_pbe / gamma_pbe;
 
     let zp = (1.0 + zeta).max(1e-24);
     let zm = (1.0 - zeta).max(1e-24);
@@ -742,6 +820,35 @@ fn pbe_c(ra: f64, rb: f64, gaa: f64, gab: f64, gbb: f64) -> XcPointOut {
     }
 }
 
+/// Evaluates PBE exchange and correlation separately with custom `PbeAbParams` for A/B attribution.
+#[doc(hidden)]
+pub fn eval_pbe_ab(
+    params: PbeAbParams,
+    ra: f64,
+    rb: f64,
+    gaa: f64,
+    gab: f64,
+    gbb: f64,
+    x_scale: f64,
+) -> (f64, f64, XcPointOut) {
+    let x = pbe_x_params(ra, rb, gaa, gbb, params.kappa, params.mu);
+    let c = pbe_c_params(
+        ra,
+        rb,
+        gaa,
+        gab,
+        gbb,
+        params.beta,
+        params.gamma,
+        params.pw92_a0,
+        params.pw92_a1,
+    );
+    let mut out = XcPointOut::default();
+    out.add_scaled(x_scale, x);
+    out.add_scaled(1.0, c);
+    (x.f_xc, c.f_xc, out)
+}
+
 // ============================================================================
 // 6. Coulomb-Attenuated B3LYP (CAM-B3LYP, Yanai et al. 2004)
 // ============================================================================
@@ -754,10 +861,26 @@ fn camb3lyp_attenuation(a: f64) -> (f64, f64) {
         let df_da = -(8.0 / 3.0) * sqrt_pi + 16.0 * a;
         return (f.clamp(0.0, 1.0), df_da);
     }
-    if a > 15.0 {
-        let f = 1.0 / (36.0 * a * a);
-        let df_da = -1.0 / (18.0 * a * a * a);
-        return (f.clamp(0.0, 1.0), df_da);
+    if a >= 2.0 {
+        // Expansion through a^-12 avoids cancellation of terms of order a^4.
+        let z = 1.0 / (a * a);
+        let coefficients = [
+            1.0 / 36.0,
+            -1.0 / 960.0,
+            1.0 / 26880.0,
+            -1.0 / 829440.0,
+            1.0 / 28385280.0,
+            -1.0 / 1073479680.0,
+        ];
+        let mut f = 0.0;
+        let mut df_da = 0.0;
+        let mut power = z;
+        for (k, c) in coefficients.into_iter().enumerate() {
+            f += c * power;
+            df_da -= (2 * (k + 1)) as f64 * c * power / a;
+            power *= z;
+        }
+        return (f, df_da);
     }
 
     let a2 = a * a;
@@ -789,7 +912,10 @@ fn camb3lyp_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
     let v_rho_tot = vra_slater + vra_b88;
     let v_gam_tot = vgaa_b88;
 
-    let k_f = (6.0 * PI * PI * rho_s).cbrt();
+    // ITYH uses the gradient-dependent B88 enhancement K=-f_x/rho^(4/3),
+    // not the LDA Fermi wave vector. Differentiate its dependence on both rho and gamma.
+    let k_b88 = -fx_tot / rho_s.powf(4.0 / 3.0);
+    let k_f = (9.0 * PI / (2.0 * k_b88)).sqrt() * rho_s.cbrt();
     let mu = 0.33;
     let a = mu / (2.0 * k_f);
     let (f_atten, df_da) = camb3lyp_attenuation(a);
@@ -798,12 +924,13 @@ fn camb3lyp_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
     // W(a) = 0.35 + 0.46 * F_atten(a)
     let w = 0.35 + 0.46 * f_atten;
     let dw_da = 0.46 * df_da;
-    let da_drho = -(1.0 / 3.0) * a / rho_s;
+    let da_drho = a * (0.5 * v_rho_tot / fx_tot - 1.0 / rho_s);
+    let da_dgamma = 0.5 * a * v_gam_tot / fx_tot;
     let dw_drho = dw_da * da_drho;
 
     let f = w * fx_tot;
     let v_rho = w * v_rho_tot + dw_drho * fx_tot;
-    let v_gamma = w * v_gam_tot;
+    let v_gamma = w * v_gam_tot + dw_da * da_dgamma * fx_tot;
 
     (f, v_rho, v_gamma)
 }
@@ -827,6 +954,51 @@ fn camb3lyp_x(ra: f64, rb: f64, gaa: f64, gbb: f64) -> XcPointOut {
 // ============================================================================
 
 #[inline]
+fn b97_poly_and_deriv(gamma_p: f64, c: &[f64; 5], x2: f64) -> (f64, f64) {
+    let gx2 = gamma_p * x2.max(0.0);
+    let denom = 1.0 + gx2;
+    let u = gx2 / denom;
+    let du_dx2 = gamma_p / (denom * denom);
+    let g = c[0] + u * (c[1] + u * (c[2] + u * (c[3] + u * c[4])));
+    let dg_du = c[1] + u * (2.0 * c[2] + u * (3.0 * c[3] + 4.0 * u * c[4]));
+    (g, dg_du * du_dx2)
+}
+
+#[inline]
+fn pw92_lsda_c(ra: f64, rb: f64) -> (f64, f64, f64) {
+    let rho = ra + rb;
+    if rho < RHO_CUTOFF {
+        return (0.0, 0.0, 0.0);
+    }
+    let rs = (3.0 / (4.0 * PI * rho)).cbrt();
+    let drs_drho = -rs / (3.0 * rho);
+    let zeta = ((ra - rb) / rho).clamp(-1.0, 1.0);
+
+    let (e0, de0_drs) = pw92_g(rs, &PW92_G0);
+    let (e1, de1_drs) = pw92_g(rs, &PW92_G1);
+    let (minus_ac, d_minus_ac_drs) = pw92_g(rs, &PW92_GA);
+    let ac = -minus_ac;
+    let dac_drs = -d_minus_ac_drs;
+
+    let (fz, dfz, fdd0) = spin_interp_f_and_df(zeta);
+    let inv_fdd0 = 1.0 / fdd0;
+    let z2 = zeta * zeta;
+    let z3 = z2 * zeta;
+    let z4 = z2 * z2;
+    let one_m_z4 = 1.0 - z4;
+
+    let ec = e0 + ac * fz * inv_fdd0 * one_m_z4 + (e1 - e0) * fz * z4;
+    let dec_drs = de0_drs + dac_drs * fz * inv_fdd0 * one_m_z4 + (de1_drs - de0_drs) * fz * z4;
+    let dec_drho = dec_drs * drs_drho;
+    let dec_dzeta =
+        ac * inv_fdd0 * (dfz * one_m_z4 - 4.0 * z3 * fz) + (e1 - e0) * (dfz * z4 + 4.0 * z3 * fz);
+
+    let v_ra = ec + rho * dec_drho + (1.0 - zeta) * dec_dzeta;
+    let v_rb = ec + rho * dec_drho - (1.0 + zeta) * dec_dzeta;
+    (rho * ec, v_ra, v_rb)
+}
+
+#[inline]
 fn wb97xd_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
     if rho_s < RHO_CUTOFF {
         return (0.0, 0.0, 0.0);
@@ -836,48 +1008,124 @@ fn wb97xd_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
     let r43 = rho_s * r13;
     let r83 = r43 * r43;
 
+    // LDA short-range attenuation F(a) with omega = 0.20, a = omega / (2 * k_F)
+    let k_f = (6.0 * PI * PI * rho_s).cbrt();
+    let a = 0.20 / (2.0 * k_f);
+    let (f_atten, df_da) = camb3lyp_attenuation(a);
+    let da_drho = -a / (3.0 * rho_s);
+    let f_sr_lda = f_slater * f_atten;
+    let v_sr_lda = v_slater * f_atten + f_slater * df_da * da_drho;
+
     let g = gamma_ss.max(0.0);
-    let s2 = g / (r83 * 4.0 * (3.0 * PI * PI).powf(2.0 / 3.0));
-    let u = (0.0042 * s2) / (1.0 + 0.0042 * s2);
-    let du_ds2 = 0.0042 / ((1.0 + 0.0042 * s2) * (1.0 + 0.0042 * s2));
+    let x2 = g / r83;
+    // Chai & Head-Gordon (2008) wB97X-D exchange coefficients (LibXC par_wb97x_d)
+    const CX: [f64; 5] = [0.777964, 0.661160, 0.574541, -5.25671, 11.6386];
+    let (gx, dgx_dx2) = b97_poly_and_deriv(0.004, &CX, x2);
 
-    // Chai & Head-Gordon (2008) B97 short-range exchange coefficients
-    const C0: f64 = 0.778;
-    const C1: f64 = 0.404;
-    const C2: f64 = 0.141;
+    let dx2_drho = -(8.0 / 3.0) * x2 / rho_s;
+    let dx2_dgam = 1.0 / r83;
 
-    let p = C0 + C1 * u + C2 * u * u;
-    let dp_du = C1 + 2.0 * C2 * u;
-
-    let f = f_slater * p;
-    let ds2_drho = -(8.0 / 3.0) * s2 / rho_s;
-    let ds2_dgam = s2 / g.max(1e-18);
-
-    let v_rho = v_slater * p + f_slater * dp_du * du_ds2 * ds2_drho;
-    let v_gam = f_slater * dp_du * du_ds2 * ds2_dgam;
+    let f = f_sr_lda * gx;
+    let v_rho = v_sr_lda * gx + f_sr_lda * dgx_dx2 * dx2_drho;
+    let v_gam = f_sr_lda * dgx_dx2 * dx2_dgam;
 
     (f, v_rho, v_gam)
 }
 
 #[inline]
-fn wb97xd_xc(ra: f64, rb: f64, gaa: f64, gab: f64, gbb: f64) -> XcPointOut {
-    let (fa, vra, vgaa) = wb97xd_x_one_spin(ra, gaa);
-    let (fb, vrb, vgbb) = wb97xd_x_one_spin(rb, gbb);
-    let c_pbe = pbe_c(ra, rb, gaa, gab, gbb);
+fn wb97xd_xc(ra: f64, rb: f64, gaa: f64, _gab: f64, gbb: f64) -> XcPointOut {
+    let (fx_a, vrx_a, vgaa_x) = wb97xd_x_one_spin(ra, gaa);
+    let (fx_b, vrx_b, vgbb_x) = wb97xd_x_one_spin(rb, gbb);
+
+    // Chai & Head-Gordon (2008) wB97X-D correlation coefficients (LibXC par_wb97x_d)
+    const CSS: [f64; 5] = [1.0, -6.90539, 31.3343, -51.0533, 26.4423];
+    const CAB: [f64; 5] = [1.0, 1.79413, -12.0477, 14.0847, -8.50809];
+
+    let (fc_tot, v_tot_a, v_tot_b) = pw92_lsda_c(ra, rb);
+    let (fc_pa, v_pa, _) = pw92_lsda_c(ra, 0.0);
+    let (fc_pb, _, v_pb) = pw92_lsda_c(0.0, rb);
+    let fc_perp = fc_tot - fc_pa - fc_pb;
+    let v_perp_a = v_tot_a - v_pa;
+    let v_perp_b = v_tot_b - v_pb;
+
+    let (xa2, dxa2_dr, dxa2_dg) = if ra >= RHO_CUTOFF {
+        let r83 = ra.powf(8.0 / 3.0);
+        let x2 = gaa.max(0.0) / r83;
+        (x2, -(8.0 / 3.0) * x2 / ra, 1.0 / r83)
+    } else {
+        (0.0, 0.0, 0.0)
+    };
+    let (xb2, dxb2_dr, dxb2_dg) = if rb >= RHO_CUTOFF {
+        let r83 = rb.powf(8.0 / 3.0);
+        let x2 = gbb.max(0.0) / r83;
+        (x2, -(8.0 / 3.0) * x2 / rb, 1.0 / r83)
+    } else {
+        (0.0, 0.0, 0.0)
+    };
+
+    let (g_ssa, dg_ssa) = b97_poly_and_deriv(0.2, &CSS, xa2);
+    let (g_ssb, dg_ssb) = b97_poly_and_deriv(0.2, &CSS, xb2);
+    let xab2 = 0.5 * (xa2 + xb2);
+    let (g_ab, dg_ab) = b97_poly_and_deriv(0.006, &CAB, xab2);
+
+    let fc = fc_pa * g_ssa + fc_pb * g_ssb + fc_perp * g_ab;
+    let vrc_a = v_pa * g_ssa
+        + fc_pa * dg_ssa * dxa2_dr
+        + v_perp_a * g_ab
+        + fc_perp * dg_ab * 0.5 * dxa2_dr;
+    let vrc_b = v_pb * g_ssb
+        + fc_pb * dg_ssb * dxb2_dr
+        + v_perp_b * g_ab
+        + fc_perp * dg_ab * 0.5 * dxb2_dr;
+    let vgaa_c = fc_pa * dg_ssa * dxa2_dg + fc_perp * dg_ab * 0.5 * dxa2_dg;
+    let vgbb_c = fc_pb * dg_ssb * dxb2_dg + fc_perp * dg_ab * 0.5 * dxb2_dg;
 
     XcPointOut {
-        f_xc: fa + fb + c_pbe.f_xc,
-        v_rho_a: vra + c_pbe.v_rho_a,
-        v_rho_b: vrb + c_pbe.v_rho_b,
-        v_gamma_aa: vgaa + c_pbe.v_gamma_aa,
-        v_gamma_ab: c_pbe.v_gamma_ab,
-        v_gamma_bb: vgbb + c_pbe.v_gamma_bb,
+        f_xc: fx_a + fx_b + fc,
+        v_rho_a: vrx_a + vrc_a,
+        v_rho_b: vrx_b + vrc_b,
+        v_gamma_aa: vgaa_x + vgaa_c,
+        v_gamma_ab: 0.0,
+        v_gamma_bb: vgbb_x + vgbb_c,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cam_exchange_matches_independent_70_digit_ityh_reference() {
+        // Generated by docs/audits/2026-11-11_independent/probes/cam_reference.py.
+        for (rho, gamma, e, vr, vg) in [
+            (
+                0.05,
+                0.001,
+                -0.010533928866947627,
+                -0.2932000891552038,
+                -0.10900565576558356,
+            ),
+            (
+                0.2,
+                0.1,
+                -0.07507503986684043,
+                -0.4990012926064571,
+                -0.01800971179470531,
+            ),
+            (
+                0.001,
+                0.3,
+                -0.003471498357842851,
+                -0.5447077074153023,
+                -0.005110453550847137,
+            ),
+        ] {
+            let got = camb3lyp_x_one_spin(rho, gamma);
+            assert!((got.0 - e).abs() < 1e-12, "energy {got:?}");
+            assert!((got.1 - vr).abs() < 1e-10, "rho partial {got:?}");
+            assert!((got.2 - vg).abs() < 1e-10, "gradient partial {got:?}");
+        }
+    }
 
     fn assert_xc_partials_match_fd(
         func: XcFunctional,

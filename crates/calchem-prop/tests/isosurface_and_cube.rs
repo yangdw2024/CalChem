@@ -29,7 +29,10 @@ fn verify_closed_manifold(mesh: &IsosurfaceMesh) -> (usize, usize, usize, isize,
         let i1 = mesh.indices[t * 3 + 1];
         let i2 = mesh.indices[t * 3 + 2];
         assert!((i0 as usize) < n_v && (i1 as usize) < n_v && (i2 as usize) < n_v);
-        assert!(i0 != i1 && i1 != i2 && i0 != i2, "degenerate triangle indices");
+        assert!(
+            i0 != i1 && i1 != i2 && i0 != i2,
+            "degenerate triangle indices"
+        );
 
         assert!(
             half_edges.insert((i0, i1)),
@@ -115,7 +118,10 @@ fn test_analytic_gaussian_sphere_manifold_geometry_and_normals() {
 
     let mesh = extract_isosurface(&grid, origin, spacing, counts, iso, 1.0).unwrap();
     let (_v, _e, _f, euler, area, signed_vol) = verify_closed_manifold(&mesh);
-    assert_eq!(euler, 2, "single sphere must have Euler characteristic V - E + F = 2");
+    assert_eq!(
+        euler, 2,
+        "single sphere must have Euler characteristic V - E + F = 2"
+    );
 
     let exact_area = 4.0 * std::f64::consts::PI * radius * radius;
     let exact_vol = (4.0 / 3.0) * std::f64::consts::PI * radius * radius * radius;
@@ -213,7 +219,11 @@ fn test_water_631gd_homo_dual_mesh_density_cube_and_binary_protocol() {
 
     // Verify orbital normalization on 3D grid: integral |psi|^2 dV ~ 1.0
     let dv = spec.spacing_bohr[0] * spec.spacing_bohr[1] * spec.spacing_bohr[2];
-    let norm_sq: f64 = homo_grid.iter().map(|&v| (v as f64) * (v as f64)).sum::<f64>() * dv;
+    let norm_sq: f64 = homo_grid
+        .iter()
+        .map(|&v| (v as f64) * (v as f64))
+        .sum::<f64>()
+        * dv;
     assert!(
         (norm_sq - 1.0).abs() < 0.005,
         "HOMO grid norm^2 = {norm_sq:.6}, expected ~1.0"
@@ -250,8 +260,14 @@ fn test_water_631gd_homo_dual_mesh_density_cube_and_binary_protocol() {
     };
     let cx_pos = mean_x(&dual.positive);
     let cx_neg = mean_x(&dual.negative);
-    assert!(cx_pos * cx_neg < 0.0, "lobes must lie on opposite sides of X=0");
-    assert!((cx_pos + cx_neg).abs() < 1e-3, "centroids must mirror across X=0");
+    assert!(
+        cx_pos * cx_neg < 0.0,
+        "lobes must lie on opposite sides of X=0"
+    );
+    assert!(
+        (cx_pos + cx_neg).abs() < 1e-3,
+        "centroids must mirror across X=0"
+    );
     assert!(cx_pos.abs() > 0.35 && cx_pos.abs() < 0.85);
 
     // Verify CCMSH\x01 binary wire round-trip:
@@ -285,7 +301,10 @@ fn test_water_631gd_homo_dual_mesh_density_cube_and_binary_protocol() {
         .zip(&parsed_grid)
         .map(|(&a, &b)| (a - b).abs())
         .fold(0.0f32, f32::max);
-    assert!(max_diff < 2e-5, "Gaussian cube round-trip max diff {max_diff}");
+    assert!(
+        max_diff < 2e-5,
+        "Gaussian cube round-trip max diff {max_diff}"
+    );
 }
 
 #[test]

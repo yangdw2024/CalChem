@@ -1,0 +1,86 @@
+[
+  {
+    "case": "H2_RHF_STO3G",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 2.000000165480742E-11
+  },
+  {
+    "case": "H2O_RHF_STO3G",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2O_RHF_631G",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2O_RHF_631Gd",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2O_B3LYP_STO3G",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2O_B3LYP_631Gd",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2O_PBE_631Gd",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2O_PBE0_631Gd",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2O_CAMB3LYP_631Gd",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "C2H4_RHF_STO3G",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2_RHF_RIJ_STO3G",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 2.000000165480742E-11
+  },
+  {
+    "case": "H2O_RHF_RIJ_631Gd",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2O_B3LYP_RIJ_STO3G",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  },
+  {
+    "case": "H2O_B3LYP_RIJ_631Gd",
+    "hash_match": true,
+    "normal": true,
+    "csv_energy_delta": 0.0
+  }
+]

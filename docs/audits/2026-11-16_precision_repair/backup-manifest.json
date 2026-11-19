@@ -1,0 +1,34 @@
+[
+  {
+    "path": "docs/audits/2026-11-16_final_certification/FINAL_SCIENTIFIC_CERTIFICATION.md",
+    "sha256": "A37BCF4ECBAE4D7F9521A36A2BA696103FC805AD4AB7D3DCC592433C0F1CEEE4"
+  },
+  {
+    "path": "docs/audits/2026-11-16_final_certification/FULL_REGRESSION_RESULTS.md",
+    "sha256": "F6DDBD68568805890082B4E673F93B0DDA2CB3DDE35995896EBCA779BCDC1DB9"
+  },
+  {
+    "path": "docs/audits/2026-11-16_final_certification/EXTERNAL_REFERENCE_COMPARISON.csv",
+    "sha256": "E58F4FFC3E3CF45C8DCC2D4BFB83BDF7F16EF3FC81B2E1758C73AECDDEE9087C"
+  },
+  {
+    "path": "docs/audits/2026-11-16_final_certification/reproduce_certification.ps1",
+    "sha256": "BE4D1E627AC8FC68BD1851082213710652E2B2DB01636596CCBEBC0622212F82"
+  },
+  {
+    "path": "docs/audits/2026-11-16_final_certification/run_external_and_gpu_benchmarks.py",
+    "sha256": "03D4FB3B254E18DFDC4E034DAE9CD5D2E7723526E1A24CF82DBCB8AEFF224F97"
+  },
+  {
+    "path": "crates/calchem-dft/src/grid.rs",
+    "sha256": "9A2DB98F805739C21E06F21CE3EDD08AC41C7B17D91B41F4CADE59EF5153C155"
+  },
+  {
+    "path": "crates/calchem-dft/src/lebedev.rs",
+    "sha256": "0275DAA0BAB7B1F2430E6D8857F889B933CC7BB9615FDBE7B687D45C5FE32118"
+  },
+  {
+    "path": "crates/calchem-int/src/density_fitting.rs",
+    "sha256": "4C75A83C38306F8B2FA44F3D8D7F133C9EC9813190EB33384787A0DA1F7E2906"
+  }
+]

@@ -1,0 +1,23 @@
+   Compiling calchem-cuda v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-cuda)
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+warning: use of deprecated method `std::sync::atomic::Atomic::<u64>::fetch_update`: renamed to `try_update` for consistency
+   --> crates\calchem-cuda\src\lib.rs:122:14
+    |
+122 |             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| x.checked_add(1))
+    |              ^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+    |
+122 -             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| x.checked_add(1))
+122 +             .try_update(Ordering::Relaxed, Ordering::Relaxed, |x| x.checked_add(1))
+    |
+
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+warning: `calchem-cuda` (lib) generated 1 warning (run `cargo fix --lib -p calchem-cuda` to apply 1 suggestion)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+error: failed to remove file `E:\YDW\Trae_Gaussian\build_target\release\calchem_cli.exe`
+
+Caused by:
+  拒绝访问。 (os error 5)

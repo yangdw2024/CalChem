@@ -14,7 +14,9 @@ pub enum CalcError {
     UnsupportedMethod(String),
     #[error("Linear algebra failure: {0}")]
     LinearAlgebra(String),
-    #[error("SCF failed to converge in {iterations} iterations (dE={delta_e:.3e}, rmsD={rms_d:.3e})")]
+    #[error(
+        "SCF failed to converge in {iterations} iterations (dE={delta_e:.3e}, rmsD={rms_d:.3e})"
+    )]
     NotConverged {
         iterations: usize,
         delta_e: f64,
@@ -68,15 +70,12 @@ impl Atom {
 }
 
 const PERIODIC_TABLE_SYMBOLS: [&str; 86] = [
-    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
-    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
-    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-    "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
-    "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
-    "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
-    "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
-    "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
-    "Tl", "Pb", "Bi", "Po", "At", "Rn",
+    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl",
+    "Ar", "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As",
+    "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In",
+    "Sn", "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb",
+    "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl",
+    "Pb", "Bi", "Po", "At", "Rn",
 ];
 
 pub fn atomic_number_from_symbol(sym: &str) -> Result<u8, CalcError> {
@@ -139,7 +138,9 @@ impl Molecule {
     pub fn n_alpha_beta(&self) -> Result<(usize, usize), CalcError> {
         let ne = self.nelectron()?;
         if self.multiplicity < 1 {
-            return Err(CalcError::InvalidMolecule("Multiplicity must be >= 1".into()));
+            return Err(CalcError::InvalidMolecule(
+                "Multiplicity must be >= 1".into(),
+            ));
         }
         let unpaired = self.multiplicity - 1;
         if unpaired > ne || (ne - unpaired) % 2 != 0 {
@@ -260,6 +261,16 @@ pub struct ScfOptions {
     pub diis_max_vecs: usize,
     pub level_shift: f64,
     pub damping: f64,
+    #[serde(default)]
+    pub direct: Option<bool>,
+    #[serde(default)]
+    pub density_fitting: bool,
+    #[serde(default)]
+    pub use_gpu: bool,
+    #[serde(default)]
+    pub diis_disk: bool,
+    #[serde(default)]
+    pub diis_dir: Option<String>,
 }
 
 impl Default for ScfOptions {
@@ -272,6 +283,11 @@ impl Default for ScfOptions {
             diis_max_vecs: 6,
             level_shift: 0.0,
             damping: 0.0,
+            direct: None,
+            density_fitting: false,
+            use_gpu: false,
+            diis_disk: false,
+            diis_dir: None,
         }
     }
 }
@@ -282,10 +298,21 @@ pub struct ScfDiagnostics {
     pub energy_history: Vec<f64>,
     pub rms_density_history: Vec<f64>,
     pub diis_error_history: Vec<f64>,
+    #[serde(default)]
+    pub gpu_kernel_invocations: usize,
+    #[serde(default)]
+    pub gpu_fallback_invocations: usize,
+    #[serde(default)]
+    pub diis_disk_backed: bool,
+    #[serde(default)]
+    pub rij_metric_truncated_modes: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScfWavefunction {
+    /// Coulomb approximation provenance: required by downstream energy derivatives/response.
+    #[serde(default)]
+    pub density_fitting: bool,
     pub converged: bool,
     pub iterations: usize,
     pub total_energy_hartree: f64,
@@ -315,6 +342,8 @@ pub struct ScfWavefunction {
 /// (`P^a = C^a_occ C^a_occ^T`, `P^b = C^b_occ C^b_occ^T`), never spin-summed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UhfWavefunction {
+    #[serde(default)]
+    pub density_fitting: bool,
     pub converged: bool,
     pub iterations: usize,
     pub total_energy_hartree: f64,
@@ -351,14 +380,18 @@ impl UhfWavefunction {
     pub fn homo_energy(&self) -> Option<f64> {
         let a = self.mo_energies_alpha.iter().take(self.n_alpha).cloned();
         let b = self.mo_energies_beta.iter().take(self.n_beta).cloned();
-        a.chain(b).fold(None, |acc: Option<f64>, e| Some(acc.map_or(e, |m| m.max(e))))
+        a.chain(b).fold(None, |acc: Option<f64>, e| {
+            Some(acc.map_or(e, |m| m.max(e)))
+        })
     }
 
     /// Lowest unoccupied spin-orbital energy across both spins.
     pub fn lumo_energy(&self) -> Option<f64> {
         let a = self.mo_energies_alpha.iter().skip(self.n_alpha).cloned();
         let b = self.mo_energies_beta.iter().skip(self.n_beta).cloned();
-        a.chain(b).fold(None, |acc: Option<f64>, e| Some(acc.map_or(e, |m| m.min(e))))
+        a.chain(b).fold(None, |acc: Option<f64>, e| {
+            Some(acc.map_or(e, |m| m.min(e)))
+        })
     }
 }
 
@@ -384,7 +417,9 @@ impl Molecule {
         }
         let (n_alpha, n_beta) = self.n_alpha_beta()?;
         if n_alpha == 0 {
-            return Err(CalcError::InvalidMolecule("Molecule has no electrons".into()));
+            return Err(CalcError::InvalidMolecule(
+                "Molecule has no electrons".into(),
+            ));
         }
         Ok((n_alpha, n_beta))
     }

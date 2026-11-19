@@ -1,0 +1,9 @@
+[package]
+name = "calchem-cuda"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+calchem-model = { path = "../calchem-model" }
+calchem-tensor = { path = "../calchem-tensor" }
+thiserror = { workspace = true }

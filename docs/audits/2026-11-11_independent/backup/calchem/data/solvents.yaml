@@ -1,0 +1,49 @@
+solvents:
+  - name: water
+    epsilon: 78.3553
+    formula: H2O
+    class: protic
+  - name: chloroform
+    epsilon: 4.7113
+    formula: CHCl3
+    class: aprotic
+  - name: dichloromethane
+    epsilon: 8.93
+    formula: CH2Cl2
+    class: aprotic
+  - name: acetonitrile
+    epsilon: 35.688
+    formula: CH3CN
+    class: aprotic
+  - name: methanol
+    epsilon: 32.613
+    formula: CH3OH
+    class: protic
+  - name: ethanol
+    epsilon: 24.852
+    formula: C2H5OH
+    class: protic
+  - name: toluene
+    epsilon: 2.3741
+    formula: C7H8
+    class: aprotic
+  - name: hexane
+    epsilon: 1.8819
+    formula: C6H14
+    class: aprotic
+  - name: thf
+    epsilon: 7.4257
+    formula: C4H8O
+    class: aprotic
+  - name: dmf
+    epsilon: 37.219
+    formula: C3H7NO
+    class: aprotic
+  - name: dmso
+    epsilon: 46.826
+    formula: C2H6OS
+    class: aprotic
+  - name: acetone
+    epsilon: 20.493
+    formula: C3H6O
+    class: aprotic

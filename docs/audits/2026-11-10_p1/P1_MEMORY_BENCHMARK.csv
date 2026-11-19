@@ -1,0 +1,5 @@
+Threads,AllocatedBuffers,BufferMemoryKB,WallTimeMs,MaxDiffVsSerial,ComputedQuartets,SkippedQuartets,Speedup
+1,1,40.50,2927.17,0.000e0,21553,5475,1.00
+4,4,162.00,857.95,1.865e-14,21553,5475,3.41
+8,8,324.00,824.90,1.599e-14,21553,5475,3.55
+16,16,648.00,809.18,2.043e-14,21553,5475,3.62

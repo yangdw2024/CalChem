@@ -5,7 +5,7 @@ use calchem_basis::BasisSet;
 use calchem_dft::{GridLevel, XcFunctional};
 use calchem_grad::{rhf_gradient, rks_gradient, uhf_gradient, uks_gradient};
 use calchem_model::{CalcError, Molecule, ScfOptions};
-use calchem_prop::{AU_TO_DEBYE, compute_dipole};
+use calchem_prop::{compute_dipole, AU_TO_DEBYE};
 use calchem_scf::{rhf, rks, uhf, uks};
 use calchem_tensor::Matrix2D;
 use rayon::prelude::*;
@@ -145,10 +145,11 @@ pub fn compute_cartesian_hessian_and_apt(
 ) -> Result<(Matrix2D, Matrix2D, f64), CalcError> {
     // A density error is amplified by 1/(2h) in both the Hessian and APT.
     // Energy convergence alone does not control IR intensity accuracy.
-    let mut response_options=opts.clone();
-    response_options.scf_options.conv_energy=response_options.scf_options.conv_energy.min(1e-13);
-    response_options.scf_options.conv_density=response_options.scf_options.conv_density.min(1e-12);
-    let opts=&response_options;
+    let mut response_options = opts.clone();
+    response_options.scf_options.conv_energy = response_options.scf_options.conv_energy.min(1e-13);
+    response_options.scf_options.conv_density =
+        response_options.scf_options.conv_density.min(1e-12);
+    let opts = &response_options;
     let n_atoms = mol.atoms.len();
     let dim = 3 * n_atoms;
     if dim == 0 {
@@ -164,13 +165,8 @@ pub fn compute_cartesian_hessian_and_apt(
     }
 
     // Unperturbed reference energy and gradient
-    let (_g0, _dip0, e0) = eval_grad_and_dipole(
-        mol,
-        basis_name,
-        method,
-        opts.grid_level,
-        &opts.scf_options,
-    )?;
+    let (_g0, _dip0, e0) =
+        eval_grad_and_dipole(mol, basis_name, method, opts.grid_level, &opts.scf_options)?;
 
     let two_delta = 2.0 * delta;
 

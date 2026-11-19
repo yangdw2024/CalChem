@@ -17,8 +17,14 @@ fn test_d3bj_energy_and_translational_invariance() {
     let (energy, grad) = d3.energy_and_gradient(&mol.atoms, true).unwrap();
 
     // Dispersion energy is strictly negative (attractive)
-    assert!(energy < 0.0, "D3 energy must be attractive (negative), got {energy}");
-    assert!(energy > -0.01, "Small water molecule dispersion should be on the order of 1e-4..1e-3 Eh, got {energy}");
+    assert!(
+        energy < 0.0,
+        "D3 energy must be attractive (negative), got {energy}"
+    );
+    assert!(
+        energy > -0.01,
+        "Small water molecule dispersion should be on the order of 1e-4..1e-3 Eh, got {energy}"
+    );
 
     // Translational invariance: sum of gradients over all atoms must strictly be zero
     let mut sum_g = [0.0; 3];
@@ -116,8 +122,14 @@ fn test_d3zero_analytical_gradient_vs_finite_difference() {
 
 #[test]
 fn test_d3_rejects_unknown_functional_audit_probe() {
-    assert!(D3Model::d3bj("not-a-functional").is_err(), "Unknown functional must be rejected!");
-    assert!(D3Model::d3zero("not-a-functional").is_err(), "Unknown functional must be rejected!");
+    assert!(
+        D3Model::d3bj("not-a-functional").is_err(),
+        "Unknown functional must be rejected!"
+    );
+    assert!(
+        D3Model::d3zero("not-a-functional").is_err(),
+        "Unknown functional must be rejected!"
+    );
 }
 
 #[test]

@@ -58,22 +58,26 @@ pub fn compute_pcm_gradient_fd(
     let mut grad = vec![[0.0, 0.0, 0.0]; n_atoms];
 
     let opts = cavity_opts.cloned().unwrap_or_default();
-    if !h_bohr.is_finite() || h_bohr<=0.0 {
-        return Err(CalcError::InvalidMolecule("PCM difference step must be finite and positive".into()));
+    if !h_bohr.is_finite() || h_bohr <= 0.0 {
+        return Err(CalcError::InvalidMolecule(
+            "PCM difference step must be finite and positive".into(),
+        ));
     }
-    let h=h_bohr;
+    let h = h_bohr;
 
     for i in 0..n_atoms {
         for c in 0..3 {
             let mut mol_plus = mol.clone();
             mol_plus.atoms[i].position_bohr[c] += h;
             let basis_plus = BasisSet::from_name(&basis.name, &mol_plus)?;
-            let e_plus = pcm_energy_for_density(&mol_plus, &basis_plus, density, solvent, model, &opts)?;
+            let e_plus =
+                pcm_energy_for_density(&mol_plus, &basis_plus, density, solvent, model, &opts)?;
 
             let mut mol_minus = mol.clone();
             mol_minus.atoms[i].position_bohr[c] -= h;
             let basis_minus = BasisSet::from_name(&basis.name, &mol_minus)?;
-            let e_minus = pcm_energy_for_density(&mol_minus, &basis_minus, density, solvent, model, &opts)?;
+            let e_minus =
+                pcm_energy_for_density(&mol_minus, &basis_minus, density, solvent, model, &opts)?;
 
             let g = (e_plus - e_minus) / (2.0 * h);
             grad[i][c] = g;

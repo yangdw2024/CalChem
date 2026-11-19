@@ -243,22 +243,20 @@ pub fn compute_esp_grid(
     let boys_len = ev.max_m + 2;
     let slice_len = ny * nx;
     let mut grid = vec![0.0f32; total];
-    grid.par_chunks_mut(slice_len)
-        .enumerate()
-        .for_each_init(
-            || vec![0.0f64; boys_len],
-            |boys_buf, (iz, z_slice)| {
-                let z = spec.origin_bohr[2] + (iz as f64) * spec.spacing_bohr[2];
-                for iy in 0..ny {
-                    let y = spec.origin_bohr[1] + (iy as f64) * spec.spacing_bohr[1];
-                    let row_off = iy * nx;
-                    for ix in 0..nx {
-                        let x = spec.origin_bohr[0] + (ix as f64) * spec.spacing_bohr[0];
-                        z_slice[row_off + ix] = ev.potential_grid_clamped([x, y, z], boys_buf) as f32;
-                    }
+    grid.par_chunks_mut(slice_len).enumerate().for_each_init(
+        || vec![0.0f64; boys_len],
+        |boys_buf, (iz, z_slice)| {
+            let z = spec.origin_bohr[2] + (iz as f64) * spec.spacing_bohr[2];
+            for iy in 0..ny {
+                let y = spec.origin_bohr[1] + (iy as f64) * spec.spacing_bohr[1];
+                let row_off = iy * nx;
+                for ix in 0..nx {
+                    let x = spec.origin_bohr[0] + (ix as f64) * spec.spacing_bohr[0];
+                    z_slice[row_off + ix] = ev.potential_grid_clamped([x, y, z], boys_buf) as f32;
                 }
-            },
-        );
+            }
+        },
+    );
     Ok(grid)
 }
 

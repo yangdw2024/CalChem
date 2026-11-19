@@ -1,6 +1,6 @@
 [package]
 name = "calchem-scf"
-version = "0.2.0"
+version = "0.2.2"
 edition = "2021"
 
 [dependencies]
@@ -9,6 +9,7 @@ calchem-basis = { path = "../calchem-basis" }
 calchem-tensor = { path = "../calchem-tensor" }
 calchem-int = { path = "../calchem-int" }
 calchem-dft = { path = "../calchem-dft" }
+rayon = { workspace = true }
 
 [dev-dependencies]
 calchem-grad = { path = "../calchem-grad" }

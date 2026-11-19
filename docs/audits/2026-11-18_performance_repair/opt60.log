@@ -1,0 +1,13 @@
+
+running 1 test
+[60-ATOM] n_atoms=60 n_ao=260
+[STAGE 1] RiJEngine::new: n_aux=2343 trunc=0 cached_b=0.0MB time=8.90s
+[STAGE 2] build_coulomb (1 iter): cpu=0.053s gpu=0.121s (kernels=2, fallbacks=0)
+[STAGE 3] DirectFock K (1 iter): init=0.206s build_k=2.783s
+[STAGE 4] DFT Coarse grid: build=0.106s vxc(1 iter)=0.275s
+test profile_60atom_pm6_l8bo_cluster_stages has been running for over 60 seconds
+[FULL SCF] converged=true iters=23 E=-3427.9592613174 kernels=50 fallbacks=0 walltime=89.65s
+test profile_60atom_pm6_l8bo_cluster_stages ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 102.18s
+

@@ -43,6 +43,10 @@ def acquire_heavy_lock(
     pid = os.getpid()
     info = LockOwner(pid=pid, started_at=datetime.now().isoformat(), job_id=job_id)
 
+    if os.environ.get("CALCHEM_DISABLE_LOCK") == "1":
+        yield info
+        return
+
     start = time.time()
     acquired = False
 
@@ -86,8 +90,15 @@ def acquire_heavy_lock(
             except FileExistsError:
                 time.sleep(0.3)
                 continue
+            except PermissionError:
+                if lock_file.exists():
+                    time.sleep(0.3)
+                    continue
+                # 目录不可写（权限限制），跳过文件锁直接执行
+                acquired = False
+                break
 
-        if not acquired:
+        if not acquired and lock_file.exists():
             # 读取当前锁持有者信息
             try:
                 current = json.loads(lock_file.read_text())

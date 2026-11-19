@@ -1,6 +1,6 @@
 [package]
 name = "calchem-dft"
-version = "0.2.0"
+version = "0.2.2"
 edition = "2021"
 
 [dependencies]
@@ -8,5 +8,6 @@ calchem-model = { path = "../calchem-model" }
 calchem-basis = { path = "../calchem-basis" }
 calchem-tensor = { path = "../calchem-tensor" }
 calchem-int = { path = "../calchem-int" }
+calchem-cuda = { path = "../calchem-cuda" }
 rayon = { workspace = true }
 serde = { workspace = true }

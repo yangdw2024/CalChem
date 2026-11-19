@@ -92,6 +92,12 @@ class OPVWorkflowResult:
     lowdin_charges: Optional[List[float]] = None
     optimized_geometry: Optional[List[List[float]]] = None
     converged: bool = False
+    walltime_seconds: Optional[float] = None
+    scf_iterations: Optional[int] = None
+    gpu_kernel_invocations: int = 0
+    gpu_fallback_invocations: int = 0
+    diis_disk_backed: bool = False
+    rij_metric_truncated_modes: int = 0
     errors: List[str] = field(default_factory=list)
 
 
@@ -1079,7 +1085,8 @@ class OPVWorkflow:
 
         dipole = result.dipole_debye
         dipole_mag = result.dipole_magnitude_debye
-        disp_h = result.extra.get("d3_dispersion_hartree") if result.extra else None
+        extra = result.extra or {}
+        disp_h = extra.get("d3_dispersion_hartree")
 
         return OPVWorkflowResult(
             name=name,
@@ -1096,6 +1103,12 @@ class OPVWorkflow:
             mulliken_charges=result.mulliken_charges,
             lowdin_charges=result.lowdin_charges,
             converged=result.status == "succeeded" and (result.scf_converged is not False),
+            walltime_seconds=result.walltime_seconds,
+            scf_iterations=result.scf_iterations,
+            gpu_kernel_invocations=int(extra.get("gpu_kernel_invocations", 0)),
+            gpu_fallback_invocations=int(extra.get("gpu_fallback_invocations", 0)),
+            diis_disk_backed=bool(extra.get("diis_disk_backed", False)),
+            rij_metric_truncated_modes=int(extra.get("rij_metric_truncated_modes", 0)),
             errors=result.errors,
         )
 

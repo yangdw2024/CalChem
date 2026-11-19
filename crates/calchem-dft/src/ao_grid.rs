@@ -4,9 +4,9 @@
 use calchem_basis::{BasisSet, Shell};
 
 #[derive(Clone, Copy)]
-struct PrimData {
-    exponent: f64,
-    weighted_norm: f64,
+pub(crate) struct PrimData {
+    pub(crate) exponent: f64,
+    pub(crate) weighted_norm: f64,
 }
 
 pub struct PrecomputedAoShell {
@@ -14,9 +14,10 @@ pub struct PrecomputedAoShell {
     pub center: [f64; 3],
     pub ao_offset: usize,
     pub r2_cutoff: f64,
-    prims: Vec<PrimData>,
-    comps: &'static [[u8; 3]],
-    comp_scales: Vec<f64>,
+    pub r_cutoff: f64,
+    pub(crate) prims: Vec<PrimData>,
+    pub(crate) comps: &'static [[u8; 3]],
+    pub(crate) comp_scales: Vec<f64>,
 }
 
 impl PrecomputedAoShell {
@@ -34,6 +35,7 @@ impl PrecomputedAoShell {
             .fold(f64::INFINITY, f64::min)
             .max(1e-12);
         let r2_cutoff = (40.0 + 4.0 * l) / alpha_min;
+        let r_cutoff = r2_cutoff.sqrt();
 
         let prims = sh
             .primitives
@@ -61,10 +63,16 @@ impl PrecomputedAoShell {
             center: sh.center,
             ao_offset: sh.ao_offset,
             r2_cutoff,
+            r_cutoff,
             prims,
             comps,
             comp_scales,
         }
+    }
+
+    #[inline]
+    pub fn n_functions(&self) -> usize {
+        self.comps.len()
     }
 }
 
@@ -120,6 +128,58 @@ impl AoHessVal {
 /// Populates `out` with all non-negligible AOs `(val, grad)` at point `r`.
 #[inline]
 pub fn eval_aos_grad(shells: &[PrecomputedAoShell], r: [f64; 3], out: &mut Vec<AoGradVal>) {
+    out.clear();
+    for sh in shells {
+        let dx = r[0] - sh.center[0];
+        let dy = r[1] - sh.center[1];
+        let dz = r[2] - sh.center[2];
+        let r2 = dx * dx + dy * dy + dz * dz;
+        if r2 > sh.r2_cutoff {
+            continue;
+        }
+
+        let mut r0 = 0.0;
+        let mut r1 = 0.0;
+        for p in &sh.prims {
+            let e = p.weighted_norm * (-p.exponent * r2).exp();
+            r0 += e;
+            r1 -= 2.0 * p.exponent * e;
+        }
+        if r0.abs() < 1e-18 && r1.abs() < 1e-18 {
+            continue;
+        }
+
+        for (ic, &c) in sh.comps.iter().enumerate() {
+            let scale = sh.comp_scales[ic];
+            let (px, dpx, _) = pow_d0_d1_d2(dx, c[0]);
+            let (py, dpy, _) = pow_d0_d1_d2(dy, c[1]);
+            let (pz, dpz, _) = pow_d0_d1_d2(dz, c[2]);
+
+            let m = px * py * pz;
+            let dm_x = dpx * py * pz;
+            let dm_y = px * dpy * pz;
+            let dm_z = px * py * dpz;
+
+            let val = scale * m * r0;
+            let gx = scale * (dm_x * r0 + m * dx * r1);
+            let gy = scale * (dm_y * r0 + m * dy * r1);
+            let gz = scale * (dm_z * r0 + m * dz * r1);
+
+            if val.abs() > 1e-16 || gx.abs() > 1e-16 || gy.abs() > 1e-16 || gz.abs() > 1e-16 {
+                out.push(AoGradVal {
+                    mu: sh.ao_offset + ic,
+                    atom_index: sh.atom_index,
+                    val,
+                    grad: [gx, gy, gz],
+                });
+            }
+        }
+    }
+}
+
+/// Populates `out` with all non-negligible AOs `(val, grad)` at point `r` from pre-filtered shells.
+#[inline]
+pub fn eval_aos_grad_filtered(shells: &[&PrecomputedAoShell], r: [f64; 3], out: &mut Vec<AoGradVal>) {
     out.clear();
     for sh in shells {
         let dx = r[0] - sh.center[0];

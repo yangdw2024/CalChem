@@ -41,7 +41,11 @@ fn test_h_atom_sto3g_exact_one_electron() {
         wf.total_energy_hartree
     );
     // A single unpaired electron is a pure doublet: <S^2> = 0.75 exactly.
-    assert!((wf.s_squared - 0.75).abs() < 1e-12, "<S^2> = {}", wf.s_squared);
+    assert!(
+        (wf.s_squared - 0.75).abs() < 1e-12,
+        "<S^2> = {}",
+        wf.s_squared
+    );
 }
 
 /// For a closed-shell singlet the UHF solution (from an identical alpha/beta guess)
@@ -59,11 +63,22 @@ fn test_closed_shell_uhf_equals_rhf() {
             wf.total_energy_hartree,
             e_rhf
         );
-        assert!(wf.s_squared.abs() < 1e-9, "{basis}: <S^2> = {}", wf.s_squared);
+        assert!(
+            wf.s_squared.abs() < 1e-9,
+            "{basis}: <S^2> = {}",
+            wf.s_squared
+        );
         let pa = &wf.density_alpha;
         let pb = &wf.density_beta;
-        let max_spin_density = pa.iter().zip(pb).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
-        assert!(max_spin_density < 1e-7, "{basis}: residual spin density {max_spin_density}");
+        let max_spin_density = pa
+            .iter()
+            .zip(pb)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0, f64::max);
+        assert!(
+            max_spin_density < 1e-7,
+            "{basis}: residual spin density {max_spin_density}"
+        );
     }
 }
 
@@ -106,7 +121,10 @@ fn test_h2o_cation_doublet() {
             nb += wf1.density_beta[i * n + j] * s[j * n + i];
         }
     }
-    assert!((na - 5.0).abs() < 1e-10 && (nb - 4.0).abs() < 1e-10, "tr(PS) = {na}, {nb}");
+    assert!(
+        (na - 5.0).abs() < 1e-10 && (nb - 4.0).abs() < 1e-10,
+        "tr(PS) = {na}, {nb}"
+    );
 }
 
 /// Triplet O2-like test on a small system: H2 triplet (both electrons alpha) has no exchange
@@ -124,7 +142,11 @@ fn test_h2_triplet_pure_spin() {
     let bs = BasisSet::from_name("sto-3g", &mol).unwrap();
     let wf = uhf(&mol, &bs, &tight()).unwrap();
     assert_eq!((wf.n_alpha, wf.n_beta), (2, 0));
-    assert!((wf.s_squared - 2.0).abs() < 1e-12, "<S^2> = {}", wf.s_squared);
+    assert!(
+        (wf.s_squared - 2.0).abs() < 1e-12,
+        "<S^2> = {}",
+        wf.s_squared
+    );
     // With both orbitals of a 2-function basis occupied, the energy is basis-determined;
     // it must lie above the singlet ground state.
     let singlet = Molecule::new(mol.atoms.clone(), 0, 1);

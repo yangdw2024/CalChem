@@ -1,0 +1,560 @@
+[
+  {
+    "path": "calchem/_core.pyi",
+    "sha256_before": "596ce4574db7ef0513e4e3d57693455e1981343d847fce6581aa07ecf02da604",
+    "sha256_after": "86c85cda11f8ed2c47bf36182cc07bc3cc59596f62705da840932bc2c565824d",
+    "state": "modified",
+    "changed_line_starts": [
+      26
+    ]
+  },
+  {
+    "path": "calchem/backends/native.py",
+    "sha256_before": "1f576b11cb32160fff84b77484da6e824784c7b2efc1b9950484063202fce02c",
+    "sha256_after": "846db713c6138100e8d45d18bfb28114bc9272efba65beb18d05587e7a1f454a",
+    "state": "modified",
+    "changed_line_starts": [
+      25,
+      347,
+      349,
+      1268
+    ]
+  },
+  {
+    "path": "calchem/solvent/smd.py",
+    "sha256_before": "be1126ec19418997ba744d52c4547de449aae23045a489e278fa38d31365ea2f",
+    "sha256_after": "748fffdf6dc823164802ad9dddb506cedadeef7c6d157114a75a0b1315eec50a",
+    "state": "modified",
+    "changed_line_starts": [
+      3,
+      24,
+      38
+    ]
+  },
+  {
+    "path": "crates/calchem-cuda/build.rs",
+    "sha256_before": "6829d4d107690d930799bdeeaf6156c307ed595a4e633fc2db1a16fb88446ffc",
+    "sha256_after": "c75f60395faa708ad638e7b7d50084b18a615514fc2af4c564e7fdc75a3a9a48",
+    "state": "modified",
+    "changed_line_starts": [
+      16,
+      32,
+      37,
+      41,
+      51
+    ]
+  },
+  {
+    "path": "crates/calchem-cuda/src/cuda_kernels.cu",
+    "sha256_before": "0765129f9c21e317aee5d1bb0d8e0985af616b61d9d3186f37047ab14707aa35",
+    "sha256_after": "610c42a9f3751eddcaf4672b06b0b128aed848265adfa6b9eb56d0f0c5bf4f84",
+    "state": "modified",
+    "changed_line_starts": [
+      4,
+      78,
+      83,
+      97,
+      102,
+      110,
+      114,
+      118,
+      121,
+      124,
+      129,
+      135,
+      138
+    ]
+  },
+  {
+    "path": "crates/calchem-cuda/src/lib.rs",
+    "sha256_before": "f59ce926ad54a20c1b81c701504cef338b0b1f41f87fd143815a75a91f96658d",
+    "sha256_after": "a80248b4b6890f6b557bae01f8f68c5939718ee3447780f9362eef401ea11acb",
+    "state": "modified",
+    "changed_line_starts": [
+      25,
+      48,
+      60,
+      67,
+      83,
+      109
+    ]
+  },
+  {
+    "path": "crates/calchem-dft/src/vxc.rs",
+    "sha256_before": "d33f790d981f9f1b968713fff91e382f128433c6349346a40264e9c1ab65d967",
+    "sha256_after": "26604f66f6d89d2fcf8788d5912279cd9c40f15e3c7eabb7ef7c7b170222c3d3",
+    "state": "modified",
+    "changed_line_starts": [
+      20,
+      58,
+      61,
+      102,
+      137,
+      172,
+      175,
+      225,
+      269
+    ]
+  },
+  {
+    "path": "crates/calchem-dft/src/xc.rs",
+    "sha256_before": "32b546bcd0d8879b735428c53fa7f91aa8afe5d82b1bff04100dddd33021d014",
+    "sha256_after": "b8606d3635db995960cc60ab812bd1ce7cdcdea9760d1c587d6f293e8c573d24",
+    "state": "modified",
+    "changed_line_starts": [
+      29,
+      31,
+      37,
+      84,
+      86,
+      781,
+      832,
+      844,
+      850,
+      925
+    ]
+  },
+  {
+    "path": "crates/calchem-grad/src/lib.rs",
+    "sha256_before": "5d74ad3900f9f3a6ff9da680225c1483029dc0bbc9032f31f96f60a78b6ce549",
+    "sha256_after": "0da8ff0cb4b909fc1145cf24f8d13605015e6e547417af2812570bbcc9a0cdc4",
+    "state": "modified",
+    "changed_line_starts": [
+      253,
+      289,
+      300,
+      370,
+      444
+    ]
+  },
+  {
+    "path": "crates/calchem-int/src/density_fitting.rs",
+    "sha256_before": "7320034931d785ad911540d9bd9c45b80116c62377c2ea3a0a60d04d4d715221",
+    "sha256_after": "34e5dc41b60dce308539506afad488cd496609b88116a89933e305983f6a9a7f",
+    "state": "modified",
+    "changed_line_starts": [
+      56,
+      101,
+      106,
+      179,
+      207,
+      392,
+      393,
+      425,
+      431,
+      489,
+      505,
+      653,
+      703,
+      715,
+      732,
+      762,
+      773,
+      775,
+      778,
+      809,
+      811,
+      817,
+      829,
+      870
+    ]
+  },
+  {
+    "path": "crates/calchem-int/src/direct_fock.rs",
+    "sha256_before": "3441a8268f1f3c258e02fe36cd731cfef11950151405b2cf219b511dea660460",
+    "sha256_after": "11d6c3193ef6a00a3cf8e47b897ba50d748e5bcb330cc996044ab6eb8109f862",
+    "state": "modified",
+    "changed_line_starts": [
+      4,
+      178,
+      255,
+      330,
+      406,
+      463,
+      495,
+      516,
+      536,
+      539,
+      582,
+      583,
+      588,
+      652,
+      675,
+      700,
+      717,
+      745,
+      746,
+      758,
+      807,
+      817,
+      856,
+      877,
+      909,
+      956,
+      957,
+      962
+    ]
+  },
+  {
+    "path": "crates/calchem-int/src/eri.rs",
+    "sha256_before": "7768c70ad2f8cbf3bdc73a60577d4af2da15079a96d6a92a6579991a299ddd47",
+    "sha256_after": "b25b8d759e23f983de0f6ce6cc18948a2b6d17a5dc28b13d44cea4874a8190a3",
+    "state": "modified",
+    "changed_line_starts": [
+      44,
+      88,
+      98,
+      314
+    ]
+  },
+  {
+    "path": "crates/calchem-model/src/lib.rs",
+    "sha256_before": "afaf22e8e6406e8544e82fb812fd943d0678c403a22c6b9acf7e8be5de75487d",
+    "sha256_after": "792902464d272d037137d882eb4e33a8cd8d8b640b8e78a1aa2a2cb27fbb1c55",
+    "state": "modified",
+    "changed_line_starts": [
+      299,
+      331
+    ]
+  },
+  {
+    "path": "crates/calchem-py/src/lib.rs",
+    "sha256_before": "ae939b52b49620ae894ee6614c397e44607f78ac936a0b275226e1ef4fe938f0",
+    "sha256_after": "bc918d80fa8a3e25536978a6e6d8261ee4a580ada2e01f1d14be418c0f1ee766",
+    "state": "modified",
+    "changed_line_starts": [
+      60,
+      694,
+      736,
+      1496,
+      1990
+    ]
+  },
+  {
+    "path": "crates/calchem-scf/src/diis.rs",
+    "sha256_before": "9f9456f8ee7482b057e59210d87f56ab7afb661d64bf90ff0021c6f759941651",
+    "sha256_after": "0122fb68abb0ff8b20ee5d3e6e4dd0ecd15068429f8e81cf07f3f18d600e00ed",
+    "state": "modified",
+    "changed_line_starts": [
+      20
+    ]
+  },
+  {
+    "path": "crates/calchem-scf/src/fock_builder.rs",
+    "sha256_before": "4433ed69f76b894cc0eebc89bda7a37c9d1d486fb61eb1d68f99b673696c10f1",
+    "sha256_after": "fc87c291f45fa4c37d1d3025b2f29f132c7ac3d3bb7c909d9684c89446f2d3da",
+    "state": "modified",
+    "changed_line_starts": [
+      35,
+      39,
+      188,
+      192
+    ]
+  },
+  {
+    "path": "crates/calchem-scf/src/lib.rs",
+    "sha256_before": "db51ba1ce40568f880e31910c5d45f13a7c924df0e4df06dcb455eea668f7622",
+    "sha256_after": "b916b0e7f05cba8155add1cfdc86c4be0dcf1b69e8b9cfcd9968f2d8a0e3e3ec",
+    "state": "modified",
+    "changed_line_starts": [
+      61,
+      70,
+      73,
+      81,
+      83,
+      86,
+      136,
+      141
+    ]
+  },
+  {
+    "path": "crates/calchem-scf/src/rhf.rs",
+    "sha256_before": "a2c89ef883a2aa314a61e50cb484678fb28a1670cf2a4a89ee573f7c6e9b5241",
+    "sha256_after": "c06bb1bb81e74cedb617b1b4525a783c7fa0694004809131ee3e8b8c8908e6a7",
+    "state": "modified",
+    "changed_line_starts": [
+      78,
+      234,
+      275,
+      298,
+      314
+    ]
+  },
+  {
+    "path": "crates/calchem-scf/src/rks.rs",
+    "sha256_before": "cbf37e9ac4dc77c242c946a971c68506ba4a4cbf9c01e2486cba9efbaa9d2e20",
+    "sha256_after": "407426e3e03aa6a95d09e935a6ded1a1f6d80858de539aa6d5558a92f34e6d43",
+    "state": "modified",
+    "changed_line_starts": [
+      120,
+      270,
+      319,
+      344,
+      360
+    ]
+  },
+  {
+    "path": "crates/calchem-scf/src/uhf.rs",
+    "sha256_before": "a1e263ff5073c09a252749c90e330a9afcd43f26a63bbc18b353f7d42bcf5f89",
+    "sha256_after": "35aab3a09f2ce0b38d5407e8a486725a3d6fc132c0e61121001ef260a0270831",
+    "state": "modified",
+    "changed_line_starts": [
+      127,
+      145,
+      302,
+      341,
+      351,
+      362
+    ]
+  },
+  {
+    "path": "crates/calchem-scf/src/uks.rs",
+    "sha256_before": "f24b44c1161da75d86c6b0f57740ea4623fd84b9c9e193b8cc4121df5a9ec0b7",
+    "sha256_after": "420540070450953c834046d68a9fc87de4ceec1c87e03120393a5b6678d490e8",
+    "state": "modified",
+    "changed_line_starts": [
+      119,
+      143,
+      300,
+      303,
+      346,
+      357,
+      368
+    ]
+  },
+  {
+    "path": "crates/calchem-scf/tests/density_fitting_scf.rs",
+    "sha256_before": "0ae6227b9be3ed07b44c857c484573ca0d79865346c61cf397872cca54fbf988",
+    "sha256_after": "66cbe27bd1b6fe0f6969c0038539c590700f80346a3ca623d46c42944b9cf56c",
+    "state": "modified",
+    "changed_line_starts": [
+      29,
+      33,
+      59,
+      120
+    ]
+  },
+  {
+    "path": "crates/calchem-scf/tests/redteam_boundaries.rs",
+    "sha256_before": "a6f6bc3c9126b33120557b0d0e82b38ec39d9fa61e27343133c74e2b6fface35",
+    "sha256_after": "0b8122938d2ec278ea1eb88a04a9cc385f14df0b2a8a2007e1773a4d493568d4",
+    "state": "modified",
+    "changed_line_starts": [
+      29,
+      32,
+      43,
+      85
+    ]
+  },
+  {
+    "path": "crates/calchem-solv/src/scrf.rs",
+    "sha256_before": "c2706b28053bb26201758291ceeb5416f1d884aeecddd8dac34a1d075350f6b6",
+    "sha256_after": "3b0d479789a383aef0d380c0057fff7b9a7db9424472a41fe3d3310c49634d7d",
+    "state": "modified",
+    "changed_line_starts": [
+      163,
+      341,
+      388,
+      396,
+      567
+    ]
+  },
+  {
+    "path": "crates/calchem-tddft/src/davidson.rs",
+    "sha256_before": "87172f61d02c9fca37cfc4b3b63218b2a64083b2218c8a396766e0e00a5f2c8f",
+    "sha256_after": "586db8eceb4c1b5445514cacde04181c32f09fec00f6ce0fde5812922ebeaac5",
+    "state": "modified",
+    "changed_line_starts": [
+      2,
+      170,
+      234,
+      432,
+      498
+    ]
+  },
+  {
+    "path": "crates/calchem-tddft/src/lib.rs",
+    "sha256_before": "9750bf51d75991ebb0f6e157f59e9a68cd6e01785544633801e590fb588eee3c",
+    "sha256_after": "d3c25b879f8ea98823f939e9dd682cea0d97656e5c0934f403ac0044072e13b3",
+    "state": "modified",
+    "changed_line_starts": [
+      473
+    ]
+  },
+  {
+    "path": "crates/calchem-tensor/src/lib.rs",
+    "sha256_before": "6e42926a18835a1e39dd68610bfa4d785762c37f3b30a295493e2074b5a037d0",
+    "sha256_after": "e091b3f4b8053fba4185c41077c363c69fd77141cd763818bc6b24f380d35f5e",
+    "state": "modified",
+    "changed_line_starts": [
+      179,
+      199,
+      366
+    ]
+  },
+  {
+    "path": "docs/audits/master_mission/FUNCTIONAL_CAPABILITY_MATRIX.md",
+    "sha256_before": "e2dbcdf804785014512a3ff14480aa129911c7e62f47ce6fe48691e79c854605",
+    "sha256_after": "dc45401d70066205f608e3c4a1155bbc52598da4a64097659220c47383492391",
+    "state": "modified",
+    "changed_line_starts": [
+      2
+    ]
+  },
+  {
+    "path": "docs/audits/master_mission/MASTER_MISSION_FINAL_REPORT.md",
+    "sha256_before": "bcd7d720d912b9d3bd64902b34d32337747c0c20f1205294c764a4d750700d78",
+    "sha256_after": "4f457bb750a7cb5f6cf398ab0df80b5f1b7192e3ff1c40b4013a09018a7deea1",
+    "state": "modified",
+    "changed_line_starts": [
+      2
+    ]
+  },
+  {
+    "path": "docs/audits/master_mission/MISSION_TRACKER.md",
+    "sha256_before": "988a80c12d75337267df14095dde6cea7460a98e1fa7c9f62fb845e00d7e066b",
+    "sha256_after": "fad698376d747dec1f467d526bfff175cb32171cbc0af32f535da4e5fa820ee8",
+    "state": "modified",
+    "changed_line_starts": [
+      2
+    ]
+  },
+  {
+    "path": "docs/audits/master_mission/PERFORMANCE_BENCHMARKS.csv",
+    "sha256_before": "a598b995b485dce7d4f3b88e080993f84fce39f7b11eef403df35016d79bb3b4",
+    "sha256_after": "617150ecfb24e414ac33b8c27f7c4f55eb12593dd07415e82a34e2691c941752",
+    "state": "modified",
+    "changed_line_starts": [
+      1
+    ]
+  },
+  {
+    "path": "docs/audits/master_mission/REPRODUCIBILITY_GUIDE.md",
+    "sha256_before": "866a83100ee7351cdfe85ef81accbd0636a94a7fa55b2fb837ffed648738411c",
+    "sha256_after": "e2aaa83f071a48a58b111374850b163eaf3d5b84fbd2b4316dad7876e006e9b2",
+    "state": "modified",
+    "changed_line_starts": [
+      2
+    ]
+  },
+  {
+    "path": "docs/audits/master_mission/RESOURCE_SCALING_MODEL_200_2000_ATOMS.md",
+    "sha256_before": "675cc09f8ea7daa749401b6bd130cd20895f5824036f56ddf2c51fff271f7b18",
+    "sha256_after": "0c0954d1ed74aee9cbae86eb3cd2e8501fb1a12084d7839140a51ff94e01d652",
+    "state": "modified",
+    "changed_line_starts": [
+      2
+    ]
+  },
+  {
+    "path": "scripts/cargo_test.ps1",
+    "sha256_before": "e6f4cd894287b871575aa8097a9cc54312584be85a8c62eff7a3c451f0bbcc01",
+    "sha256_after": "0264b5d17375b317a585b64cd302c4b173cac61f3f693b1301ec2236c4f6ce32",
+    "state": "modified",
+    "changed_line_starts": [
+      6,
+      7,
+      12
+    ]
+  },
+  {
+    "path": "scripts/run_pytest.ps1",
+    "sha256_before": "c1472b2c07e6f136a62545d3a8fdf7f62c15336c212972a3cd10d774b03ca56c",
+    "sha256_after": "ce0270ca4e3ec673eb5d0e390e3f3442def8ad8447a71dd6bf48cdf00dc63fcc",
+    "state": "modified",
+    "changed_line_starts": [
+      10,
+      13,
+      15
+    ]
+  },
+  {
+    "path": "tests/unit/test_gpu_and_density_fitting.py",
+    "sha256_before": "3e89a7c960eabd9a111f47c8561050d243fe51c545ee3b7241326bd67a391e46",
+    "sha256_after": "6f47e487fe4b77e58e924bd8db9002b8b82985fc146f024abd1dcaf5660e4e62",
+    "state": "modified",
+    "changed_line_starts": [
+      65
+    ]
+  },
+  {
+    "path": "tests/unit/test_opv_cam_b3lyp_and_dimer.py",
+    "sha256_before": "918934ce1e0ba371230087c64c9709a94e7bd13e08473ff306296dd4117799a1",
+    "sha256_after": "24424f86e0a019cd63a6829151225e692380c9199ad914b85ba552edb4881bf5",
+    "state": "modified",
+    "changed_line_starts": [
+      44
+    ]
+  },
+  {
+    "path": "tests/unit/test_p5_gradients_solvation_tddft.py",
+    "sha256_before": "9df2be29405d8946ba81441dd060961929a8dc74049fcc3dde984e2cc50d47e8",
+    "sha256_after": "7a0884afcd0d736a0993f8b0d72192a37926f52f7317105c4862f46d2181be2f",
+    "state": "modified",
+    "changed_line_starts": [
+      89,
+      99,
+      109
+    ]
+  },
+  {
+    "path": "tests/unit/test_redteam_contracts.py",
+    "sha256_before": "8e5da0708d7bf458192c5a7dbe985ed24dee5c0484b19be2289859e0283491a1",
+    "sha256_after": "be521f09f54a2d4246f61006438652bf59cfb4a9b31f1a696b2fba5f5668bfa3",
+    "state": "modified",
+    "changed_line_starts": [
+      19
+    ]
+  },
+  {
+    "path": "tests/unit/test_solvation_and_scrf.py",
+    "sha256_before": "2abf3a68e22f4be5e85c67c35fc2b5d73250e0f166f42d231f3575d451061933",
+    "sha256_after": "75b39f5e049fa044450943e7eb10ebdf5e6da82921fd87636ed93131efd2ff9f",
+    "state": "modified",
+    "changed_line_starts": [
+      154
+    ]
+  },
+  {
+    "path": "tools/dev/build_ext.ps1",
+    "sha256_before": "4e527e52e5aa03c8b31d7929858f055232d162934738f56bdf1aae4dea6fc91d",
+    "sha256_after": "19c57928cc612b3103306b37e255d7f462aeeae086559dbfc47fe27818335e23",
+    "state": "modified",
+    "changed_line_starts": [
+      18,
+      22
+    ]
+  },
+  {
+    "path": "crates/calchem-int/tests/independent_audit.rs",
+    "state": "new",
+    "sha256_after": "db2c1487024c67432dbf779e72a845380293a11c3b1284487f634bbb4ac97252",
+    "changed_line_starts": [
+      1
+    ]
+  },
+  {
+    "path": "crates/calchem-cuda/tests/ffi_contract.rs",
+    "state": "new",
+    "sha256_after": "de08d62e67d59eade8dd74171fc87cd8505d0bdee136f870887fa5b7977cca91",
+    "changed_line_starts": [
+      1
+    ]
+  },
+  {
+    "path": "crates/calchem-tddft/tests/independent_solver.rs",
+    "state": "new",
+    "sha256_after": "50a6c6cdc659f396affa7c68bc9863d3e4fe3bf0e8d335b3e02009bc181a944a",
+    "changed_line_starts": [
+      1
+    ]
+  },
+  {
+    "path": "crates/calchem-grad/tests/rij_provenance.rs",
+    "state": "new",
+    "sha256_after": "d2391423094c56725bcf3d0d0bb5f08d5a62eed9f980f4c5cb7ff8c8e74fddef",
+    "changed_line_starts": [
+      1
+    ]
+  }
+]

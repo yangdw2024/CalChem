@@ -1,7 +1,7 @@
 use calchem_basis::BasisSet;
 use calchem_dft::{GridLevel, XcFunctional};
-use calchem_model::{Atom, BOHR_TO_ANGSTROM, Molecule};
-use calchem_opt::{OptOptions, Reference, optimize_geometry, optimize_geometry_with_options};
+use calchem_model::{Atom, Molecule, BOHR_TO_ANGSTROM};
+use calchem_opt::{optimize_geometry, optimize_geometry_with_options, OptOptions, Reference};
 
 #[test]
 fn test_water_and_cation_b3lyp_geometry_optimization() {
@@ -29,7 +29,10 @@ fn test_water_and_cation_b3lyp_geometry_optimization() {
         / ((r1 / BOHR_TO_ANGSTROM) * (r2 / BOHR_TO_ANGSTROM));
     let ang_deg = cos_ang.clamp(-1.0, 1.0).acos().to_degrees();
 
-    assert!((r1 - r2).abs() < 1e-4, "Symmetric OH bonds expected: {r1} vs {r2}");
+    assert!(
+        (r1 - r2).abs() < 1e-4,
+        "Symmetric OH bonds expected: {r1} vs {r2}"
+    );
     assert!(
         (0.960..=0.980).contains(&r1),
         "Unexpected B3LYP/6-31G(d) H2O R_OH: {r1:.4} A"
@@ -55,9 +58,8 @@ fn test_water_and_cation_b3lyp_geometry_optimization() {
     };
     let res = optimize_geometry_with_options(&h2_cat, "6-31g", &opts).unwrap();
     assert!(res.converged);
-    let r_cat_bohr = (res.molecule.atoms[1].position_bohr[2]
-        - res.molecule.atoms[0].position_bohr[2])
-        .abs();
+    let r_cat_bohr =
+        (res.molecule.atoms[1].position_bohr[2] - res.molecule.atoms[0].position_bohr[2]).abs();
     assert!(
         r_cat_bohr > 1.85,
         "Expected stretched H2+ bond length > 1.85 Bohr, got {r_cat_bohr:.4}"

@@ -8,8 +8,7 @@ use calchem_model::Molecule;
 use serde::{Deserialize, Serialize};
 
 use crate::masses::{
-    atomic_mass_amu, GAS_CONSTANT_HARTREE_K,
-    GAS_CONSTANT_J_MOL_K, HARTREE_TO_KCAL_MOL,
+    atomic_mass_amu, GAS_CONSTANT_HARTREE_K, GAS_CONSTANT_J_MOL_K, HARTREE_TO_KCAL_MOL,
 };
 use crate::modes::VibrationalAnalysis;
 
@@ -79,8 +78,16 @@ pub fn compute_thermochemistry(
     pressure_pa: f64,
     symmetry_number_override: Option<usize>,
 ) -> Thermochemistry {
-    let t = if temperature_k > 0.0 { temperature_k } else { 298.15 };
-    let p = if pressure_pa > 0.0 { pressure_pa } else { 101325.0 };
+    let t = if temperature_k > 0.0 {
+        temperature_k
+    } else {
+        298.15
+    };
+    let p = if pressure_pa > 0.0 {
+        pressure_pa
+    } else {
+        101325.0
+    };
     let sigma = symmetry_number_override.unwrap_or(1).max(1);
     let n_atoms = mol.atoms.len();
 
@@ -140,10 +147,12 @@ pub fn compute_thermochemistry(
         (0.0, 0.0, 0.0)
     } else if vib.is_linear {
         // Linear molecule
-        let i_amu_bohr2 = vib.moments_of_inertia_amu_bohr2[2].max(vib.moments_of_inertia_amu_bohr2[1]);
+        let i_amu_bohr2 =
+            vib.moments_of_inertia_amu_bohr2[2].max(vib.moments_of_inertia_amu_bohr2[1]);
         let i_kg_m2 = i_amu_bohr2 * AMU_BOHR2_TO_KG_M2;
-        let q_rot = (8.0 * std::f64::consts::PI * std::f64::consts::PI * i_kg_m2 * K_BOLTZMANN_J_K * t)
-            / ((sigma as f64) * H_PLANCK_J_S * H_PLANCK_J_S);
+        let q_rot =
+            (8.0 * std::f64::consts::PI * std::f64::consts::PI * i_kg_m2 * K_BOLTZMANN_J_K * t)
+                / ((sigma as f64) * H_PLANCK_J_S * H_PLANCK_J_S);
         let s_rot = if q_rot > 1e-12 {
             GAS_CONSTANT_J_MOL_K * (q_rot.ln() + 1.0)
         } else {
@@ -158,13 +167,18 @@ pub fn compute_thermochemistry(
         let prod_i = (ia * ib * ic).max(1e-150);
         let factor = (8.0 * std::f64::consts::PI * std::f64::consts::PI * K_BOLTZMANN_J_K * t)
             / (H_PLANCK_J_S * H_PLANCK_J_S);
-        let q_rot = (std::f64::consts::PI.sqrt() / (sigma as f64)) * factor.powf(1.5) * prod_i.sqrt();
+        let q_rot =
+            (std::f64::consts::PI.sqrt() / (sigma as f64)) * factor.powf(1.5) * prod_i.sqrt();
         let s_rot = if q_rot > 1e-12 {
             GAS_CONSTANT_J_MOL_K * (q_rot.ln() + 1.5)
         } else {
             0.0
         };
-        (1.5 * GAS_CONSTANT_HARTREE_K * t, 1.5 * GAS_CONSTANT_J_MOL_K, s_rot)
+        (
+            1.5 * GAS_CONSTANT_HARTREE_K * t,
+            1.5 * GAS_CONSTANT_J_MOL_K,
+            s_rot,
+        )
     };
 
     // 4. Electronic entropy

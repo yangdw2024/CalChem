@@ -1,0 +1,258 @@
+   Compiling autocfg v1.5.1
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling libm v0.2.16
+   Compiling find-msvc-tools v0.1.15
+   Compiling shlex v2.0.1
+   Compiling version_check v0.9.5
+   Compiling cfg-if v1.0.5
+   Compiling rand_core v0.6.4
+   Compiling bytemuck v1.25.2
+   Compiling libc v0.2.191
+   Compiling nano-gemm-codegen v0.1.0
+   Compiling crossbeam-utils v0.8.23
+   Compiling pest_stack_guard v1.0.0
+   Compiling crossbeam-epoch v0.9.21
+   Compiling serde_core v1.0.229
+   Compiling crossbeam-deque v0.8.8
+   Compiling rand v0.8.8
+   Compiling serde v1.0.229
+   Compiling rayon-core v1.13.0
+   Compiling cc v1.10.0
+   Compiling windows-link v0.2.1
+   Compiling reborrow v0.5.5
+   Compiling num-traits v0.2.19
+   Compiling windows-sys v0.61.2
+   Compiling pulp v0.21.5
+   Compiling once_cell v1.21.4
+   Compiling memchr v2.8.3
+   Compiling thiserror v1.0.69
+   Compiling paste v1.0.15
+   Compiling bitflags v2.13.2
+   Compiling dyn-stack-macros v0.1.3
+   Compiling either v1.19.0
+   Compiling generic-array v0.14.7
+   Compiling raw-cpuid v11.6.0
+   Compiling seq-macro v0.3.6
+   Compiling psm v0.1.24
+   Compiling stacker v0.1.25
+   Compiling syn v2.0.119
+   Compiling syn v3.0.9
+   Compiling ucd-trie v0.1.7
+   Compiling dyn-stack v0.13.2
+   Compiling typenum v1.20.1
+   Compiling num-complex v0.4.6
+   Compiling rayon v1.12.0
+   Compiling num-integer v0.1.47
+   Compiling nano-gemm-core v0.1.0
+   Compiling nano-gemm-f64 v0.1.0
+   Compiling nano-gemm-c32 v0.1.0
+   Compiling nano-gemm-c64 v0.1.0
+   Compiling nano-gemm-f32 v0.1.0
+   Compiling zmij v1.0.23
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling pest v2.9.5
+   Compiling num-bigint v0.4.8
+   Compiling serde_json v1.0.154
+   Compiling digest v0.10.7
+   Compiling serde_derive v1.0.229
+   Compiling pulp v0.18.22
+   Compiling coe-rs v0.1.2
+   Compiling itoa v1.0.18
+   Compiling gemm-common v0.18.2
+   Compiling pest_meta v2.9.5
+   Compiling matrixcompare-core v0.1.0
+   Compiling cpufeatures v0.2.17
+   Compiling byteorder v1.5.0
+   Compiling sha2 v0.10.9
+   Compiling matrixcompare v0.3.0
+   Compiling gemm-c64 v0.18.2
+   Compiling gemm-f32 v0.18.2
+   Compiling gemm-f64 v0.18.2
+   Compiling thiserror-impl v1.0.69
+   Compiling pest_generator v2.9.5
+   Compiling equator-macro v0.2.1
+   Compiling equator-macro v0.4.2
+   Compiling gemm-c32 v0.18.2
+   Compiling pest_derive v2.9.5
+   Compiling faer-entity v0.20.1
+   Compiling equator v0.4.2
+   Compiling equator v0.2.2
+   Compiling gemm v0.18.2
+   Compiling rand_distr v0.4.3
+   Compiling dyn-stack v0.11.0
+   Compiling dbgf v0.1.2
+   Compiling generativity v1.2.1
+   Compiling py_literal v0.4.0
+   Compiling target-lexicon v0.12.16
+   Compiling memoffset v0.9.1
+   Compiling matrixmultiply v0.3.11
+   Compiling heck v0.5.0
+   Compiling calchem-model v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-model)
+   Compiling npyz v0.8.4
+   Compiling rawpointer v0.2.1
+   Compiling indoc v2.0.8
+   Compiling calchem-basis v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-basis)
+   Compiling pyo3-build-config v0.22.6
+   Compiling unindent v0.2.4
+   Compiling ndarray v0.16.1
+   Compiling rustc-hash v1.1.0
+   Compiling nano-gemm v0.1.3
+   Compiling faer v0.20.2
+   Compiling pyo3-ffi v0.22.6
+   Compiling pyo3-macros-backend v0.22.6
+   Compiling pyo3 v0.22.6
+   Compiling pyo3-macros v0.22.6
+   Compiling numpy v0.22.1
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+   Compiling calchem-grad v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-grad)
+   Compiling calchem-prop v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-prop)
+   Compiling calchem-tddft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tddft)
+   Compiling calchem-solv v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-solv)
+   Compiling calchem-vib v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-vib)
+warning: unused variable: `e_solv_elec`
+   --> crates\calchem-solv\src\scrf.rs:304:9
+    |
+304 |     let e_solv_elec: f64 = 0.5 * q_converged.iter().zip(v_solute_converged.iter()).map(|(&qk, &vk)| qk * vk).sum::<f64>();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `e_solv_elec`
+   --> crates\calchem-solv\src\scrf.rs:509:9
+    |
+509 |     let e_solv_elec: f64 = 0.5 * q_converged.iter().zip(v_solute_converged.iter()).map(|(&qk, &vk)| qk * vk).sum::<f64>();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+
+   Compiling calchem-opt v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-opt)
+warning: `calchem-solv` (lib) generated 2 warnings (run `cargo fix --lib -p calchem-solv` to apply 2 suggestions)
+   Compiling calchem-py v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-py)
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:43:1
+   |
+43 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:44:1
+   |
+44 | create_exception!(_core, RustCoreError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `calchem-solv` (lib test) generated 2 warnings (2 duplicates)
+warning: `calchem-py` (lib test) generated 4 warnings (1 duplicate)
+warning: `calchem-py` (lib) generated 4 warnings (4 duplicates)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1m 25s
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_basis-1fb262763f3686d8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\basis_normalization.rs (build_target\runtime\round2_20261110\target\debug\deps\basis_normalization-1456325c6b402c3d.exe)
+
+running 4 tests
+test test_d_shell_contraction_self_overlap ... ok
+test test_primitive_normalization_s_p_d ... ok
+test test_unknown_shell_type_rejected ... ok
+test test_sto3g_and_631g_contraction_self_overlap_is_one ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_dft-e6831801b6b7832b.exe)
+
+running 9 tests
+test xc::tests::test_lyp_one_electron_correlation_vanishes_identically ... ok
+test xc::tests::test_all_xc_functionals_analytic_derivatives_vs_fd ... ok
+test grid::tests::test_single_center_gaussian_3d_integral ... ok
+test ao_grid::tests::test_ao_grad_and_hessian_s_p_d_f_finite_differences ... ok
+test grid::tests::test_multicenter_becke_gaussian_sum_and_weight_gradient_fd ... ok
+test lebedev::tests::test_lebedev_monomials_and_exp_benchmark ... ok
+test fxc::tests::test_fxc_singlet_and_triplet_match_uks_vxc_finite_differences_all_functionals ... ok
+test vxc::tests::test_vxc_rks_and_uks_matrix_matches_exact_density_derivative ... ok
+test vxc::tests::test_xc_nuclear_gradient_matches_exact_finite_differences_with_moving_grid_and_basis ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests\d3_dispersion.rs (build_target\runtime\round2_20261110\target\debug\deps\d3_dispersion-23713e58c9ba9887.exe)
+
+running 5 tests
+test test_d3_rejects_unknown_functional_audit_probe ... ok
+test test_d3bj_analytical_gradient_vs_finite_difference ... ok
+test test_d3bj_energy_and_translational_invariance ... ok
+test test_d3zero_analytical_gradient_vs_finite_difference ... ok
+test test_water_d3bj_matches_gaussian_and_orca_golden_reference ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\redteam_diffuse.rs (build_target\runtime\round2_20261110\target\debug\deps\redteam_diffuse-1a86f30e1d15bf46.exe)
+
+running 1 test
+test diffuse_gaussian_density_conserves_one_electron ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_grad-a5112d6b66ed2bad.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\dft_gradient.rs (build_target\runtime\round2_20261110\target\debug\deps\dft_gradient-b8d23024a5a53f0b.exe)
+
+running 1 test
+test test_rks_and_uks_analytical_gradients_match_central_finite_differences ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.18s
+
+     Running tests\polarization_and_ecp_gradient.rs (build_target\runtime\round2_20261110\target\debug\deps\polarization_and_ecp_gradient-6bc89f05fd5a974f.exe)
+
+running 2 tests
+test test_analytic_gradient_631gd_rhf_and_uhf_matches_finite_difference ... FAILED
+test test_ecp_analytic_gradient_lanl2dz_and_lanl2dzdp_halogens ... ok
+
+failures:
+
+---- test_analytic_gradient_631gd_rhf_and_uhf_matches_finite_difference stdout ----
+
+thread 'test_analytic_gradient_631gd_rhf_and_uhf_matches_finite_difference' (23860) panicked at crates\calchem-grad\tests\polarization_and_ecp_gradient.rs:90:42:
+called `Result::unwrap()` on an `Err` value: NotConverged { iterations: 15, delta_e: 7.105427357601002e-14, rms_d: 2.9129422388635354e-9 }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    test_analytic_gradient_631gd_rhf_and_uhf_matches_finite_difference
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.83s
+
+error: test failed, to rerun pass `-p calchem-grad --test polarization_and_ecp_gradient`

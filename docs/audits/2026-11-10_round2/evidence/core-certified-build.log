@@ -1,0 +1,111 @@
+error[E0308]: arguments to this function are incorrect
+   --> E:\YDW\Trae_Gaussian\docs\audits\2026-11-10_round2\probes\core_certified.rs:40:15
+    |
+ 40 |     let (_,g)=scf_energy_gradient_with_options(&water,&bs,&opts).unwrap();
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ------ --- expected `calchem_basis::BasisSet`, found `BasisSet`
+    |                                                |
+    |                                                expected `calchem_model::Molecule`, found `Molecule`
+    |
+note: there are multiple different versions of crate `calchem_model` in the dependency graph
+   --> crates\calchem-model\src\lib.rs:112:1
+    |
+112 | pub struct Molecule {
+    | ------------------- this is the found type
+    |
+   ::: crates\calchem-model\src\lib.rs:112:1
+    |
+112 | pub struct Molecule {
+    | ^^^^^^^^^^^^^^^^^^^ this is the expected type
+    = help: you can use `cargo tree` to explore your dependency tree
+note: there are multiple different versions of crate `calchem_basis` in the dependency graph
+   --> crates\calchem-basis\src\lib.rs:214:1
+    |
+214 | pub struct BasisSet {
+    | ------------------- this is the found type
+    |
+   ::: crates\calchem-basis\src\lib.rs:214:1
+    |
+214 | pub struct BasisSet {
+    | ^^^^^^^^^^^^^^^^^^^ this is the expected type
+    = help: you can use `cargo tree` to explore your dependency tree
+note: function defined here
+   --> crates\calchem-opt\src\lib.rs:169:8
+    |
+169 | pub fn scf_energy_gradient_with_options(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0308]: arguments to this function are incorrect
+   --> E:\YDW\Trae_Gaussian\docs\audits\2026-11-10_round2\probes\core_certified.rs:46:17
+    |
+ 46 |         let fd=(scf_energy_with_options(&plus,&bp,&opts).unwrap()-scf_energy_with_options(&minus,&bm,&opts).unwrap())/(2.0*h);
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^ ----- --- expected `calchem_basis::BasisSet`, found `BasisSet`
+    |                                         |
+    |                                         expected `calchem_model::Molecule`, found `Molecule`
+    |
+note: there are multiple different versions of crate `calchem_model` in the dependency graph
+   --> crates\calchem-model\src\lib.rs:112:1
+    |
+112 | pub struct Molecule {
+    | ------------------- this is the found type
+    |
+   ::: crates\calchem-model\src\lib.rs:112:1
+    |
+112 | pub struct Molecule {
+    | ^^^^^^^^^^^^^^^^^^^ this is the expected type
+    = help: you can use `cargo tree` to explore your dependency tree
+note: there are multiple different versions of crate `calchem_basis` in the dependency graph
+   --> crates\calchem-basis\src\lib.rs:214:1
+    |
+214 | pub struct BasisSet {
+    | ------------------- this is the found type
+    |
+   ::: crates\calchem-basis\src\lib.rs:214:1
+    |
+214 | pub struct BasisSet {
+    | ^^^^^^^^^^^^^^^^^^^ this is the expected type
+    = help: you can use `cargo tree` to explore your dependency tree
+note: function defined here
+   --> crates\calchem-opt\src\lib.rs:206:8
+    |
+206 | pub fn scf_energy_with_options(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0308]: arguments to this function are incorrect
+   --> E:\YDW\Trae_Gaussian\docs\audits\2026-11-10_round2\probes\core_certified.rs:46:67
+    |
+ 46 |         let fd=(scf_energy_with_options(&plus,&bp,&opts).unwrap()-scf_energy_with_options(&minus,&bm,&opts).unwrap())/(2.0*h);
+    |                                                                   ^^^^^^^^^^^^^^^^^^^^^^^ ------ --- expected `calchem_basis::BasisSet`, found `BasisSet`
+    |                                                                                           |
+    |                                                                                           expected `calchem_model::Molecule`, found `Molecule`
+    |
+note: there are multiple different versions of crate `calchem_model` in the dependency graph
+   --> crates\calchem-model\src\lib.rs:112:1
+    |
+112 | pub struct Molecule {
+    | ------------------- this is the found type
+    |
+   ::: crates\calchem-model\src\lib.rs:112:1
+    |
+112 | pub struct Molecule {
+    | ^^^^^^^^^^^^^^^^^^^ this is the expected type
+    = help: you can use `cargo tree` to explore your dependency tree
+note: there are multiple different versions of crate `calchem_basis` in the dependency graph
+   --> crates\calchem-basis\src\lib.rs:214:1
+    |
+214 | pub struct BasisSet {
+    | ------------------- this is the found type
+    |
+   ::: crates\calchem-basis\src\lib.rs:214:1
+    |
+214 | pub struct BasisSet {
+    | ^^^^^^^^^^^^^^^^^^^ this is the expected type
+    = help: you can use `cargo tree` to explore your dependency tree
+note: function defined here
+   --> crates\calchem-opt\src\lib.rs:206:8
+    |
+206 | pub fn scf_energy_with_options(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 3 previous errors
+
+For more information about this error, try `rustc --explain E0308`.

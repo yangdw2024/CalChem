@@ -1,0 +1,10 @@
+%nprocshared=4
+%mem=500MB
+#P UB3LYP/6-31G(d) SCRF=(SMD,Solvent=Water) Int=UltraFine
+
+oh_ub3lyp_smd
+
+0 2
+O  0.0000000000 0.0000000000 0.0000000000
+H  0.0000000000 0.0000000000 0.9694526504
+

@@ -1,0 +1,10 @@
+[package]
+name = "calchem-basis"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+calchem-model = { path = "../calchem-model" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }

@@ -1,0 +1,5 @@
+{"probe": "provenance", "extension": "E:\\YDW\\Trae_Gaussian\\calchem\\_core.pyd", "sha256": "4e68564103ad866fc14ad71fe057d6860d9b827913e07ef38f5816b70c1c9bbd"}
+{"probe": "ECP_gradient", "symbols": ["H", "Br"], "basis": "lanl2dz", "gradient_errors": [1.0420841523896274e-08, 1.1571406055566058e-09], "total_force_norm": 5.132270800538671e-15}
+{"probe": "ECP_gradient", "symbols": ["H", "I"], "basis": "lanl2dzdp", "gradient_errors": [8.442244014972289e-09, 9.815452894912369e-10], "total_force_norm": 2.445616208007884e-15}
+{"probe": "minimum_TS_rejection", "converged": false, "frequency_cm": 5480.991887971134}
+{"probe": "IRC_partial_status", "status": "not_converged", "points": 7, "forward_barrier": null, "reverse_barrier": null}

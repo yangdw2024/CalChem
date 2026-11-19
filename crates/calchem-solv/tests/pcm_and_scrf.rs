@@ -11,11 +11,7 @@ use calchem_solv::{
 fn test_born_ion_solvation_analytical_benchmark() {
     // Single monoatomic ion (Li+, Z=3, charge=+1) in a spherical cavity
     // Analytical Born equation: Delta G_Born = - (q^2 / (2 * R)) * (1 - 1/eps)
-    let li_plus = Molecule::new(
-        vec![Atom::from_bohr("Li", [0.0, 0.0, 0.0]).unwrap()],
-        1,
-        1,
-    );
+    let li_plus = Molecule::new(vec![Atom::from_bohr("Li", [0.0, 0.0, 0.0]).unwrap()], 1, 1);
 
     let basis = BasisSet::from_name("sto-3g", &li_plus).expect("Failed to load sto-3g for Li+");
     let scf_opts = ScfOptions {
@@ -35,6 +31,7 @@ fn test_born_ion_solvation_analytical_benchmark() {
         lebedev_order: CavityLebedevOrder::N110,
         probe_radius_angstrom: 0.0,
         exclusion_tol_bohr: 1e-5,
+        ..Default::default()
     };
     let cavity = MolecularCavity::build(&li_plus, &cav_opts);
     assert_eq!(cavity.n_tesserae(), 110);
@@ -44,7 +41,7 @@ fn test_born_ion_solvation_analytical_benchmark() {
     // Test across two solvents: water (eps = 78.36) and chlorobenzene (eps = 5.62)
     for (solvent, eps) in [
         (Solvent::water(), 78.3553),
-        (Solvent::chlorobenzene(), 5.62),
+        (Solvent::chlorobenzene(), 5.6968),
     ] {
         let solv_opts = SolvationOptions {
             solvent,
@@ -68,7 +65,8 @@ fn test_born_ion_solvation_analytical_benchmark() {
         );
 
         // Discretization on 110 Lebedev points matches analytical sphere within 4%
-        let rel_err = ((res.delta_g_elec_kcal_mol - born_analytical_kcal) / born_analytical_kcal).abs();
+        let rel_err =
+            ((res.delta_g_elec_kcal_mol - born_analytical_kcal) / born_analytical_kcal).abs();
         assert!(
             rel_err < 0.05,
             "Born solvation relative error {:.3} exceeds 5% tolerance",
@@ -113,8 +111,8 @@ fn test_water_scrf_rhf_and_solvent_polarity_ordering() {
         renormalize_charge: true,
         include_cds: true,
     };
-    let water_scrf = run_scrf_rhf(&water, &basis, &scf_opts, &water_opts)
-        .expect("Water SCRF RHF failed");
+    let water_scrf =
+        run_scrf_rhf(&water, &basis, &scf_opts, &water_opts).expect("Water SCRF RHF failed");
     assert!(water_scrf.converged);
     assert!(water_scrf.delta_g_elec_kcal_mol < 0.0);
     println!(
@@ -138,8 +136,8 @@ fn test_water_scrf_rhf_and_solvent_polarity_ordering() {
         renormalize_charge: true,
         include_cds: true,
     };
-    let cb_scrf = run_scrf_rhf(&water, &basis, &scf_opts, &cb_opts)
-        .expect("Chlorobenzene SCRF RHF failed");
+    let cb_scrf =
+        run_scrf_rhf(&water, &basis, &scf_opts, &cb_opts).expect("Chlorobenzene SCRF RHF failed");
     assert!(cb_scrf.converged);
     println!(
         "Water in Chlorobenzene: Solv = {:.6} Eh, dG_elec = {:.2} kcal/mol, dG_tot = {:.2} kcal/mol",
@@ -231,8 +229,15 @@ fn test_unified_run_scrf_rhf_and_dft() {
         .expect("Unified run_scrf rhf failed");
     assert!(res_rhf.converged);
 
-    let res_dft = calchem_solv::run_scrf(&water, &basis, &scf_opts, &solv_opts, "b3lyp", Some(XcFunctional::B3lyp))
-        .expect("Unified run_scrf b3lyp failed");
+    let res_dft = calchem_solv::run_scrf(
+        &water,
+        &basis,
+        &scf_opts,
+        &solv_opts,
+        "b3lyp",
+        Some(XcFunctional::B3lyp),
+    )
+    .expect("Unified run_scrf b3lyp failed");
     assert!(res_dft.converged);
 }
 

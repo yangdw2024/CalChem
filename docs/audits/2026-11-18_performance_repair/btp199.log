@@ -1,0 +1,4 @@
+CalChem native CLI | file=E:\YDW\ChemDatas\Gjf\ydw-BTP-4F.gjf atoms=199 charge=0 mult=1 method=Rks basis=sto-3g n_ao=639 n_shells=419 threads=16
+[stage] parse=0.0130s basis=0.0004s
+[stage] grid(Coarse)=0.5685s points=266181 streaming=false
+[rij] n_aux=6355 width=62058 dense_width=408321 bytes=3155028720 limit=2684354560

@@ -1,0 +1,62 @@
+{
+  "y6_ic_ff": {
+    "atoms": 22,
+    "element_counts": {
+      "C": 13,
+      "O": 1,
+      "N": 2,
+      "H": 4,
+      "F": 2
+    },
+    "ao_counts_from_native_json": {
+      "sto-3g": 94,
+      "6-31g(d)": 278,
+      "6-31g(d,p)": 290
+    }
+  },
+  "y6_btp_core": {
+    "atoms": 159,
+    "element_counts": {
+      "S": 5,
+      "C": 60,
+      "N": 4,
+      "H": 90
+    },
+    "ao_counts_from_native_json": {
+      "sto-3g": 455,
+      "6-31g(d)": 1235,
+      "6-31g(d,p)": 1505
+    }
+  },
+  "y6_full": {
+    "atoms": 199,
+    "element_counts": {
+      "C": 86,
+      "S": 5,
+      "N": 8,
+      "O": 2,
+      "H": 94,
+      "F": 4
+    },
+    "ao_counts_from_native_json": {
+      "sto-3g": 639,
+      "6-31g(d)": 1783,
+      "6-31g(d,p)": 2065
+    }
+  },
+  "pm6_monomer": {
+    "atoms": 158,
+    "element_counts": {
+      "C": 68,
+      "S": 8,
+      "F": 2,
+      "O": 2,
+      "H": 78
+    },
+    "ao_counts_from_native_json": {
+      "sto-3g": 510,
+      "6-31g(d)": 1388,
+      "6-31g(d,p)": 1622
+    }
+  }
+}

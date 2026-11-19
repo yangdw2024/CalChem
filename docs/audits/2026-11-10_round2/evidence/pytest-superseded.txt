@@ -1,0 +1,2 @@
+Superseded audit pytest stopped: 18548 "D:\YDW\Trae_Gromacs\miniconda3\python.exe" -B -c "import os,tempfile,pytest;tempfile.tempdir=os.environ[\"TEMP\"];raise SystemExit(pytest.main([\"tests/unit\",\"-q\",\"-p\",\"no:cacheprovider\"]))"
+Stopped verified superseded audit run PID 23228 after bridge fields were rebuilt; not an acceptance result.

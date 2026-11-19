@@ -38,7 +38,10 @@ fn test_eri_8fold_symmetry_h2o_sto3g() {
     for mu in 0..n {
         for nu in 0..n {
             let d_mn = eri.get(mu, nu, mu, nu);
-            assert!(d_mn >= -1e-14, "Diagonal ERI ({mu}{nu}|{mu}{nu}) = {d_mn} < 0");
+            assert!(
+                d_mn >= -1e-14,
+                "Diagonal ERI ({mu}{nu}|{mu}{nu}) = {d_mn} < 0"
+            );
             for lam in 0..n {
                 for sig in 0..n {
                     let d_ls = eri.get(lam, sig, lam, sig);

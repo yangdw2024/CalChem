@@ -137,14 +137,30 @@ fn test_lanl2dz_and_lanl2dzdp_ecp_invariance_and_open_shell_halogens() {
     assert!(wf_z.converged);
 
     // Physical bound-state check: E(HBr, RHF) < E(H, UHF) + E(Br ^2P, UHF) - 0.05 Eh
-    let h_atom = Molecule::new(vec![Atom::from_angstrom("H", [0.0, 0.0, 0.0]).unwrap()], 0, 2);
-    let br_atom = Molecule::new(vec![Atom::from_angstrom("Br", [0.0, 0.0, 0.0]).unwrap()], 0, 2);
-    let e_h = uhf(&h_atom, &BasisSet::from_name("lanl2dz", &h_atom).unwrap(), &opts)
-        .unwrap()
-        .total_energy_hartree;
-    let e_br = uhf(&br_atom, &BasisSet::from_name("lanl2dz", &br_atom).unwrap(), &opts)
-        .unwrap()
-        .total_energy_hartree;
+    let h_atom = Molecule::new(
+        vec![Atom::from_angstrom("H", [0.0, 0.0, 0.0]).unwrap()],
+        0,
+        2,
+    );
+    let br_atom = Molecule::new(
+        vec![Atom::from_angstrom("Br", [0.0, 0.0, 0.0]).unwrap()],
+        0,
+        2,
+    );
+    let e_h = uhf(
+        &h_atom,
+        &BasisSet::from_name("lanl2dz", &h_atom).unwrap(),
+        &opts,
+    )
+    .unwrap()
+    .total_energy_hartree;
+    let e_br = uhf(
+        &br_atom,
+        &BasisSet::from_name("lanl2dz", &br_atom).unwrap(),
+        &opts,
+    )
+    .unwrap()
+    .total_energy_hartree;
     let d_e_hbr = (e_h + e_br) - wf_z.total_energy_hartree;
     assert!(
         d_e_hbr > 0.05 && d_e_hbr < 0.25,

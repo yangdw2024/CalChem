@@ -1,0 +1,2962 @@
+{
+  "name": "lanl2dzdp",
+  "source": "EMSL-BSE-DunningHay1977-HayWadt1985-Check2001",
+  "elements": {
+    "As": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.9635,
+          0.5427
+        ],
+        "coefficients": [
+          -2.6709549,
+          2.9387892
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1407
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          2.084,
+          0.3224
+        ],
+        "coefficients": [
+          -0.11371,
+          1.0380266
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.102
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0263
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.286
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Bi": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.5744,
+          0.3851
+        ],
+        "coefficients": [
+          -3.2278875,
+          3.7637689
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.105
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.9105,
+          0.2194
+        ],
+        "coefficients": [
+          -0.2164189,
+          1.1041867
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0745
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0204
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.192
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Br": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.159,
+          0.7107
+        ],
+        "coefficients": [
+          -3.0378769,
+          3.3703735
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1905
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          2.691,
+          0.4446
+        ],
+        "coefficients": [
+          -0.11898,
+          1.0424471
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1377
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0376
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.434
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "C": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          4233.0,
+          634.9,
+          146.1,
+          42.5,
+          14.19,
+          5.148,
+          1.967
+        ],
+        "coefficients": [
+          0.00122,
+          0.009342,
+          0.045452,
+          0.154657,
+          0.358866,
+          0.438632,
+          0.145918
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          5.148,
+          0.4962
+        ],
+        "coefficients": [
+          -0.168367,
+          1.060091
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1533
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          18.16,
+          3.986,
+          1.143,
+          0.3594
+        ],
+        "coefficients": [
+          0.018539,
+          0.115436,
+          0.386188,
+          0.640114
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1146
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0311
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.587
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Cl": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          2.231,
+          0.472
+        ],
+        "coefficients": [
+          -0.4900589,
+          1.2542684
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1631
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          6.296,
+          0.6333
+        ],
+        "coefficients": [
+          -0.0635641,
+          1.0141355
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1819
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0467
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.648
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "F": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          9995.0,
+          1506.0,
+          350.3,
+          104.1,
+          34.84,
+          12.22,
+          4.369
+        ],
+        "coefficients": [
+          0.00116,
+          0.00887,
+          0.04238,
+          0.142929,
+          0.355372,
+          0.462085,
+          0.140848
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          12.22,
+          1.208
+        ],
+        "coefficients": [
+          -0.148452,
+          1.05527
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.3634
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          44.36,
+          10.08,
+          2.996,
+          0.9383
+        ],
+        "coefficients": [
+          0.020876,
+          0.130107,
+          0.396166,
+          0.620404
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.2733
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0737
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          1.577
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Ge": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.8935,
+          0.4424
+        ],
+        "coefficients": [
+          -2.1756591,
+          2.4493467
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1162
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.877,
+          0.2623
+        ],
+        "coefficients": [
+          -0.1006779,
+          1.0306256
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0798
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0209
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.246
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "H": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          19.2384,
+          2.8987,
+          0.6535
+        ],
+        "coefficients": [
+          0.032828,
+          0.231204,
+          0.817226
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1776
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.0498
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.356
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "I": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.7242,
+          0.4653
+        ],
+        "coefficients": [
+          -2.9731048,
+          3.4827643
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1336
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.29,
+          0.318
+        ],
+        "coefficients": [
+          -0.2092377,
+          1.1035347
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1053
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0308
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.294
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "N": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          5909.0,
+          887.5,
+          204.7,
+          59.84,
+          20.0,
+          7.193,
+          2.686
+        ],
+        "coefficients": [
+          0.00119,
+          0.009099,
+          0.044145,
+          0.150464,
+          0.356741,
+          0.446533,
+          0.145603
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          7.193,
+          0.7
+        ],
+        "coefficients": [
+          -0.160405,
+          1.058215
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.2133
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          26.79,
+          5.956,
+          1.707,
+          0.5314
+        ],
+        "coefficients": [
+          0.018254,
+          0.116461,
+          0.390178,
+          0.637102
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1654
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0533
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.736
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "O": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          7817.0,
+          1176.0,
+          273.2,
+          81.17,
+          27.18,
+          9.532,
+          3.414
+        ],
+        "coefficients": [
+          0.001176,
+          0.008968,
+          0.042868,
+          0.14393,
+          0.35563,
+          0.461248,
+          0.140206
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          9.532,
+          0.9398
+        ],
+        "coefficients": [
+          -0.154153,
+          1.056914
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.2846
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          35.18,
+          7.904,
+          2.305,
+          0.7171
+        ],
+        "coefficients": [
+          0.01958,
+          0.1242,
+          0.394714,
+          0.627376
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.2137
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0673
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.961
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "P": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.516,
+          0.3369
+        ],
+        "coefficients": [
+          -0.5862089,
+          1.2994376
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1211
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          3.705,
+          0.3934
+        ],
+        "coefficients": [
+          -0.0691472,
+          1.0161988
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.119
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0298
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.364
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Pb": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.5135,
+          0.3756
+        ],
+        "coefficients": [
+          -4.3675036,
+          4.8504656
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.0944
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.8748,
+          0.1843
+        ],
+        "coefficients": [
+          -0.1793128,
+          1.0776505
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0598
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0168
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.179
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "S": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.85,
+          0.4035
+        ],
+        "coefficients": [
+          -0.5324335,
+          1.2763801
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1438
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          4.945,
+          0.487
+        ],
+        "coefficients": [
+          -0.0608116,
+          1.0132686
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1379
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0347
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.496
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Sb": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.5863,
+          0.4293
+        ],
+        "coefficients": [
+          -4.7537662,
+          5.1096593
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1078
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.111,
+          0.2365
+        ],
+        "coefficients": [
+          -0.1811707,
+          1.0791649
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.08
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.022
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.207
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Se": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.033,
+          0.6521
+        ],
+        "coefficients": [
+          -3.3224095,
+          3.6003462
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.166
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          2.366,
+          0.3833
+        ],
+        "coefficients": [
+          -0.1185522,
+          1.041432
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1186
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0328
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.363
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Si": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.222,
+          0.2595
+        ],
+        "coefficients": [
+          -0.5707339,
+          1.2823826
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.0931
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          2.58,
+          0.2984
+        ],
+        "coefficients": [
+          -0.077725,
+          1.019787
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0885
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0237
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.296
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Sn": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.5418,
+          0.3784
+        ],
+        "coefficients": [
+          -4.2089644,
+          4.5198368
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.0926
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.047,
+          0.1932
+        ],
+        "coefficients": [
+          -0.1417678,
+          1.0554488
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.063
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0174
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.186
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ],
+    "Te": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.6938,
+          0.4038
+        ],
+        "coefficients": [
+          -2.4115013,
+          2.9179976
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1165
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.231,
+          0.2756
+        ],
+        "coefficients": [
+          -0.192334,
+          1.0876382
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0911
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0274
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.25
+        ],
+        "coefficients": [
+          1.0
+        ]
+      }
+    ]
+  },
+  "ecp": {
+    "As": {
+      "core_electrons": 28,
+      "l_max": 3,
+      "local": [
+        {
+          "r_power": 1,
+          "exponent": 375.4748803,
+          "coeff": -28.0
+        },
+        {
+          "r_power": 2,
+          "exponent": 72.6554769,
+          "coeff": -198.3687357
+        },
+        {
+          "r_power": 2,
+          "exponent": 15.9162677,
+          "coeff": -60.4563798
+        },
+        {
+          "r_power": 2,
+          "exponent": 4.6420251,
+          "coeff": -22.3188274
+        },
+        {
+          "r_power": 2,
+          "exponent": 1.4789182,
+          "coeff": -2.163829
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 105.885387,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 62.5951846,
+              "coeff": 31.8486777
+            },
+            {
+              "r_power": 2,
+              "exponent": 34.5017431,
+              "coeff": 200.9958215
+            },
+            {
+              "r_power": 2,
+              "exponent": 10.3758594,
+              "coeff": 102.6387604
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.5379347,
+              "coeff": 34.1845359
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 37.647144,
+              "coeff": 5.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 17.2034665,
+              "coeff": 24.2505747
+            },
+            {
+              "r_power": 2,
+              "exponent": 18.9075709,
+              "coeff": 48.9174963
+            },
+            {
+              "r_power": 2,
+              "exponent": 6.8153452,
+              "coeff": 66.5332259
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.0611853,
+              "coeff": 19.6577666
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 52.0731335,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 28.0037824,
+              "coeff": 23.3460712
+            },
+            {
+              "r_power": 2,
+              "exponent": 14.7051208,
+              "coeff": 80.7854919
+            },
+            {
+              "r_power": 2,
+              "exponent": 4.7973194,
+              "coeff": 40.2681347
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.1062763,
+              "coeff": 4.833279
+            }
+          ]
+        }
+      ]
+    },
+    "Bi": {
+      "core_electrons": 78,
+      "l_max": 4,
+      "local": [
+        {
+          "r_power": 0,
+          "exponent": 223.3091971,
+          "coeff": -0.183352
+        },
+        {
+          "r_power": 1,
+          "exponent": 86.4699216,
+          "coeff": -53.3389492
+        },
+        {
+          "r_power": 2,
+          "exponent": 26.8492203,
+          "coeff": -201.9117841
+        },
+        {
+          "r_power": 2,
+          "exponent": 9.3823622,
+          "coeff": -76.3115295
+        },
+        {
+          "r_power": 2,
+          "exponent": 2.7614708,
+          "coeff": -24.2578468
+        },
+        {
+          "r_power": 2,
+          "exponent": 0.9423923,
+          "coeff": -4.03197
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 155.9783914,
+              "coeff": 2.791651
+            },
+            {
+              "r_power": 1,
+              "exponent": 54.4591139,
+              "coeff": 71.8553817
+            },
+            {
+              "r_power": 2,
+              "exponent": 20.1794558,
+              "coeff": 252.4327444
+            },
+            {
+              "r_power": 2,
+              "exponent": 6.1273104,
+              "coeff": 89.6045109
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.1805983,
+              "coeff": 61.1744136
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.9932464,
+              "coeff": -33.0471906
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 74.5091386,
+              "coeff": 4.8462914
+            },
+            {
+              "r_power": 1,
+              "exponent": 28.0487647,
+              "coeff": 65.6883396
+            },
+            {
+              "r_power": 2,
+              "exponent": 12.0168508,
+              "coeff": 166.2619673
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.6914327,
+              "coeff": 54.1393329
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.9080824,
+              "coeff": 28.620488
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.7394617,
+              "coeff": -12.3452204
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 68.0856679,
+              "coeff": 3.2183832
+            },
+            {
+              "r_power": 1,
+              "exponent": 23.7250355,
+              "coeff": 54.8952681
+            },
+            {
+              "r_power": 2,
+              "exponent": 9.2437053,
+              "coeff": 116.5540708
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.8452292,
+              "coeff": 69.0760662
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.2209859,
+              "coeff": -72.641087
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.8740861,
+              "coeff": 38.9400055
+            }
+          ]
+        },
+        {
+          "angular_momentum": 3,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 134.3538983,
+              "coeff": 3.9864075
+            },
+            {
+              "r_power": 1,
+              "exponent": 51.5812797,
+              "coeff": 63.0262078
+            },
+            {
+              "r_power": 2,
+              "exponent": 54.9307284,
+              "coeff": 92.5259959
+            },
+            {
+              "r_power": 2,
+              "exponent": 17.0475346,
+              "coeff": 240.9973672
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.7702824,
+              "coeff": 62.1844577
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.76705,
+              "coeff": -1.7251134
+            }
+          ]
+        }
+      ]
+    },
+    "Br": {
+      "core_electrons": 28,
+      "l_max": 3,
+      "local": [
+        {
+          "r_power": 1,
+          "exponent": 213.6143969,
+          "coeff": -28.0
+        },
+        {
+          "r_power": 2,
+          "exponent": 41.058538,
+          "coeff": -134.9268852
+        },
+        {
+          "r_power": 2,
+          "exponent": 8.708653,
+          "coeff": -41.9271913
+        },
+        {
+          "r_power": 2,
+          "exponent": 2.6074661,
+          "coeff": -5.933642
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 54.1980682,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 32.9053558,
+              "coeff": 27.3430642
+            },
+            {
+              "r_power": 2,
+              "exponent": 13.674489,
+              "coeff": 118.8028847
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.0341152,
+              "coeff": 43.4354876
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 54.256334,
+              "coeff": 5.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 26.0095593,
+              "coeff": 25.0504252
+            },
+            {
+              "r_power": 2,
+              "exponent": 28.2012995,
+              "coeff": 92.6157463
+            },
+            {
+              "r_power": 2,
+              "exponent": 9.4341061,
+              "coeff": 95.8249016
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.5321764,
+              "coeff": 26.2684983
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 87.6328721,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 61.7373377,
+              "coeff": 22.5533557
+            },
+            {
+              "r_power": 2,
+              "exponent": 32.4385104,
+              "coeff": 178.1241988
+            },
+            {
+              "r_power": 2,
+              "exponent": 8.7537199,
+              "coeff": 76.9924162
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.6633189,
+              "coeff": 9.481827
+            }
+          ]
+        }
+      ]
+    },
+    "Cl": {
+      "core_electrons": 10,
+      "l_max": 2,
+      "local": [
+        {
+          "r_power": 1,
+          "exponent": 94.813,
+          "coeff": -10.0
+        },
+        {
+          "r_power": 2,
+          "exponent": 165.644,
+          "coeff": 66.272917
+        },
+        {
+          "r_power": 2,
+          "exponent": 30.8317,
+          "coeff": -28.968595
+        },
+        {
+          "r_power": 2,
+          "exponent": 10.5841,
+          "coeff": -12.866337
+        },
+        {
+          "r_power": 2,
+          "exponent": 3.7704,
+          "coeff": -1.710217
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 128.8391,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 120.3786,
+              "coeff": 12.852851
+            },
+            {
+              "r_power": 2,
+              "exponent": 63.5622,
+              "coeff": 275.672398
+            },
+            {
+              "r_power": 2,
+              "exponent": 18.0695,
+              "coeff": 115.677712
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.8142,
+              "coeff": 35.060609
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 216.5263,
+              "coeff": 5.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 46.5723,
+              "coeff": 7.479486
+            },
+            {
+              "r_power": 2,
+              "exponent": 147.4685,
+              "coeff": 613.032
+            },
+            {
+              "r_power": 2,
+              "exponent": 48.9869,
+              "coeff": 280.800685
+            },
+            {
+              "r_power": 2,
+              "exponent": 13.2096,
+              "coeff": 107.878824
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.1831,
+              "coeff": 15.343956
+            }
+          ]
+        }
+      ]
+    },
+    "Ge": {
+      "core_electrons": 28,
+      "l_max": 3,
+      "local": [
+        {
+          "r_power": 1,
+          "exponent": 318.2167583,
+          "coeff": -28.0
+        },
+        {
+          "r_power": 2,
+          "exponent": 61.5370967,
+          "coeff": -180.9891676
+        },
+        {
+          "r_power": 2,
+          "exponent": 13.2986899,
+          "coeff": -55.0043909
+        },
+        {
+          "r_power": 2,
+          "exponent": 3.8985215,
+          "coeff": -19.7906526
+        },
+        {
+          "r_power": 2,
+          "exponent": 1.2137666,
+          "coeff": -1.8533572
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 205.1886932,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 68.9790278,
+              "coeff": 65.2262558
+            },
+            {
+              "r_power": 2,
+              "exponent": 27.9194879,
+              "coeff": 225.2354522
+            },
+            {
+              "r_power": 2,
+              "exponent": 8.548165,
+              "coeff": 94.0125472
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.3173734,
+              "coeff": 29.9415005
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 33.2488002,
+              "coeff": 5.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 15.7777247,
+              "coeff": 23.4778157
+            },
+            {
+              "r_power": 2,
+              "exponent": 14.9260722,
+              "coeff": 45.0980414
+            },
+            {
+              "r_power": 2,
+              "exponent": 5.8416394,
+              "coeff": 56.3326957
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.8349575,
+              "coeff": 16.605864
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 42.0206343,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 19.2096363,
+              "coeff": 23.7371518
+            },
+            {
+              "r_power": 2,
+              "exponent": 9.4133917,
+              "coeff": 56.4792249
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.3282907,
+              "coeff": 25.8901835
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.8522331,
+              "coeff": 3.0229836
+            }
+          ]
+        }
+      ]
+    },
+    "I": {
+      "core_electrons": 46,
+      "l_max": 3,
+      "local": [
+        {
+          "r_power": 0,
+          "exponent": 1.0715702,
+          "coeff": -0.0747621
+        },
+        {
+          "r_power": 1,
+          "exponent": 44.1936028,
+          "coeff": -30.0811224
+        },
+        {
+          "r_power": 2,
+          "exponent": 12.9367609,
+          "coeff": -75.3722721
+        },
+        {
+          "r_power": 2,
+          "exponent": 3.1956412,
+          "coeff": -22.0563758
+        },
+        {
+          "r_power": 2,
+          "exponent": 0.8589806,
+          "coeff": -1.6979585
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 127.920267,
+              "coeff": 2.9380036
+            },
+            {
+              "r_power": 1,
+              "exponent": 78.6211465,
+              "coeff": 41.2471267
+            },
+            {
+              "r_power": 2,
+              "exponent": 36.5146237,
+              "coeff": 287.8680095
+            },
+            {
+              "r_power": 2,
+              "exponent": 9.9065681,
+              "coeff": 114.3758506
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.9420086,
+              "coeff": 37.6547714
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 13.0035304,
+              "coeff": 2.222263
+            },
+            {
+              "r_power": 1,
+              "exponent": 76.0331404,
+              "coeff": 39.4090831
+            },
+            {
+              "r_power": 2,
+              "exponent": 24.1961684,
+              "coeff": 177.4075002
+            },
+            {
+              "r_power": 2,
+              "exponent": 6.4053433,
+              "coeff": 77.9889462
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.5851786,
+              "coeff": 25.7547641
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 40.4278108,
+              "coeff": 7.052436
+            },
+            {
+              "r_power": 1,
+              "exponent": 28.9084375,
+              "coeff": 33.3041635
+            },
+            {
+              "r_power": 2,
+              "exponent": 15.6268936,
+              "coeff": 186.9453875
+            },
+            {
+              "r_power": 2,
+              "exponent": 4.1442856,
+              "coeff": 71.9688361
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.9377235,
+              "coeff": 9.3630657
+            }
+          ]
+        }
+      ]
+    },
+    "P": {
+      "core_electrons": 10,
+      "l_max": 2,
+      "local": [
+        {
+          "r_power": 1,
+          "exponent": 462.1211423,
+          "coeff": -10.0
+        },
+        {
+          "r_power": 2,
+          "exponent": 93.6863701,
+          "coeff": -79.4864658
+        },
+        {
+          "r_power": 2,
+          "exponent": 21.2349094,
+          "coeff": -28.3668251
+        },
+        {
+          "r_power": 2,
+          "exponent": 6.3388415,
+          "coeff": -9.8577589
+        },
+        {
+          "r_power": 2,
+          "exponent": 2.0620684,
+          "coeff": -1.0163783
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 78.0831823,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 58.957681,
+              "coeff": 12.9104154
+            },
+            {
+              "r_power": 2,
+              "exponent": 36.0571255,
+              "coeff": 150.0250298
+            },
+            {
+              "r_power": 2,
+              "exponent": 11.2464453,
+              "coeff": 71.7083146
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.6757561,
+              "coeff": 23.0397012
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 75.161788,
+              "coeff": 5.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 57.4544041,
+              "coeff": 6.3446507
+            },
+            {
+              "r_power": 2,
+              "exponent": 47.9481748,
+              "coeff": 198.5585104
+            },
+            {
+              "r_power": 2,
+              "exponent": 18.458836,
+              "coeff": 111.147082
+            },
+            {
+              "r_power": 2,
+              "exponent": 5.941419,
+              "coeff": 40.3944144
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.8487507,
+              "coeff": 6.4483233
+            }
+          ]
+        }
+      ]
+    },
+    "Pb": {
+      "core_electrons": 78,
+      "l_max": 4,
+      "local": [
+        {
+          "r_power": 0,
+          "exponent": 376.5803786,
+          "coeff": -0.1789605
+        },
+        {
+          "r_power": 1,
+          "exponent": 86.4840014,
+          "coeff": -54.3972337
+        },
+        {
+          "r_power": 2,
+          "exponent": 26.6784276,
+          "coeff": -199.7061759
+        },
+        {
+          "r_power": 2,
+          "exponent": 9.4261986,
+          "coeff": -79.1223941
+        },
+        {
+          "r_power": 2,
+          "exponent": 2.7101719,
+          "coeff": -24.986902
+        },
+        {
+          "r_power": 2,
+          "exponent": 0.8792031,
+          "coeff": -4.4397939
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 132.4248796,
+              "coeff": 2.8115386
+            },
+            {
+              "r_power": 1,
+              "exponent": 47.2376044,
+              "coeff": 65.0367205
+            },
+            {
+              "r_power": 2,
+              "exponent": 17.6312727,
+              "coeff": 212.7868545
+            },
+            {
+              "r_power": 2,
+              "exponent": 5.4744712,
+              "coeff": 72.1053175
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.2634856,
+              "coeff": 33.014094
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.7651447,
+              "coeff": -5.7708461
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 67.8966454,
+              "coeff": 4.8754911
+            },
+            {
+              "r_power": 1,
+              "exponent": 24.9898225,
+              "coeff": 63.9148102
+            },
+            {
+              "r_power": 2,
+              "exponent": 10.7052939,
+              "coeff": 148.1064358
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.2792568,
+              "coeff": 47.3106301
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.8452522,
+              "coeff": 21.0306702
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.6416245,
+              "coeff": -7.0930772
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 68.8336005,
+              "coeff": 3.2161388
+            },
+            {
+              "r_power": 1,
+              "exponent": 24.2815874,
+              "coeff": 55.7386086
+            },
+            {
+              "r_power": 2,
+              "exponent": 9.4532762,
+              "coeff": 121.4168351
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.4788185,
+              "coeff": 19.3456064
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.4789161,
+              "coeff": 15.3675168
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.5551738,
+              "coeff": 6.1298724
+            }
+          ]
+        },
+        {
+          "angular_momentum": 3,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 128.1021322,
+              "coeff": 4.1353682
+            },
+            {
+              "r_power": 1,
+              "exponent": 54.8029154,
+              "coeff": 67.5128446
+            },
+            {
+              "r_power": 2,
+              "exponent": 24.5529308,
+              "coeff": 258.7373107
+            },
+            {
+              "r_power": 2,
+              "exponent": 8.1144792,
+              "coeff": 113.2478264
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.693129,
+              "coeff": 34.1680201
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.76705,
+              "coeff": -6.5531956
+            }
+          ]
+        }
+      ]
+    },
+    "S": {
+      "core_electrons": 10,
+      "l_max": 2,
+      "local": [
+        {
+          "r_power": 1,
+          "exponent": 532.6685222,
+          "coeff": -10.0
+        },
+        {
+          "r_power": 2,
+          "exponent": 108.1342248,
+          "coeff": -85.3593846
+        },
+        {
+          "r_power": 2,
+          "exponent": 24.5697664,
+          "coeff": -30.451329
+        },
+        {
+          "r_power": 2,
+          "exponent": 7.3702438,
+          "coeff": -10.3745886
+        },
+        {
+          "r_power": 2,
+          "exponent": 2.3712569,
+          "coeff": -0.9899295
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 106.3176781,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 100.8245833,
+              "coeff": 10.6284036
+            },
+            {
+              "r_power": 2,
+              "exponent": 53.5858472,
+              "coeff": 223.6360469
+            },
+            {
+              "r_power": 2,
+              "exponent": 15.3706332,
+              "coeff": 93.6460845
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.1778402,
+              "coeff": 28.7609065
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 101.9709185,
+              "coeff": 5.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 93.2808973,
+              "coeff": 6.0969842
+            },
+            {
+              "r_power": 2,
+              "exponent": 65.1431772,
+              "coeff": 285.44255
+            },
+            {
+              "r_power": 2,
+              "exponent": 24.634744,
+              "coeff": 147.1448413
+            },
+            {
+              "r_power": 2,
+              "exponent": 7.8120535,
+              "coeff": 53.6569778
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.311273,
+              "coeff": 8.9249559
+            }
+          ]
+        }
+      ]
+    },
+    "Sb": {
+      "core_electrons": 46,
+      "l_max": 3,
+      "local": [
+        {
+          "r_power": 0,
+          "exponent": 227.2723558,
+          "coeff": -0.0692261
+        },
+        {
+          "r_power": 1,
+          "exponent": 77.1429882,
+          "coeff": -31.5434712
+        },
+        {
+          "r_power": 2,
+          "exponent": 26.0116501,
+          "coeff": -115.8407306
+        },
+        {
+          "r_power": 2,
+          "exponent": 9.1421159,
+          "coeff": -42.0224212
+        },
+        {
+          "r_power": 2,
+          "exponent": 2.9281082,
+          "coeff": -20.0463938
+        },
+        {
+          "r_power": 2,
+          "exponent": 0.9231136,
+          "coeff": -2.8796028
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 116.0010888,
+              "coeff": 2.9331303
+            },
+            {
+              "r_power": 1,
+              "exponent": 59.6755065,
+              "coeff": 44.1104819
+            },
+            {
+              "r_power": 2,
+              "exponent": 27.6135849,
+              "coeff": 228.019805
+            },
+            {
+              "r_power": 2,
+              "exponent": 7.8045081,
+              "coeff": 92.5610162
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.6934418,
+              "coeff": 31.2537244
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 27.8050796,
+              "coeff": 4.9947369
+            },
+            {
+              "r_power": 1,
+              "exponent": 10.3929685,
+              "coeff": 38.022386
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.6381067,
+              "coeff": 62.0520654
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.9839681,
+              "coeff": -49.5489389
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.5546562,
+              "coeff": 51.3666
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 83.218303,
+              "coeff": 2.973847
+            },
+            {
+              "r_power": 1,
+              "exponent": 30.3070501,
+              "coeff": 41.6495825
+            },
+            {
+              "r_power": 2,
+              "exponent": 13.201412,
+              "coeff": 104.5919562
+            },
+            {
+              "r_power": 2,
+              "exponent": 3.6961611,
+              "coeff": 42.3187857
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.7711144,
+              "coeff": 7.9413503
+            }
+          ]
+        }
+      ]
+    },
+    "Se": {
+      "core_electrons": 28,
+      "l_max": 3,
+      "local": [
+        {
+          "r_power": 1,
+          "exponent": 433.1931336,
+          "coeff": -28.0
+        },
+        {
+          "r_power": 2,
+          "exponent": 83.8952157,
+          "coeff": -214.3841762
+        },
+        {
+          "r_power": 2,
+          "exponent": 18.5839139,
+          "coeff": -65.6918782
+        },
+        {
+          "r_power": 2,
+          "exponent": 5.3955286,
+          "coeff": -24.6153932
+        },
+        {
+          "r_power": 2,
+          "exponent": 1.7474326,
+          "coeff": -2.4481497
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 202.8986193,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 78.3820487,
+              "coeff": 62.029539
+            },
+            {
+              "r_power": 2,
+              "exponent": 35.0753037,
+              "coeff": 258.8555984
+            },
+            {
+              "r_power": 2,
+              "exponent": 10.8769543,
+              "coeff": 118.7800153
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.8005941,
+              "coeff": 38.2355279
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 44.3011875,
+              "coeff": 5.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 20.3874206,
+              "coeff": 24.7973458
+            },
+            {
+              "r_power": 2,
+              "exponent": 23.1889948,
+              "coeff": 63.757564
+            },
+            {
+              "r_power": 2,
+              "exponent": 7.9777664,
+              "coeff": 79.0512831
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.2988146,
+              "coeff": 22.9520183
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 73.3628263,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 48.3835618,
+              "coeff": 22.4705907
+            },
+            {
+              "r_power": 2,
+              "exponent": 25.6297211,
+              "coeff": 140.5492887
+            },
+            {
+              "r_power": 2,
+              "exponent": 7.1705822,
+              "coeff": 63.5781835
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.3639538,
+              "coeff": 7.0753614
+            }
+          ]
+        }
+      ]
+    },
+    "Si": {
+      "core_electrons": 10,
+      "l_max": 2,
+      "local": [
+        {
+          "r_power": 1,
+          "exponent": 505.3137693,
+          "coeff": -10.0
+        },
+        {
+          "r_power": 2,
+          "exponent": 103.2221026,
+          "coeff": -84.9236087
+        },
+        {
+          "r_power": 2,
+          "exponent": 23.4569248,
+          "coeff": -30.329941
+        },
+        {
+          "r_power": 2,
+          "exponent": 6.7505693,
+          "coeff": -12.1049046
+        },
+        {
+          "r_power": 2,
+          "exponent": 2.160314,
+          "coeff": -1.8945408
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 689.4910719,
+              "coeff": 3.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 114.172851,
+              "coeff": 60.5206833
+            },
+            {
+              "r_power": 2,
+              "exponent": 35.7424336,
+              "coeff": 201.3086137
+            },
+            {
+              "r_power": 2,
+              "exponent": 9.4529586,
+              "coeff": 65.9399745
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.254359,
+              "coeff": 19.0300789
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 88.9379355,
+              "coeff": 5.0
+            },
+            {
+              "r_power": 1,
+              "exponent": 76.7773538,
+              "coeff": 6.6413817
+            },
+            {
+              "r_power": 2,
+              "exponent": 56.1480987,
+              "coeff": 247.5972416
+            },
+            {
+              "r_power": 2,
+              "exponent": 21.1874014,
+              "coeff": 129.371538
+            },
+            {
+              "r_power": 2,
+              "exponent": 6.8277276,
+              "coeff": 47.4617107
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.1001192,
+              "coeff": 11.7376574
+            }
+          ]
+        }
+      ]
+    },
+    "Sn": {
+      "core_electrons": 46,
+      "l_max": 3,
+      "local": [
+        {
+          "r_power": 0,
+          "exponent": 0.2169021,
+          "coeff": -0.066538
+        },
+        {
+          "r_power": 1,
+          "exponent": 33.3097182,
+          "coeff": -29.7469416
+        },
+        {
+          "r_power": 2,
+          "exponent": 9.8846832,
+          "coeff": -61.8307278
+        },
+        {
+          "r_power": 2,
+          "exponent": 2.5019593,
+          "coeff": -18.9410634
+        },
+        {
+          "r_power": 2,
+          "exponent": 0.7833323,
+          "coeff": -2.2384982
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 155.6062293,
+              "coeff": 2.9482777
+            },
+            {
+              "r_power": 1,
+              "exponent": 56.5145464,
+              "coeff": 63.7614718
+            },
+            {
+              "r_power": 2,
+              "exponent": 22.6583648,
+              "coeff": 230.5276788
+            },
+            {
+              "r_power": 2,
+              "exponent": 6.583708,
+              "coeff": 85.0713314
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.5947702,
+              "coeff": 28.8215644
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 40.4666705,
+              "coeff": 2.6941946
+            },
+            {
+              "r_power": 1,
+              "exponent": 13.621844,
+              "coeff": 44.8271079
+            },
+            {
+              "r_power": 2,
+              "exponent": 4.1092688,
+              "coeff": 57.622337
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.5046137,
+              "coeff": -44.6853312
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.3646762,
+              "coeff": 57.1351815
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 60.1915052,
+              "coeff": 3.0259297
+            },
+            {
+              "r_power": 1,
+              "exponent": 20.4961142,
+              "coeff": 39.5341071
+            },
+            {
+              "r_power": 2,
+              "exponent": 8.4438328,
+              "coeff": 68.4686504
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.610379,
+              "coeff": 29.1123764
+            },
+            {
+              "r_power": 2,
+              "exponent": 0.6501317,
+              "coeff": 5.8428577
+            }
+          ]
+        }
+      ]
+    },
+    "Te": {
+      "core_electrons": 46,
+      "l_max": 3,
+      "local": [
+        {
+          "r_power": 0,
+          "exponent": 285.0323292,
+          "coeff": -0.0719675
+        },
+        {
+          "r_power": 1,
+          "exponent": 75.9105798,
+          "coeff": -31.3740754
+        },
+        {
+          "r_power": 2,
+          "exponent": 26.1827859,
+          "coeff": -112.9711996
+        },
+        {
+          "r_power": 2,
+          "exponent": 9.0635141,
+          "coeff": -41.9599185
+        },
+        {
+          "r_power": 2,
+          "exponent": 2.9543257,
+          "coeff": -19.1274006
+        },
+        {
+          "r_power": 2,
+          "exponent": 0.9169942,
+          "coeff": -2.2917778
+        }
+      ],
+      "semilocal": [
+        {
+          "angular_momentum": 0,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 188.3327504,
+              "coeff": 2.9286639
+            },
+            {
+              "r_power": 1,
+              "exponent": 68.6306921,
+              "coeff": 68.9626773
+            },
+            {
+              "r_power": 2,
+              "exponent": 27.4402195,
+              "coeff": 276.9637063
+            },
+            {
+              "r_power": 2,
+              "exponent": 7.8835282,
+              "coeff": 104.4701765
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.8443362,
+              "coeff": 34.8384805
+            }
+          ]
+        },
+        {
+          "angular_momentum": 1,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 54.0822795,
+              "coeff": 4.9732188
+            },
+            {
+              "r_power": 1,
+              "exponent": 28.5434714,
+              "coeff": 38.8983634
+            },
+            {
+              "r_power": 2,
+              "exponent": 16.8660857,
+              "coeff": 137.3139246
+            },
+            {
+              "r_power": 2,
+              "exponent": 5.5244176,
+              "coeff": 69.7370323
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.4625225,
+              "coeff": 22.7487178
+            }
+          ]
+        },
+        {
+          "angular_momentum": 2,
+          "terms": [
+            {
+              "r_power": 0,
+              "exponent": 34.5312648,
+              "coeff": 3.1548778
+            },
+            {
+              "r_power": 1,
+              "exponent": 11.2699366,
+              "coeff": 33.1153649
+            },
+            {
+              "r_power": 2,
+              "exponent": 2.2704361,
+              "coeff": 210.3056318
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.7766992,
+              "coeff": -321.1963746
+            },
+            {
+              "r_power": 2,
+              "exponent": 1.4251666,
+              "coeff": 152.4853001
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

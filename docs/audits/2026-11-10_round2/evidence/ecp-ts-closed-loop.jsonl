@@ -1,0 +1,17 @@
+{"probe": "provenance", "extension": "E:\\YDW\\Trae_Gaussian\\calchem\\_core.pyd", "sha256": "f1dd4e205a4ac853848c934dfd2fa515dcbff71e2211ffdebaf065dc1d4c1690"}
+{"probe": "ECP_gradient", "symbols": ["H", "Br"], "basis": "lanl2dz", "gradient_errors": [1.0420842856163903e-08, 1.1571419378242354e-09], "total_force_norm": 5.352930818835352e-15}
+{"probe": "ECP_gradient", "symbols": ["H", "I"], "basis": "lanl2dzdp", "gradient_errors": [8.44224268270466e-09, 9.815439572236073e-10], "total_force_norm": 2.0023278200110692e-15}
+{"probe": "minimum_TS_rejection", "converged": false, "frequency_cm": 5480.991887971101}
+Traceback (most recent call last):
+  File "E:\YDW\Trae_Gaussian\docs\audits\2026-11-10_round2\probes\ecp_and_ts.py", line 25, in <module>
+    r=NativeCalchem().run(req)
+  File "E:\YDW\Trae_Gaussian\calchem\core\calculator.py", line 96, in run
+    return self.irc(request)
+           ~~~~~~~~^^^^^^^^^
+  File "E:\YDW\Trae_Gaussian\calchem\backends\native.py", line 1226, in irc
+    path_complete = bool(branches) and all(b.converged_to_minimum for b in branches)
+                                       ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\YDW\Trae_Gaussian\calchem\backends\native.py", line 1226, in <genexpr>
+    path_complete = bool(branches) and all(b.converged_to_minimum for b in branches)
+                                           ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'builtins.IrcBranch' object has no attribute 'converged_to_minimum'

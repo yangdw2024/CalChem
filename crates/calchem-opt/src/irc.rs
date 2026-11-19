@@ -10,9 +10,7 @@ use calchem_model::{CalcError, Molecule, ScfOptions};
 use calchem_vib::masses::{atomic_mass_amu, HARTREE_TO_KCAL_MOL};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    coords_from_mol, dot_prod, mol_with_coords, scf_energy_gradient, Reference,
-};
+use crate::{coords_from_mol, dot_prod, mol_with_coords, scf_energy_gradient, Reference};
 
 /// Direction to follow the Intrinsic Reaction Coordinate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -125,15 +123,24 @@ fn get_masses_3n(mol: &Molecule) -> Vec<f64> {
 }
 
 fn to_mass_weighted(x: &[f64], masses: &[f64]) -> Vec<f64> {
-    x.iter().zip(masses.iter()).map(|(&xi, &mi)| xi * mi.sqrt()).collect()
+    x.iter()
+        .zip(masses.iter())
+        .map(|(&xi, &mi)| xi * mi.sqrt())
+        .collect()
 }
 
 fn from_mass_weighted(q: &[f64], masses: &[f64]) -> Vec<f64> {
-    q.iter().zip(masses.iter()).map(|(&qi, &mi)| qi / mi.sqrt()).collect()
+    q.iter()
+        .zip(masses.iter())
+        .map(|(&qi, &mi)| qi / mi.sqrt())
+        .collect()
 }
 
 fn gradient_mass_weighted(g: &[f64], masses: &[f64]) -> Vec<f64> {
-    g.iter().zip(masses.iter()).map(|(&gi, &mi)| gi / mi.sqrt()).collect()
+    g.iter()
+        .zip(masses.iter())
+        .map(|(&gi, &mi)| gi / mi.sqrt())
+        .collect()
 }
 
 fn eval_q_energy_gradient(
@@ -194,75 +201,89 @@ fn integrate_irc_branch(
     let mut min_energy = e_ts;
 
     for pt_idx in 1..=opts.max_points {
-        let mut accepted=None;
+        let mut accepted = None;
         for _retry in 0..8 {
-        let radius=0.5*ds;
-        // Hypersphere center: q_star = q_cur + 0.5 * ds * p_k
-        let mut q_star = vec![0.0; dim];
-        for i in 0..dim {
-            q_star[i] = q_cur[i] + radius * p_k[i];
-        }
-
-        // Initial guess on the hypersphere: q_cur + ds * p_k
-        let mut q_trial = vec![0.0; dim];
-        for i in 0..dim {
-            q_trial[i] = q_cur[i] + ds * p_k[i];
-        }
-
-        // Gonzalez-Schlegel constrained hypersphere minimization
-        for _ in 0..opts.max_gs_iter {
-            let (_e_eval, g_q, _pt_m) = eval_q_energy_gradient(&q_trial, masses, base_mol, basis_name, opts)?;
-
-            // Radial unit vector from sphere center to current trial point
-            let mut u = vec![0.0; dim];
+            let radius = 0.5 * ds;
+            // Hypersphere center: q_star = q_cur + 0.5 * ds * p_k
+            let mut q_star = vec![0.0; dim];
             for i in 0..dim {
-                u[i] = (q_trial[i] - q_star[i]) / radius;
+                q_star[i] = q_cur[i] + radius * p_k[i];
             }
-            let g_dot_u = dot_prod(&g_q, &u);
 
-            // Perpendicular tangent gradient: g_perp = g_q - (g_q . u) * u
-            let mut g_perp = vec![0.0; dim];
+            // Initial guess on the hypersphere: q_cur + ds * p_k
+            let mut q_trial = vec![0.0; dim];
             for i in 0..dim {
-                g_perp[i] = g_q[i] - g_dot_u * u[i];
+                q_trial[i] = q_cur[i] + ds * p_k[i];
             }
-            let g_perp_norm = dot_prod(&g_perp, &g_perp).sqrt();
-            if g_perp_norm < opts.convergence_tol {
+
+            // Gonzalez-Schlegel constrained hypersphere minimization
+            for _ in 0..opts.max_gs_iter {
+                let (_e_eval, g_q, _pt_m) =
+                    eval_q_energy_gradient(&q_trial, masses, base_mol, basis_name, opts)?;
+
+                // Radial unit vector from sphere center to current trial point
+                let mut u = vec![0.0; dim];
+                for i in 0..dim {
+                    u[i] = (q_trial[i] - q_star[i]) / radius;
+                }
+                let g_dot_u = dot_prod(&g_q, &u);
+
+                // Perpendicular tangent gradient: g_perp = g_q - (g_q . u) * u
+                let mut g_perp = vec![0.0; dim];
+                for i in 0..dim {
+                    g_perp[i] = g_q[i] - g_dot_u * u[i];
+                }
+                let g_perp_norm = dot_prod(&g_perp, &g_perp).sqrt();
+                if g_perp_norm < opts.convergence_tol {
+                    break;
+                }
+
+                // Step in tangent space with curvature-safe damping
+                let alpha = (radius / (g_perp_norm + 1e-4)).clamp(0.05, 0.8);
+                let mut q_cand = vec![0.0; dim];
+                for i in 0..dim {
+                    q_cand[i] = q_trial[i] - alpha * g_perp[i];
+                }
+
+                // Project back onto the sphere of radius R
+                let mut diff = vec![0.0; dim];
+                for i in 0..dim {
+                    diff[i] = q_cand[i] - q_star[i];
+                }
+                let diff_norm = dot_prod(&diff, &diff).sqrt().max(1e-14);
+                for i in 0..dim {
+                    q_trial[i] = q_star[i] + radius * (diff[i] / diff_norm);
+                }
+            }
+
+            // Always evaluate exact energy & gradient at the final q_trial geometry
+            // to guarantee coordinates, energy, and forces are strictly synchronized.
+            let (e_k, g_k, pt_mol) =
+                eval_q_energy_gradient(&q_trial, masses, base_mol, basis_name, opts)?;
+            let g_k_norm = dot_prod(&g_k, &g_k).sqrt();
+            let u: Vec<_> = q_trial
+                .iter()
+                .zip(&q_star)
+                .map(|(q, c)| (q - c) / radius)
+                .collect();
+            let radial = dot_prod(&g_k, &u);
+            let tangent_norm = g_k
+                .iter()
+                .zip(&u)
+                .map(|(g, u)| (g - radial * u).powi(2))
+                .sum::<f64>()
+                .sqrt();
+            let previous_e = points
+                .last()
+                .map(|p: &IrcPoint| p.energy_hartree)
+                .unwrap_or(e_ts);
+            if tangent_norm <= opts.convergence_tol && e_k <= previous_e + 1e-8 {
+                accepted = Some((q_trial, e_k, g_k, pt_mol, g_k_norm));
                 break;
             }
-
-            // Step in tangent space with curvature-safe damping
-            let alpha = (radius / (g_perp_norm + 1e-4)).clamp(0.05, 0.8);
-            let mut q_cand = vec![0.0; dim];
-            for i in 0..dim {
-                q_cand[i] = q_trial[i] - alpha * g_perp[i];
-            }
-
-            // Project back onto the sphere of radius R
-            let mut diff = vec![0.0; dim];
-            for i in 0..dim {
-                diff[i] = q_cand[i] - q_star[i];
-            }
-            let diff_norm = dot_prod(&diff, &diff).sqrt().max(1e-14);
-            for i in 0..dim {
-                q_trial[i] = q_star[i] + radius * (diff[i] / diff_norm);
-            }
+            ds *= 0.5;
         }
-
-        // Always evaluate exact energy & gradient at the final q_trial geometry
-        // to guarantee coordinates, energy, and forces are strictly synchronized.
-        let (e_k, g_k, pt_mol) = eval_q_energy_gradient(&q_trial, masses, base_mol, basis_name, opts)?;
-        let g_k_norm = dot_prod(&g_k, &g_k).sqrt();
-        let u:Vec<_>=q_trial.iter().zip(&q_star).map(|(q,c)|(q-c)/radius).collect();
-        let radial=dot_prod(&g_k,&u);
-        let tangent_norm=g_k.iter().zip(&u).map(|(g,u)|(g-radial*u).powi(2)).sum::<f64>().sqrt();
-        let previous_e=points.last().map(|p:&IrcPoint|p.energy_hartree).unwrap_or(e_ts);
-        if tangent_norm<=opts.convergence_tol && e_k<=previous_e+1e-8 {
-            accepted=Some((q_trial,e_k,g_k,pt_mol,g_k_norm));break;
-        }
-        ds*=0.5;
-
-        }
-        let Some((q_trial,e_k,g_k,pt_mol,g_k_norm))=accepted else {
+        let Some((q_trial, e_k, g_k, pt_mol, g_k_norm)) = accepted else {
             // No accepted sphere endpoint: report an incomplete branch, never a minimum.
             break;
         };
@@ -329,12 +350,17 @@ pub fn run_irc(
     transition_vector: &[f64],
     opts: &IrcOptions,
 ) -> Result<IrcResult, CalcError> {
-    let dim=3*ts_mol.atoms.len();
-    if transition_vector.len()!=dim || transition_vector.iter().any(|v|!v.is_finite())
-        || transition_vector.iter().map(|v|v*v).sum::<f64>()<1e-20
-        || !opts.step_size_bohr.is_finite() || opts.step_size_bohr<=0.0
-        || !opts.convergence_tol.is_finite() || opts.convergence_tol<=0.0
-        || opts.max_gs_iter==0 || opts.max_points==0 {
+    let dim = 3 * ts_mol.atoms.len();
+    if transition_vector.len() != dim
+        || transition_vector.iter().any(|v| !v.is_finite())
+        || transition_vector.iter().map(|v| v * v).sum::<f64>() < 1e-20
+        || !opts.step_size_bohr.is_finite()
+        || opts.step_size_bohr <= 0.0
+        || !opts.convergence_tol.is_finite()
+        || opts.convergence_tol <= 0.0
+        || opts.max_gs_iter == 0
+        || opts.max_points == 0
+    {
         return Err(CalcError::InvalidMolecule("IRC requires a nonzero finite 3N mode, positive step/tolerance and nonzero iteration budgets".into()));
     }
     let masses = get_masses_3n(ts_mol);
@@ -344,11 +370,43 @@ pub fn run_irc(
     // Evaluate transition state energy and gradient
     let (e_ts, g_ts_q, _) = eval_q_energy_gradient(&q_ts, &masses, ts_mol, basis_name, opts)?;
     let g_ts_norm = dot_prod(&g_ts_q, &g_ts_q).sqrt();
+    if g_ts_norm > 3.0 * opts.convergence_tol {
+        return Err(CalcError::InvalidMolecule(
+            "IRC starting geometry is not stationary at the requested force tolerance".into(),
+        ));
+    }
+    let hessian = super::prfo::compute_initial_hessian(
+        ts_mol,
+        basis_name,
+        opts.reference,
+        opts.grid_level,
+        &opts.scf_options,
+    )?;
+    let apt = calchem_tensor::Matrix2D::zeros(3, dim);
+    let vib = calchem_vib::analyze_vibrations(ts_mol, &hessian, &apt)?;
+    let negative: Vec<_> = vib
+        .modes
+        .iter()
+        .filter(|m| m.frequency_cm < -10.0)
+        .collect();
+    if negative.len() != 1 || vib.modes.iter().any(|m| m.frequency_cm.abs() <= 10.0) {
+        return Err(CalcError::InvalidMolecule(
+            "IRC starting point must have exactly one resolved imaginary vibrational mode".into(),
+        ));
+    }
 
     // Mass-weight and normalize transition vector
     let q_tangent = to_mass_weighted(transition_vector, &masses);
     let norm_tangent = dot_prod(&q_tangent, &q_tangent).sqrt().max(1e-14);
     let norm_q_tangent: Vec<f64> = q_tangent.into_iter().map(|v| v / norm_tangent).collect();
+    let certified = to_mass_weighted(&negative[0].displacements, &masses);
+    let certified_norm = dot_prod(&certified, &certified).sqrt();
+    let overlap = dot_prod(&norm_q_tangent, &certified).abs() / certified_norm;
+    if overlap < 0.5 {
+        return Err(CalcError::InvalidMolecule(
+            "IRC launch vector does not follow the certified unstable mode".into(),
+        ));
+    }
 
     let ts_point = IrcPoint {
         point_index: 0,
@@ -391,8 +449,14 @@ pub fn run_irc(
         None
     };
 
-    let e_prod = forward.as_ref().filter(|f|f.converged_to_minimum).map(|f| f.final_energy_hartree);
-    let e_react = reverse.as_ref().filter(|r|r.converged_to_minimum).map(|r| r.final_energy_hartree);
+    let e_prod = forward
+        .as_ref()
+        .filter(|f| f.converged_to_minimum)
+        .map(|f| f.final_energy_hartree);
+    let e_react = reverse
+        .as_ref()
+        .filter(|r| r.converged_to_minimum)
+        .map(|r| r.final_energy_hartree);
 
     let rxn_energy = match (e_prod, e_react) {
         (Some(p), Some(r)) => Some((p - r) * HARTREE_TO_KCAL_MOL),

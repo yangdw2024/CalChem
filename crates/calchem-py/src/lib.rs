@@ -17,18 +17,16 @@ use calchem_prop::{
     IsosurfaceMesh,
 };
 use calchem_scf::{rhf, rks, uhf, uks};
-use calchem_tddft::{
-    broaden_uv_vis_spectrum, run_tddft as rust_run_tddft, run_tddft_from_scf, ExcitedState,
-    OrbitalTransition, SpinManifold, TddftOptions, TddftResult,
-};
-use calchem_vib::{
-    compute_frequencies_and_thermo, FreqOptions, VibMethod,
-};
 use calchem_solv::{
     run_scrf as rust_run_scrf, BoundaryMatrix, CavityLebedevOrder, CavityOptions,
     CavityPotentialEngine, MolecularCavity, SolvationOptions, Solvent, SolventModel,
     HARTREE_TO_KCAL_MOL,
 };
+use calchem_tddft::{
+    broaden_uv_vis_spectrum, run_tddft as rust_run_tddft, run_tddft_from_scf, ExcitedState,
+    OrbitalTransition, SpinManifold, TddftOptions, TddftResult,
+};
+use calchem_vib::{compute_frequencies_and_thermo, FreqOptions, VibMethod};
 use numpy::{
     PyArray1, PyArray2, PyArray3, PyArrayMethods, PyReadonlyArray2, PyReadonlyArray3,
     PyUntypedArrayMethods,
@@ -59,6 +57,8 @@ fn to_py_err(e: CalcError) -> PyErr {
 #[pyclass]
 #[derive(Clone)]
 pub struct PyScfWavefunction {
+    #[pyo3(get)]
+    pub density_fitting: bool,
     #[pyo3(get)]
     pub converged: bool,
     #[pyo3(get)]
@@ -110,6 +110,14 @@ pub struct PyScfWavefunction {
     pub multiplicity: usize,
     #[pyo3(get)]
     pub xc_functional: Option<String>,
+    #[pyo3(get)]
+    pub gpu_kernel_invocations: usize,
+    #[pyo3(get)]
+    pub gpu_fallback_invocations: usize,
+    #[pyo3(get)]
+    pub diis_disk_backed: bool,
+    #[pyo3(get)]
+    pub rij_metric_truncated_modes: usize,
     pub dipole: Option<[f64; 3]>,
     pub dipole_mag: Option<f64>,
 }
@@ -144,7 +152,9 @@ impl PyScfWavefunction {
             .zip(&self.mo_occupations)
             .filter(|(_, &o)| o > 0.5)
             .map(|(&e, _)| e)
-            .fold(None, |acc: Option<f64>, e| Some(acc.map_or(e, |a| a.max(e))))
+            .fold(None, |acc: Option<f64>, e| {
+                Some(acc.map_or(e, |a| a.max(e)))
+            })
     }
 
     /// Lowest unoccupied MO energy (Eh), or None if there are no virtual orbitals.
@@ -155,7 +165,9 @@ impl PyScfWavefunction {
             .zip(&self.mo_occupations)
             .filter(|(_, &o)| o <= 0.5)
             .map(|(&e, _)| e)
-            .fold(None, |acc: Option<f64>, e| Some(acc.map_or(e, |a| a.min(e))))
+            .fold(None, |acc: Option<f64>, e| {
+                Some(acc.map_or(e, |a| a.min(e)))
+            })
     }
 
     #[getter]
@@ -238,7 +250,11 @@ impl PyIrcPoint {
     fn __repr__(&self) -> String {
         format!(
             "IrcPoint(idx={}, dir='{}', s={:.3}, dE={:.2} kcal/mol, g_norm={:.3e})",
-            self.point_index, self.direction, self.path_coordinate_s, self.delta_energy_kcal_mol, self.gradient_norm
+            self.point_index,
+            self.direction,
+            self.path_coordinate_s,
+            self.delta_energy_kcal_mol,
+            self.gradient_norm
         )
     }
 }
@@ -247,6 +263,8 @@ impl PyIrcPoint {
 #[pyclass(name = "IrcBranch")]
 #[derive(Clone)]
 pub struct PyIrcBranch {
+    #[pyo3(get)]
+    pub converged_to_minimum: bool,
     #[pyo3(get)]
     pub direction: String,
     #[pyo3(get)]
@@ -281,6 +299,12 @@ pub struct PyIrcResult {
     pub reverse: Option<PyIrcBranch>,
     #[pyo3(get)]
     pub total_points: usize,
+    #[pyo3(get)]
+    pub barrier_forward_kcal_mol: Option<f64>,
+    #[pyo3(get)]
+    pub barrier_reverse_kcal_mol: Option<f64>,
+    #[pyo3(get)]
+    pub reaction_energy_kcal_mol: Option<f64>,
 }
 
 #[pymethods]
@@ -288,9 +312,7 @@ impl PyIrcResult {
     fn __repr__(&self) -> String {
         format!(
             "IrcResult(total_points={}, fwd_barrier={:?}, rev_barrier={:?})",
-            self.total_points,
-            self.forward.as_ref().map(|b| b.barrier_kcal_mol),
-            self.reverse.as_ref().map(|b| b.barrier_kcal_mol)
+            self.total_points, self.barrier_forward_kcal_mol, self.barrier_reverse_kcal_mol
         )
     }
 }
@@ -552,9 +574,27 @@ fn resolve_scf_kind(
     }
 }
 
+/// Checks whether a compatible CUDA GPU is available for acceleration.
+#[pyfunction]
+pub fn is_cuda_available() -> bool {
+    calchem_cuda::is_cuda_available()
+}
+
+/// Dynamically enables or disables GPU acceleration.
+#[pyfunction]
+pub fn set_gpu_enabled(enabled: bool) {
+    calchem_cuda::set_gpu_enabled(enabled);
+}
+
+/// Queries free and total GPU VRAM in bytes.
+#[pyfunction]
+pub fn get_cuda_memory_info() -> PyResult<(usize, usize)> {
+    calchem_cuda::get_cuda_memory_info().map_err(to_py_err)
+}
+
 /// Run an RHF, UHF, RKS, or UKS single-point calculation in pure Rust.
 #[pyfunction]
-#[pyo3(signature = (symbols, geometry_bohr, charge=0, multiplicity=1, method="rhf", basis="sto-3g", max_iter=100, conv_energy=1e-10, conv_density=1e-8, use_diis=true, diis_max_vecs=8, damping=0.0, xc=None, grid_level="medium"))]
+#[pyo3(signature = (symbols, geometry_bohr, charge=0, multiplicity=1, method="rhf", basis="sto-3g", max_iter=100, conv_energy=1e-10, conv_density=1e-8, use_diis=true, diis_max_vecs=8, damping=0.0, xc=None, grid_level="medium", direct=None, density_fitting=false, use_gpu=false))]
 #[allow(clippy::too_many_arguments)]
 pub fn run_single_point(
     py: Python<'_>,
@@ -572,6 +612,9 @@ pub fn run_single_point(
     damping: f64,
     xc: Option<&str>,
     grid_level: &str,
+    direct: Option<bool>,
+    density_fitting: bool,
+    use_gpu: bool,
 ) -> PyResult<PyScfWavefunction> {
     if symbols.len() != geometry_bohr.len() {
         return Err(PyValueError::new_err(
@@ -611,6 +654,9 @@ pub fn run_single_point(
         use_diis,
         diis_max_vecs,
         damping,
+        direct,
+        density_fitting,
+        use_gpu,
         ..Default::default()
     };
 
@@ -648,12 +694,12 @@ pub fn run_single_point(
 
             let mut mo_coefficients = Vec::with_capacity(n * 2 * n);
             for mu in 0..n {
-                mo_coefficients
-                    .extend_from_slice(&wf.mo_coefficients_alpha[mu * n..(mu + 1) * n]);
+                mo_coefficients.extend_from_slice(&wf.mo_coefficients_alpha[mu * n..(mu + 1) * n]);
                 mo_coefficients.extend_from_slice(&wf.mo_coefficients_beta[mu * n..(mu + 1) * n]);
             }
 
             Ok(PyScfWavefunction {
+                density_fitting: wf.density_fitting,
                 converged: wf.converged,
                 iterations: wf.iterations,
                 total_energy_hartree: wf.total_energy_hartree,
@@ -678,6 +724,10 @@ pub fn run_single_point(
                 charge,
                 multiplicity,
                 xc_functional: xc_name,
+                gpu_kernel_invocations: wf.diagnostics.gpu_kernel_invocations,
+                gpu_fallback_invocations: wf.diagnostics.gpu_fallback_invocations,
+                diis_disk_backed: wf.diagnostics.diis_disk_backed,
+                rij_metric_truncated_modes: wf.diagnostics.rij_metric_truncated_modes,
                 dipole: Some(dipole),
                 dipole_mag: Some(dipole_mag),
             })
@@ -695,6 +745,7 @@ pub fn run_single_point(
             let n_occ = wf.mo_occupations.iter().filter(|&&o| o > 0.5).count();
 
             Ok(PyScfWavefunction {
+                density_fitting: wf.density_fitting,
                 converged: wf.converged,
                 iterations: wf.iterations,
                 total_energy_hartree: wf.total_energy_hartree,
@@ -719,6 +770,10 @@ pub fn run_single_point(
                 charge,
                 multiplicity,
                 xc_functional: xc_name,
+                gpu_kernel_invocations: wf.diagnostics.gpu_kernel_invocations,
+                gpu_fallback_invocations: wf.diagnostics.gpu_fallback_invocations,
+                diis_disk_backed: wf.diagnostics.diis_disk_backed,
+                rij_metric_truncated_modes: wf.diagnostics.rij_metric_truncated_modes,
                 dipole: Some(dipole),
                 dipole_mag: Some(dipole_mag),
             })
@@ -730,7 +785,7 @@ pub fn run_single_point(
 ///
 /// Returns a 2D numpy array `(N, 3)` in units of Eh/Bohr.
 #[pyfunction]
-#[pyo3(signature = (atomic_numbers, coords, charge=0, multiplicity=1, basis="sto-3g", method="auto", xc=None, grid_level="medium"))]
+#[pyo3(signature = (atomic_numbers, coords, charge=0, multiplicity=1, basis="sto-3g", method="auto", xc=None, grid_level="medium", density_fitting=false, use_gpu=false, conv_energy=None, conv_density=None))]
 #[allow(clippy::too_many_arguments)]
 pub fn run_gradient<'py>(
     py: Python<'py>,
@@ -742,6 +797,10 @@ pub fn run_gradient<'py>(
     method: &str,
     xc: Option<&str>,
     grid_level: &str,
+    density_fitting: bool,
+    use_gpu: bool,
+    conv_energy: Option<f64>,
+    conv_density: Option<f64>,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let atoms = parse_atoms(atomic_numbers, coords)?;
     let n = atoms.len();
@@ -752,27 +811,31 @@ pub fn run_gradient<'py>(
 
     let mut opts = ScfOptions::default();
     opts.max_iter = 150;
-    opts.conv_energy = 1e-11;
-    opts.conv_density = 1e-9;
+    opts.conv_energy = conv_energy.unwrap_or(1e-11);
+    opts.conv_density = conv_density.unwrap_or(1e-9);
+    opts.density_fitting = density_fitting;
+    opts.use_gpu = use_gpu;
 
-    let grad = py.allow_threads(|| -> PyResult<Vec<[f64; 3]>> { Ok(match scf_kind {
-        ResolvedScfKind::Uhf => {
-            let wf = uhf(&mol, &bs, &opts).map_err(to_py_err)?;
-            uhf_gradient(&mol, &bs, &wf).map_err(to_py_err)?
-        }
-        ResolvedScfKind::Rhf => {
-            let wf = rhf(&mol, &bs, &opts).map_err(to_py_err)?;
-            rhf_gradient(&mol, &bs, &wf).map_err(to_py_err)?
-        }
-        ResolvedScfKind::Rks(func) => {
-            let wf = rks(&mol, &bs, func, gl, &opts).map_err(to_py_err)?;
-            rks_gradient(&mol, &bs, func, gl, &wf).map_err(to_py_err)?
-        }
-        ResolvedScfKind::Uks(func) => {
-            let wf = uks(&mol, &bs, func, gl, &opts).map_err(to_py_err)?;
-            uks_gradient(&mol, &bs, func, gl, &wf).map_err(to_py_err)?
-        }
-    }) })?;
+    let grad = py.allow_threads(|| -> PyResult<Vec<[f64; 3]>> {
+        Ok(match scf_kind {
+            ResolvedScfKind::Uhf => {
+                let wf = uhf(&mol, &bs, &opts).map_err(to_py_err)?;
+                uhf_gradient(&mol, &bs, &wf).map_err(to_py_err)?
+            }
+            ResolvedScfKind::Rhf => {
+                let wf = rhf(&mol, &bs, &opts).map_err(to_py_err)?;
+                rhf_gradient(&mol, &bs, &wf).map_err(to_py_err)?
+            }
+            ResolvedScfKind::Rks(func) => {
+                let wf = rks(&mol, &bs, func, gl, &opts).map_err(to_py_err)?;
+                rks_gradient(&mol, &bs, func, gl, &wf).map_err(to_py_err)?
+            }
+            ResolvedScfKind::Uks(func) => {
+                let wf = uks(&mol, &bs, func, gl, &opts).map_err(to_py_err)?;
+                uks_gradient(&mol, &bs, func, gl, &wf).map_err(to_py_err)?
+            }
+        })
+    })?;
 
     let mut flat = Vec::with_capacity(n * 3);
     for atom_g in grad {
@@ -798,7 +861,9 @@ pub fn run_gradient<'py>(
     xc=None,
     grid_level="medium",
     dispersion=None,
-    solvent=None
+    solvent=None,
+    density_fitting=false,
+    use_gpu=false
 ))]
 pub fn run_optimize(
     py: Python<'_>,
@@ -813,6 +878,8 @@ pub fn run_optimize(
     grid_level: &str,
     dispersion: Option<&str>,
     solvent: Option<&str>,
+    density_fitting: bool,
+    use_gpu: bool,
 ) -> PyResult<PyOptResult> {
     let atoms = parse_atoms(atomic_numbers, coords)?;
     let mol = Molecule::new(atoms, charge, multiplicity);
@@ -830,8 +897,12 @@ pub fn run_optimize(
     opts.grid_level = GridLevel::from_name(grid_level);
     opts.dispersion = dispersion.map(|s| s.to_string());
     opts.solvent = solvent.map(|s| s.to_string());
+    opts.scf_options.density_fitting = density_fitting;
+    opts.scf_options.use_gpu = use_gpu;
 
-    let res = py.allow_threads(|| optimize_geometry_with_options(&mol, basis, &opts)).map_err(to_py_err)?;
+    let res = py
+        .allow_threads(|| optimize_geometry_with_options(&mol, basis, &opts))
+        .map_err(to_py_err)?;
 
     let mut flat_coords = Vec::with_capacity(res.molecule.atoms.len() * 3);
     for atom in &res.molecule.atoms {
@@ -971,9 +1042,8 @@ pub fn extract_single_isosurface_from_grid<'py>(
     } else {
         1.0
     };
-    let mesh =
-        extract_isosurface(slice, origin_bohr, spacing_bohr, counts, isovalue, scale)
-            .map_err(to_py_err)?;
+    let mesh = extract_isosurface(slice, origin_bohr, spacing_bohr, counts, isovalue, scale)
+        .map_err(to_py_err)?;
     PyIsosurfaceMesh::from_rust(py, mesh)
 }
 
@@ -1050,9 +1120,14 @@ pub fn extract_density_isosurface(
         .map_err(to_py_err)?;
         PyDualOrbitalMesh::from_rust(py, dual, -1, 2)
     } else {
-        let grid_vec =
-            compute_density_grid(&bs, &wf.density, spec.origin_bohr, spec.spacing_bohr, spec.counts)
-                .map_err(to_py_err)?;
+        let grid_vec = compute_density_grid(
+            &bs,
+            &wf.density,
+            spec.origin_bohr,
+            spec.spacing_bohr,
+            spec.counts,
+        )
+        .map_err(to_py_err)?;
         let scale = if output_angstrom {
             BOHR_TO_ANGSTROM
         } else {
@@ -1144,8 +1219,14 @@ pub fn export_density_gaussian_cube(
             vec![0.0f32; spec.counts[0] * spec.counts[1] * spec.counts[2]]
         }
     } else {
-        compute_density_grid(&bs, &wf.density, spec.origin_bohr, spec.spacing_bohr, spec.counts)
-            .map_err(to_py_err)?
+        compute_density_grid(
+            &bs,
+            &wf.density,
+            spec.origin_bohr,
+            spec.spacing_bohr,
+            spec.counts,
+        )
+        .map_err(to_py_err)?
     };
     let c2 = if title.trim().is_empty() {
         if spin_density {
@@ -1440,6 +1521,7 @@ fn scf_wfn_to_py(
     let (dipole, dipole_mag) = compute_dipole(mol, bs, &wf.density_alpha);
     let n_occ = wf.mo_occupations.iter().filter(|&&o| o > 0.5).count();
     PyScfWavefunction {
+        density_fitting: wf.density_fitting,
         converged: wf.converged,
         iterations: wf.iterations,
         total_energy_hartree: wf.total_energy_hartree,
@@ -1464,6 +1546,10 @@ fn scf_wfn_to_py(
         charge,
         multiplicity,
         xc_functional: xc_name,
+        gpu_kernel_invocations: wf.diagnostics.gpu_kernel_invocations,
+        gpu_fallback_invocations: wf.diagnostics.gpu_fallback_invocations,
+        diis_disk_backed: wf.diagnostics.diis_disk_backed,
+        rij_metric_truncated_modes: wf.diagnostics.rij_metric_truncated_modes,
         dipole: Some(dipole),
         dipole_mag: Some(dipole_mag),
     }
@@ -1933,6 +2019,7 @@ pub fn run_tddft_from_scf_py(
     };
 
     let scf_wfn = calchem_model::ScfWavefunction {
+        density_fitting: wf.density_fitting,
         converged: wf.converged,
         iterations: wf.iterations,
         total_energy_hartree: wf.total_energy_hartree,
@@ -1953,6 +2040,10 @@ pub fn run_tddft_from_scf_py(
             energy_history: wf.energy_history.clone(),
             rms_density_history: vec![],
             diis_error_history: vec![],
+            gpu_kernel_invocations: wf.gpu_kernel_invocations,
+            gpu_fallback_invocations: wf.gpu_fallback_invocations,
+            diis_disk_backed: wf.diis_disk_backed,
+            rij_metric_truncated_modes: wf.rij_metric_truncated_modes,
         },
     };
 
@@ -2143,12 +2234,20 @@ pub struct PyFrequencyResult {
 impl PyFrequencyResult {
     #[getter]
     fn frequencies_cm(&self) -> Vec<f64> {
-        self.vibrational.modes.iter().map(|m| m.frequency_cm).collect()
+        self.vibrational
+            .modes
+            .iter()
+            .map(|m| m.frequency_cm)
+            .collect()
     }
 
     #[getter]
     fn ir_intensities_km_mol(&self) -> Vec<f64> {
-        self.vibrational.modes.iter().map(|m| m.ir_intensity_km_mol).collect()
+        self.vibrational
+            .modes
+            .iter()
+            .map(|m| m.ir_intensity_km_mol)
+            .collect()
     }
 
     #[getter]
@@ -2406,7 +2505,9 @@ pub fn run_ts_search(
     scf_conv_density: f64,
 ) -> PyResult<PyTsResult> {
     if symbols.len() != geometry_bohr.len() {
-        return Err(PyValueError::new_err("symbols and geometry_bohr length mismatch"));
+        return Err(PyValueError::new_err(
+            "symbols and geometry_bohr length mismatch",
+        ));
     }
     if symbols.len() < 2 {
         return Err(PyValueError::new_err("TS search requires at least 2 atoms"));
@@ -2508,7 +2609,9 @@ pub fn run_irc(
     scf_conv_density: f64,
 ) -> PyResult<PyIrcResult> {
     if symbols.len() != geometry_bohr.len() {
-        return Err(PyValueError::new_err("symbols and geometry_bohr length mismatch"));
+        return Err(PyValueError::new_err(
+            "symbols and geometry_bohr length mismatch",
+        ));
     }
     if transition_vector.len() != 3 * symbols.len() {
         return Err(PyValueError::new_err(format!(
@@ -2524,9 +2627,8 @@ pub fn run_irc(
     }
     let mol = Molecule::new(atoms, charge, multiplicity);
 
-    let reference = Reference::from_method_and_xc(method, xc).map_err(|_| {
-        PyValueError::new_err(format!("Unsupported method in Rust IRC: {method}"))
-    })?;
+    let reference = Reference::from_method_and_xc(method, xc)
+        .map_err(|_| PyValueError::new_err(format!("Unsupported method in Rust IRC: {method}")))?;
 
     let irc_dir = match direction.trim().to_ascii_lowercase().as_str() {
         "forward" | "fwd" => IrcDirection::Forward,
@@ -2580,6 +2682,7 @@ pub fn run_irc(
             .map(|p| p.delta_energy_kcal_mol)
             .unwrap_or(0.0);
         PyIrcBranch {
+            converged_to_minimum: br.converged_to_minimum,
             direction: br.direction.clone(),
             n_points: br.points.len(),
             barrier_kcal_mol: br.barrier_kcal_mol,
@@ -2601,6 +2704,9 @@ pub fn run_irc(
         forward: py_fwd,
         reverse: py_rev,
         total_points: total_pts,
+        barrier_forward_kcal_mol: res.barrier_forward_kcal_mol,
+        barrier_reverse_kcal_mol: res.barrier_reverse_kcal_mol,
+        reaction_energy_kcal_mol: res.reaction_energy_kcal_mol,
     })
 }
 
@@ -2673,6 +2779,8 @@ impl PySolvationResult {
     max_iter=100,
     conv_energy=1e-8,
     conv_density=1e-6,
+    density_fitting=false,
+    use_gpu=false,
 ))]
 pub fn run_solvation(
     py: Python<'_>,
@@ -2690,6 +2798,8 @@ pub fn run_solvation(
     max_iter: usize,
     conv_energy: f64,
     conv_density: f64,
+    density_fitting: bool,
+    use_gpu: bool,
 ) -> PyResult<PySolvationResult> {
     let mut atoms = Vec::with_capacity(symbols.len());
     for (s, pos) in symbols.iter().zip(&coords) {
@@ -2698,16 +2808,20 @@ pub fn run_solvation(
     let mol = Molecule::new(atoms, charge, multiplicity);
     let bs = BasisSet::from_name(basis_name, &mol).map_err(to_py_err)?;
 
-    let solv = Solvent::from_name(solvent).ok_or_else(|| {
-        PyValueError::new_err(format!("Unsupported solvent: '{solvent}'"))
-    })?;
+    let solv = Solvent::from_name(solvent)
+        .ok_or_else(|| PyValueError::new_err(format!("Unsupported solvent: '{solvent}'")))?;
 
     let model = match solvent_model.to_ascii_lowercase().as_str() {
         "cpcm" | "c-pcm" => SolventModel::Cpcm,
         "cosmo" => SolventModel::Cosmo,
         "iefpcm" | "ief-pcm" => SolventModel::IefPcm,
         "onsager" => SolventModel::Onsager,
-        other => return Err(PyValueError::new_err(format!("Unknown solvent model: '{other}'"))),
+        "smd" => SolventModel::Smd,
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "Unknown solvent model: '{other}'"
+            )))
+        }
     };
 
     let cav_opts = CavityOptions {
@@ -2715,6 +2829,7 @@ pub fn run_solvation(
         lebedev_order: CavityLebedevOrder::N50,
         probe_radius_angstrom: 0.0,
         exclusion_tol_bohr: 1e-5,
+        ..Default::default()
     };
 
     model.validate_native().map_err(to_py_err)?;
@@ -2731,6 +2846,8 @@ pub fn run_solvation(
         max_iter,
         conv_energy,
         conv_density,
+        density_fitting,
+        use_gpu,
         ..Default::default()
     };
 
@@ -2745,7 +2862,8 @@ pub fn run_solvation(
         }
     };
 
-    let res = py.allow_threads(|| rust_run_scrf(&mol, &bs, &scf_opts, &solv_opts, method, xc_func))
+    let res = py
+        .allow_threads(|| rust_run_scrf(&mol, &bs, &scf_opts, &solv_opts, method, xc_func))
         .map_err(to_py_err)?;
 
     Ok(PySolvationResult {
@@ -2784,16 +2902,20 @@ pub fn run_pcm_from_scf_py(
 ) -> PyResult<PySolvationResult> {
     let (mol, bs) = scf_wfn.build_mol_and_basis()?;
 
-    let solv = Solvent::from_name(solvent).ok_or_else(|| {
-        PyValueError::new_err(format!("Unsupported solvent: '{solvent}'"))
-    })?;
+    let solv = Solvent::from_name(solvent)
+        .ok_or_else(|| PyValueError::new_err(format!("Unsupported solvent: '{solvent}'")))?;
 
     let model = match solvent_model.to_ascii_lowercase().as_str() {
         "cpcm" | "c-pcm" => SolventModel::Cpcm,
         "cosmo" => SolventModel::Cosmo,
         "iefpcm" | "ief-pcm" => SolventModel::IefPcm,
         "onsager" => SolventModel::Onsager,
-        other => return Err(PyValueError::new_err(format!("Unknown solvent model: '{other}'"))),
+        "smd" => SolventModel::Smd,
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "Unknown solvent model: '{other}'"
+            )))
+        }
     };
     model.validate_native().map_err(to_py_err)?;
 
@@ -2802,6 +2924,7 @@ pub fn run_pcm_from_scf_py(
         lebedev_order: CavityLebedevOrder::N50,
         probe_radius_angstrom: 0.0,
         exclusion_tol_bohr: 1e-5,
+        ..Default::default()
     };
 
     let solv_opts = SolvationOptions {
@@ -2835,7 +2958,11 @@ pub fn run_pcm_from_scf_py(
         .solve_surface_charges(&v_solute, f_eps, net_charge)
         .map_err(to_py_err)?;
 
-    let e_elec_hartree: f64 = 0.5 * q.iter().zip(v_solute.iter()).map(|(&qk, &vk)| qk * vk).sum::<f64>();
+    let e_elec_hartree: f64 = 0.5
+        * q.iter()
+            .zip(v_solute.iter())
+            .map(|(&qk, &vk)| qk * vk)
+            .sum::<f64>();
 
     let cds_kcal_mol = if solv_opts.include_cds {
         solv_opts.solvent.surface_tension_kcal_mol_angstrom2() * cavity.total_area_angstrom2
@@ -2929,8 +3056,11 @@ pub fn run_d3_dispersion(
         "zero" | "d3zero" | "d3(0)" => calchem_dft::D3Model::d3zero(functional),
         "bj" | "d3bj" | "d3(bj)" => calchem_dft::D3Model::d3bj(functional),
         _ => return Err(PyValueError::new_err("D3 damping must be 'bj' or 'zero'")),
-    }.map_err(to_py_err)?;
-    let (e, g) = py.allow_threads(|| d3.energy_and_gradient(&atoms, true)).map_err(to_py_err)?;
+    }
+    .map_err(to_py_err)?;
+    let (e, g) = py
+        .allow_threads(|| d3.energy_and_gradient(&atoms, true))
+        .map_err(to_py_err)?;
     Ok(PyD3Result {
         energy_hartree: e,
         energy_kcal_mol: e * 627.509474,
@@ -2990,21 +3120,28 @@ pub fn run_solvation_gradient<'py>(
         cols: basis.n_ao,
         data: density_slice.to_vec(),
     };
-    let solv = calchem_solv::Solvent::from_name(solvent).ok_or_else(|| {
-        PyValueError::new_err(format!("Unsupported solvent: {solvent}"))
-    })?;
+    let solv = calchem_solv::Solvent::from_name(solvent)
+        .ok_or_else(|| PyValueError::new_err(format!("Unsupported solvent: {solvent}")))?;
     let model = match _solvent_model.to_ascii_lowercase().as_str() {
         "cpcm" | "c-pcm" => calchem_solv::SolventModel::Cpcm,
         "cosmo" => calchem_solv::SolventModel::Cosmo,
         "iefpcm" | "ief-pcm" => calchem_solv::SolventModel::IefPcm,
         "onsager" => calchem_solv::SolventModel::Onsager,
-        other => return Err(PyValueError::new_err(format!("Unknown solvent model: '{other}'"))),
+        "smd" => calchem_solv::SolventModel::Smd,
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "Unknown solvent model: '{other}'"
+            )))
+        }
     };
     let cav_opts = CavityOptions {
         scaling_factor,
         ..Default::default()
     };
-    let grad = py.allow_threads(|| calchem_solv::run_pcm_gradient(&mol, &basis, &d_mat, &solv, model, Some(&cav_opts)))
+    let grad = py
+        .allow_threads(|| {
+            calchem_solv::run_pcm_gradient(&mol, &basis, &d_mat, &solv, model, Some(&cav_opts))
+        })
         .map_err(to_py_err)?;
     let n = grad.len();
     let mut flat = Vec::with_capacity(n * 3);
@@ -3073,5 +3210,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_gaussian_cube_str, m)?)?;
     m.add_function(wrap_pyfunction!(supported_basis_sets, m)?)?;
     m.add_function(wrap_pyfunction!(supported_dft_functionals, m)?)?;
+    m.add_function(wrap_pyfunction!(is_cuda_available, m)?)?;
+    m.add_function(wrap_pyfunction!(set_gpu_enabled, m)?)?;
+    m.add_function(wrap_pyfunction!(get_cuda_memory_info, m)?)?;
     Ok(())
 }

@@ -1,0 +1,12 @@
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2.05s
+     Running tests\independent_audit.rs (build_target\runtime\round2_20261110\target\debug\deps\independent_audit-c8533019b67fad4e.exe)
+
+running 3 tests
+test ri_metric_rank_protection_and_normalization_invariance ... ok
+RI-J cached versus shell-on-the-fly max error=2.897e-11
+test cached_and_on_the_fly_ri_coulomb_agree ... ok
+test erf_zero_large_omega_and_high_angular_center_derivatives ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

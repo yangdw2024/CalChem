@@ -67,6 +67,47 @@ pub fn bondi_vdw_radius(atomic_number: u8) -> f64 {
     }
 }
 
+/// Cavity atomic radii definition mode.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum CavityRadiiMode {
+    /// Bondi vdW radii scaled by `scaling_factor` + `probe_radius_angstrom` (standard C-PCM / COSMO / IEF-PCM).
+    BondiScaled,
+    /// Unscaled SMD intrinsic Coulomb radii (Marenich-Cramer-Truhlar 2009 Eq. 16).
+    SmdIntrinsic { alpha: f64 },
+    /// Mantina/Bondi vdW radii + 0.40 Angstrom solvent probe radius (for SMD CDS SASA).
+    SmdSasa,
+}
+
+impl Default for CavityRadiiMode {
+    fn default() -> Self {
+        Self::BondiScaled
+    }
+}
+
+/// SMD (Marenich-Cramer-Truhlar 2009, Eq. 16) intrinsic Coulomb radii in Angstroms.
+pub fn smd_intrinsic_radius(atomic_number: u8, alpha: f64) -> f64 {
+    match atomic_number {
+        1 => 1.20,  // H
+        6 => 1.85,  // C
+        7 => 1.89,  // N
+        8 => {
+            if alpha >= 0.43 {
+                1.52
+            } else {
+                1.52 + 1.8 * (0.43 - alpha)
+            }
+        }
+        9 => 1.73,  // F
+        14 => 2.47, // Si
+        15 => 2.12, // P
+        16 => 2.49, // S
+        17 => 2.38, // Cl
+        35 => 3.06, // Br (SMD 2009)
+        53 => 3.32, // I (SMD 2009)
+        _ => bondi_vdw_radius(atomic_number),
+    }
+}
+
 /// Options controlling cavity geometry and tessellation density.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CavityOptions {
@@ -78,6 +119,9 @@ pub struct CavityOptions {
     pub probe_radius_angstrom: f64,
     /// Overlap exclusion tolerance in Bohr (default 1e-5).
     pub exclusion_tol_bohr: f64,
+    /// Radii selection mode (BondiScaled by default, or SmdIntrinsic / SmdSasa).
+    #[serde(default)]
+    pub radii_mode: CavityRadiiMode,
 }
 
 impl Default for CavityOptions {
@@ -87,6 +131,7 @@ impl Default for CavityOptions {
             lebedev_order: CavityLebedevOrder::N50,
             probe_radius_angstrom: 0.0,
             exclusion_tol_bohr: 1e-5,
+            radii_mode: CavityRadiiMode::BondiScaled,
         }
     }
 }
@@ -100,6 +145,9 @@ pub struct Tessera {
     pub normal: [f64; 3],
     /// Surface area of this tessera (Bohr^2).
     pub area_bohr2: f64,
+    /// Radius of the parent atomic sphere (Bohr).
+    #[serde(default)]
+    pub radius_bohr: f64,
     /// Index of the parent atom whose sphere generated this tessera.
     pub atom_index: usize,
 }
@@ -129,8 +177,13 @@ impl MolecularCavity {
             .atoms
             .iter()
             .map(|a| {
-                let r_vdw = bondi_vdw_radius(a.z);
-                let r_ang = opts.scaling_factor * r_vdw + opts.probe_radius_angstrom;
+                let r_ang = match opts.radii_mode {
+                    CavityRadiiMode::BondiScaled => {
+                        opts.scaling_factor * bondi_vdw_radius(a.z) + opts.probe_radius_angstrom
+                    }
+                    CavityRadiiMode::SmdIntrinsic { alpha } => smd_intrinsic_radius(a.z, alpha),
+                    CavityRadiiMode::SmdSasa => bondi_vdw_radius(a.z) + 0.40,
+                };
                 r_ang * angstrom_to_bohr
             })
             .collect();
@@ -147,7 +200,11 @@ impl MolecularCavity {
 
             for &(u, w) in lebedev_points {
                 // Point on sphere surface
-                let s = [c_i[0] + r_i * u[0], c_i[1] + r_i * u[1], c_i[2] + r_i * u[2]];
+                let s = [
+                    c_i[0] + r_i * u[0],
+                    c_i[1] + r_i * u[1],
+                    c_i[2] + r_i * u[2],
+                ];
                 let area = w * r_i2;
 
                 // Check whether this point lies inside any other atomic sphere
@@ -158,9 +215,8 @@ impl MolecularCavity {
                     }
                     let c_j = other_atom.position_bohr;
                     let r_j = radii_bohr[j];
-                    let dist2 = (s[0] - c_j[0]).powi(2)
-                        + (s[1] - c_j[1]).powi(2)
-                        + (s[2] - c_j[2]).powi(2);
+                    let dist2 =
+                        (s[0] - c_j[0]).powi(2) + (s[1] - c_j[1]).powi(2) + (s[2] - c_j[2]).powi(2);
 
                     if dist2 < (r_j - opts.exclusion_tol_bohr).powi(2) {
                         buried = true;
@@ -173,6 +229,7 @@ impl MolecularCavity {
                         position_bohr: s,
                         normal: u,
                         area_bohr2: area,
+                        radius_bohr: r_i,
                         atom_index: i,
                     });
                     atomic_areas_bohr2[i] += area;

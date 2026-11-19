@@ -1,0 +1,35 @@
+    Blocking waiting for file lock on build directory
+   Compiling calchem-cuda v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-cuda)
+    Finished `test` profile [optimized + debuginfo] target(s) in 34.42s
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_cuda-e0f5c830271733ff.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cuda_rij_test.rs (build_target\runtime\round2_20261110\target\debug\deps\cuda_rij_test-5b4171677adaaf16.exe)
+
+running 3 tests
+CUDA is available: false
+Skipping CUDA contraction test: device unavailable
+test test_cuda_device_detection ... ok
+test test_cuda_graceful_cpu_fallback ... ok
+test test_cuda_rij_contraction_accuracy ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\ffi_contract.rs (build_target\runtime\round2_20261110\target\debug\deps\ffi_contract-29bc5288ead1f11e.exe)
+
+running 2 tests
+test safe_wrapper_rejects_invalid_lengths_and_overflows_before_ffi ... ok
+CUDA available=false, kernel executed=false, output=[7.0, 9.0]
+test gpu_result_or_unchanged_cpu_fallback_contract ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Doc-tests calchem_cuda
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

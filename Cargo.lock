@@ -51,7 +51,7 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "calchem-basis"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-model",
  "serde",
@@ -60,10 +60,42 @@ dependencies = [
 ]
 
 [[package]]
-name = "calchem-dft"
-version = "0.2.0"
+name = "calchem-cli"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
+ "calchem-cuda",
+ "calchem-dft",
+ "calchem-grad",
+ "calchem-int",
+ "calchem-model",
+ "calchem-opt",
+ "calchem-prop",
+ "calchem-scf",
+ "calchem-solv",
+ "calchem-tddft",
+ "calchem-tensor",
+ "calchem-vib",
+ "rayon",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "calchem-cuda"
+version = "0.2.2"
+dependencies = [
+ "calchem-model",
+ "calchem-tensor",
+ "thiserror",
+]
+
+[[package]]
+name = "calchem-dft"
+version = "0.2.2"
+dependencies = [
+ "calchem-basis",
+ "calchem-cuda",
  "calchem-int",
  "calchem-model",
  "calchem-tensor",
@@ -73,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "calchem-grad"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
  "calchem-dft",
@@ -86,9 +118,10 @@ dependencies = [
 
 [[package]]
 name = "calchem-int"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
+ "calchem-cuda",
  "calchem-model",
  "calchem-tensor",
  "rayon",
@@ -96,7 +129,7 @@ dependencies = [
 
 [[package]]
 name = "calchem-model"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "serde",
  "thiserror",
@@ -104,7 +137,7 @@ dependencies = [
 
 [[package]]
 name = "calchem-opt"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
  "calchem-dft",
@@ -119,7 +152,7 @@ dependencies = [
 
 [[package]]
 name = "calchem-prop"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
  "calchem-int",
@@ -131,9 +164,10 @@ dependencies = [
 
 [[package]]
 name = "calchem-py"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
+ "calchem-cuda",
  "calchem-dft",
  "calchem-grad",
  "calchem-int",
@@ -151,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "calchem-scf"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
  "calchem-dft",
@@ -159,11 +193,12 @@ dependencies = [
  "calchem-int",
  "calchem-model",
  "calchem-tensor",
+ "rayon",
 ]
 
 [[package]]
 name = "calchem-solv"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
  "calchem-dft",
@@ -180,7 +215,7 @@ dependencies = [
 
 [[package]]
 name = "calchem-tddft"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
  "calchem-dft",
@@ -194,7 +229,7 @@ dependencies = [
 
 [[package]]
 name = "calchem-tensor"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-model",
  "faer",
@@ -203,7 +238,7 @@ dependencies = [
 
 [[package]]
 name = "calchem-vib"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "calchem-basis",
  "calchem-dft",

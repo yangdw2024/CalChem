@@ -276,12 +276,12 @@ pub fn one_electron_derivative(
 
                             // Overlap derivative:
                             if sh_a_is_atom {
-                                s_deriv += weight
-                                    * prim_overlap_deriv_a(ca, cb, pa.exponent, axis, &pair);
+                                s_deriv +=
+                                    weight * prim_overlap_deriv_a(ca, cb, pa.exponent, axis, &pair);
                             }
                             if sh_b_is_atom {
-                                s_deriv += weight
-                                    * prim_overlap_deriv_b(ca, cb, pb.exponent, axis, &pair);
+                                s_deriv +=
+                                    weight * prim_overlap_deriv_b(ca, cb, pb.exponent, axis, &pair);
                             }
 
                             // Kinetic derivative:
@@ -408,6 +408,15 @@ pub fn one_electron_derivative(
 ///
 /// Output length is `na * nb * nc * nd` in row-major layout `((ia * nb + ib) * nc + ic) * nd + id`.
 pub fn eri_derivative_quartet(shells: [&Shell; 4], atom: usize, axis: usize) -> Vec<f64> {
+    eri_derivative_quartet_with_omega(shells, atom, axis, None)
+}
+
+pub fn eri_derivative_quartet_with_omega(
+    shells: [&Shell; 4],
+    atom: usize,
+    axis: usize,
+    omega: Option<f64>,
+) -> Vec<f64> {
     let [sh_a, sh_b, sh_c, sh_d] = shells;
     let comps_a = sh_a.components();
     let comps_b = sh_b.components();
@@ -440,7 +449,7 @@ pub fn eri_derivative_quartet(shells: [&Shell; 4], atom: usize, axis: usize) -> 
             for (pc_idx, pc) in sh_c.primitives.iter().enumerate() {
                 for (pd_idx, pd) in sh_d.primitives.iter().enumerate() {
                     let c_abcd = pa.coeff * pb.coeff * pc.coeff * pd.coeff;
-                    let mut rec = EriPairData::new(
+                    let mut rec = EriPairData::new_with_omega(
                         pa.exponent,
                         sh_a.center,
                         pb.exponent,
@@ -451,6 +460,7 @@ pub fn eri_derivative_quartet(shells: [&Shell; 4], atom: usize, axis: usize) -> 
                         sh_d.center,
                         max_ab,
                         max_cd,
+                        omega,
                     );
 
                     for (ia, &ca) in comps_a.iter().enumerate() {

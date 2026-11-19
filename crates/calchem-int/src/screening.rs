@@ -1,5 +1,6 @@
 use crate::eri::eri_shell_quartet;
 use calchem_basis::BasisSet;
+use rayon::prelude::*;
 
 /// Computes the shell-pair upper bounds matrix `B_{ab} = max_(mu in a, nu in b) sqrt(max(0, (mu nu | mu nu)))`.
 /// Returns a flattened `n_shells * n_shells` row-major vector.
@@ -7,27 +8,35 @@ pub fn shell_pair_bounds(basis: &BasisSet) -> Vec<f64> {
     let n = basis.shells.len();
     let mut bounds = vec![0.0; n * n];
 
-    for i in 0..n {
-        for j in i..n {
+    let row_results: Vec<(usize, Vec<(usize, f64)>)> = (0..n)
+        .into_par_iter()
+        .map(|i| {
             let sh_i = &basis.shells[i];
-            let sh_j = &basis.shells[j];
-            let block = eri_shell_quartet(sh_i, sh_j, sh_i, sh_j);
             let ni = sh_i.n_functions();
-            let nj = sh_j.n_functions();
-
-            let mut max_val = 0.0f64;
-            for ii in 0..ni {
-                for jj in 0..nj {
-                    // Index: ((ii * nj + jj) * ni + ii) * nj + jj
-                    let idx = ((ii * nj + jj) * ni + ii) * nj + jj;
-                    let val = block[idx].max(0.0);
-                    if val > max_val {
-                        max_val = val;
+            let mut row = Vec::with_capacity(n - i);
+            for j in i..n {
+                let sh_j = &basis.shells[j];
+                let nj = sh_j.n_functions();
+                let block = eri_shell_quartet(sh_i, sh_j, sh_i, sh_j);
+                let mut max_val = 0.0f64;
+                for ii in 0..ni {
+                    for jj in 0..nj {
+                        // Index: ((ii * nj + jj) * ni + ii) * nj + jj
+                        let idx = ((ii * nj + jj) * ni + ii) * nj + jj;
+                        let val = block[idx].max(0.0);
+                        if val > max_val {
+                            max_val = val;
+                        }
                     }
                 }
+                row.push((j, max_val.sqrt()));
             }
+            (i, row)
+        })
+        .collect();
 
-            let b_val = max_val.sqrt();
+    for (i, row) in row_results {
+        for (j, b_val) in row {
             bounds[i * n + j] = b_val;
             bounds[j * n + i] = b_val;
         }

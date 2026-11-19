@@ -50,7 +50,11 @@ fn test_hcn_isomerization_ts_search_and_irc() {
     // Final geometry should be close to literature TS (R_CN ~ 2.308, R_NH ~ 2.718)
     let ts_mol = &ts_res.molecule;
     let r_cn = ts_mol.atoms[1].position_bohr[0] - ts_mol.atoms[0].position_bohr[0];
-    assert!((r_cn - 2.308).abs() < 0.03, "CN distance should be ~2.308, got {}", r_cn);
+    assert!(
+        (r_cn - 2.308).abs() < 0.03,
+        "CN distance should be ~2.308, got {}",
+        r_cn
+    );
 
     // 2. Run Gonzalez-Schlegel IRC from the Transition State
     let irc_opts = IrcOptions {
@@ -73,7 +77,10 @@ fn test_hcn_isomerization_ts_search_and_irc() {
     assert_eq!(irc_res.transition_state.delta_energy_kcal_mol, 0.0);
 
     // Verify Forward branch (descends in energy towards HCN or HNC)
-    let fwd = irc_res.forward.as_ref().expect("Forward branch should exist");
+    let fwd = irc_res
+        .forward
+        .as_ref()
+        .expect("Forward branch should exist");
     assert!(!fwd.points.is_empty(), "Forward branch should have points");
     let last_fwd = fwd.points.last().unwrap();
     assert!(
@@ -83,7 +90,10 @@ fn test_hcn_isomerization_ts_search_and_irc() {
     assert!(fwd.barrier_kcal_mol > 0.0);
 
     // Verify Reverse branch (descends in energy towards the opposite isomer)
-    let rev = irc_res.reverse.as_ref().expect("Reverse branch should exist");
+    let rev = irc_res
+        .reverse
+        .as_ref()
+        .expect("Reverse branch should exist");
     assert!(!rev.points.is_empty(), "Reverse branch should have points");
     let last_rev = rev.points.last().unwrap();
     assert!(

@@ -178,14 +178,23 @@ pub fn scf_energy_gradient_with_options(
         let e = solvent_total_energy(mol, bs, opts)?;
         let h = 1e-4;
         let mut g = vec![[0.0; 3]; mol.atoms.len()];
-        for a in 0..mol.atoms.len() { for q in 0..3 {
-            let mut plus=mol.clone(); let mut minus=mol.clone();
-            plus.atoms[a].position_bohr[q]+=h;minus.atoms[a].position_bohr[q]-=h;
-            let bp=BasisSet::from_name(&bs.name,&plus)?;let bm=BasisSet::from_name(&bs.name,&minus)?;
-            g[a][q]=(solvent_total_energy(&plus,&bp,opts)?-solvent_total_energy(&minus,&bm,opts)?)/(2.0*h);
-        } }
-        (e,g)
-    } else { scf_energy_gradient(mol, bs, opts.reference, opts.grid_level, &opts.scf_options)? };
+        for a in 0..mol.atoms.len() {
+            for q in 0..3 {
+                let mut plus = mol.clone();
+                let mut minus = mol.clone();
+                plus.atoms[a].position_bohr[q] += h;
+                minus.atoms[a].position_bohr[q] -= h;
+                let bp = BasisSet::from_name(&bs.name, &plus)?;
+                let bm = BasisSet::from_name(&bs.name, &minus)?;
+                g[a][q] = (solvent_total_energy(&plus, &bp, opts)?
+                    - solvent_total_energy(&minus, &bm, opts)?)
+                    / (2.0 * h);
+            }
+        }
+        (e, g)
+    } else {
+        scf_energy_gradient(mol, bs, opts.reference, opts.grid_level, &opts.scf_options)?
+    };
 
     // 1. Dispersion correction (e.g. D3(BJ) or D3(0))
     if opts.dispersion.is_some() {
@@ -199,7 +208,6 @@ pub fn scf_energy_gradient_with_options(
         }
     }
 
-
     Ok((e, g))
 }
 
@@ -208,35 +216,66 @@ pub fn scf_energy_with_options(
     bs: &BasisSet,
     opts: &OptOptions,
 ) -> Result<f64, CalcError> {
-    let mut e=if opts.solvent.is_some() {solvent_total_energy(mol,bs,opts)?}
-        else {scf_energy(mol,bs,opts.reference,opts.grid_level,&opts.scf_options)?};
-    if opts.dispersion.is_some() { e+=dispersion_model(opts)?.energy(&mol.atoms)?; }
+    let mut e = if opts.solvent.is_some() {
+        solvent_total_energy(mol, bs, opts)?
+    } else {
+        scf_energy(mol, bs, opts.reference, opts.grid_level, &opts.scf_options)?
+    };
+    if opts.dispersion.is_some() {
+        e += dispersion_model(opts)?.energy(&mol.atoms)?;
+    }
     Ok(e)
 }
 
-fn dispersion_model(opts:&OptOptions)->Result<calchem_dft::D3Model,CalcError> {
-    let functional=match opts.reference {
-        Reference::Rks(xc)|Reference::Uks(xc)|Reference::DftAuto(xc)=>xc.canonical_name(),
-        _=>"hf",
+fn dispersion_model(opts: &OptOptions) -> Result<calchem_dft::D3Model, CalcError> {
+    let functional = match opts.reference {
+        Reference::Rks(xc) | Reference::Uks(xc) | Reference::DftAuto(xc) => xc.canonical_name(),
+        _ => "hf",
     };
-    match opts.dispersion.as_deref().unwrap_or("").trim().to_ascii_lowercase().as_str() {
-        "bj"|"d3bj"|"d3(bj)"=>calchem_dft::D3Model::d3bj(functional),
-        "zero"|"d3zero"|"d3(0)"=>calchem_dft::D3Model::d3zero(functional),
-        _=>Err(CalcError::UnsupportedMethod("Unknown D3 damping scheme".into())),
+    match opts
+        .dispersion
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "bj" | "d3bj" | "d3(bj)" => calchem_dft::D3Model::d3bj(functional),
+        "zero" | "d3zero" | "d3(0)" => calchem_dft::D3Model::d3zero(functional),
+        _ => Err(CalcError::UnsupportedMethod(
+            "Unknown D3 damping scheme".into(),
+        )),
     }
 }
 
-fn solvent_total_energy(mol:&Molecule,bs:&BasisSet,opts:&OptOptions)->Result<f64,CalcError> {
-    let solvent=calchem_solv::Solvent::from_name(opts.solvent.as_deref().unwrap_or(""))
-        .ok_or_else(||CalcError::InvalidMolecule("Unknown solvent".into()))?;
-    let (method,xc)=match opts.reference.resolve(mol) {
-        Reference::Rhf|Reference::Auto=>("rhf",None),
-        Reference::Rks(xc)=>("rks",Some(xc)),
-        _=>return Err(CalcError::UnsupportedMethod("Open-shell SCRF gradients are not implemented; use an external backend".into())),
+fn solvent_total_energy(
+    mol: &Molecule,
+    bs: &BasisSet,
+    opts: &OptOptions,
+) -> Result<f64, CalcError> {
+    let solvent = calchem_solv::Solvent::from_name(opts.solvent.as_deref().unwrap_or(""))
+        .ok_or_else(|| CalcError::InvalidMolecule("Unknown solvent".into()))?;
+    let (method, xc) = match opts.reference.resolve(mol) {
+        Reference::Rhf | Reference::Auto => ("rhf", None),
+        Reference::Rks(xc) => ("rks", Some(xc)),
+        _ => {
+            return Err(CalcError::UnsupportedMethod(
+                "Open-shell SCRF gradients are not implemented; use an external backend".into(),
+            ))
+        }
     };
-    let solv_opts=calchem_solv::SolvationOptions {solvent,..Default::default()};
-    let res=calchem_solv::run_scrf(mol,bs,&opts.scf_options,&solv_opts,method,xc)?;
-    if !res.converged {return Err(CalcError::NotConverged {iterations:opts.scf_options.max_iter,delta_e:f64::INFINITY,rms_d:f64::INFINITY});}
+    let solv_opts = calchem_solv::SolvationOptions {
+        solvent,
+        ..Default::default()
+    };
+    let res = calchem_solv::run_scrf(mol, bs, &opts.scf_options, &solv_opts, method, xc)?;
+    if !res.converged {
+        return Err(CalcError::NotConverged {
+            iterations: opts.scf_options.max_iter,
+            delta_e: f64::INFINITY,
+            rms_d: f64::INFINITY,
+        });
+    }
     Ok(res.solvated_energy)
 }
 

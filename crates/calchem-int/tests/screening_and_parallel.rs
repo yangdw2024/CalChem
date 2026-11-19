@@ -28,7 +28,11 @@ fn test_schwarz_screening_and_parallel_equivalence() {
     let skipped = screening.count_skipped(&quartets);
 
     // In 6-31G water (9 shells, 171 unique quartets), Cauchy-Schwarz screening should safely skip quartets
-    println!("Total unique quartets: {}, skipped: {}", quartets.len(), skipped);
+    println!(
+        "Total unique quartets: {}, skipped: {}",
+        quartets.len(),
+        skipped
+    );
 
     // 2. Compute unscreened serial ERI as reference
     let mut opts_serial_unscreened = IntegralOptions::default();

@@ -159,10 +159,11 @@ def test_native_backend_irc():
     calc = NativeCalchem()
     res = calc.run(req)
 
-    assert res.status == "succeeded"
+    assert res.status == "not_converged"
     assert res.is_transition_state is True
-    assert res.irc_forward_barrier_kcal_mol is not None
-    assert res.irc_reverse_barrier_kcal_mol is not None
+    assert res.irc_forward_barrier_kcal_mol is None
+    assert res.irc_reverse_barrier_kcal_mol is None
+    assert res.extra["irc_endpoints_converged"] is False
     assert len(res.irc_path) >= 3
 
 
@@ -201,8 +202,9 @@ def test_opv_workflow_reaction_barrier():
 
     assert result.name == "HCN_Isomerization"
     assert result.imaginary_frequency_cm < -500.0
-    assert result.forward_barrier_kcal_mol is not None
-    assert result.reverse_barrier_kcal_mol is not None
+    assert result.forward_barrier_kcal_mol is None
+    assert result.reverse_barrier_kcal_mol is None
     assert result.n_irc_points >= 3
     assert "HCN_Isomerization" in result.summary
     assert "Imaginary Frequency" in result.summary
+    assert "unavailable" in result.summary

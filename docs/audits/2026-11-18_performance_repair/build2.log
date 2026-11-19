@@ -1,0 +1,39 @@
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+error[E0107]: function takes 3 generic arguments but 1 generic argument was supplied
+    --> crates\calchem-tensor\src\lib.rs:92:31
+     |
+  92 |         let left = faer::mat::from_row_major_slice::<f64>(&a.data, a.rows, a.cols);
+     |                               ^^^^^^^^^^^^^^^^^^^^   --- supplied 1 generic argument
+     |                               |
+     |                               expected 3 generic arguments
+     |
+note: function defined here, with 3 generic parameters: `E`, `R`, `C`
+    --> D:\cargo\registry\src\mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda\faer-0.20.2\src\mat\matref.rs:1596:8
+     |
+1596 | pub fn from_row_major_slice<E: SimpleEntity, R: Shape, C: Shape>(
+     |        ^^^^^^^^^^^^^^^^^^^^ -                -         -
+help: add missing generic arguments
+     |
+  92 |         let left = faer::mat::from_row_major_slice::<f64, R, C>(&a.data, a.rows, a.cols);
+     |                                                         ++++++
+
+error[E0107]: function takes 3 generic arguments but 1 generic argument was supplied
+    --> crates\calchem-tensor\src\lib.rs:93:32
+     |
+  93 |         let right = faer::mat::from_row_major_slice::<f64>(&b.data, b.rows, b.cols);
+     |                                ^^^^^^^^^^^^^^^^^^^^   --- supplied 1 generic argument
+     |                                |
+     |                                expected 3 generic arguments
+     |
+note: function defined here, with 3 generic parameters: `E`, `R`, `C`
+    --> D:\cargo\registry\src\mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda\faer-0.20.2\src\mat\matref.rs:1596:8
+     |
+1596 | pub fn from_row_major_slice<E: SimpleEntity, R: Shape, C: Shape>(
+     |        ^^^^^^^^^^^^^^^^^^^^ -                -         -
+help: add missing generic arguments
+     |
+  93 |         let right = faer::mat::from_row_major_slice::<f64, R, C>(&b.data, b.rows, b.cols);
+     |                                                          ++++++
+
+For more information about this error, try `rustc --explain E0107`.
+error: could not compile `calchem-tensor` (lib) due to 2 previous errors

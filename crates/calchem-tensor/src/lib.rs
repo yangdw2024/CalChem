@@ -88,6 +88,15 @@ impl Tensor4D {
 pub fn matmul(a: &Matrix2D, b: &Matrix2D) -> Matrix2D {
     assert_eq!(a.cols, b.rows);
     let mut out = Matrix2D::zeros(a.rows, b.cols);
+    if a.rows.min(a.cols).min(b.cols) >= 96 {
+        let left = faer::mat::from_row_major_slice::<f64, _, _>(&a.data, a.rows, a.cols);
+        let right = faer::mat::from_row_major_slice::<f64, _, _>(&b.data, b.rows, b.cols);
+        let c = left * right;
+        for i in 0..a.rows {
+            for j in 0..b.cols { out.set(i,j,c.read(i,j)); }
+        }
+        return out;
+    }
     for i in 0..a.rows {
         for k in 0..a.cols {
             let aik = a.get(i, k);
@@ -97,6 +106,33 @@ pub fn matmul(a: &Matrix2D, b: &Matrix2D) -> Matrix2D {
         }
     }
     out
+}
+
+/// Single-threaded zero-allocation row-major GEMM: `out(m x n) = a(m x k) * b(k x n)`.
+/// Uses `faer` AVX2 microkernels with `Parallelism::None` so callers can parallelize externally.
+#[inline]
+pub fn gemm_nn_into(m: usize, n: usize, k: usize, a: &[f64], b: &[f64], out: &mut [f64]) {
+    let a_mat = faer::mat::from_row_major_slice::<f64, _, _>(a, m, k);
+    let b_mat = faer::mat::from_row_major_slice::<f64, _, _>(b, k, n);
+    let out_mat = faer::mat::from_row_major_slice_mut::<f64, _, _>(out, m, n);
+    faer::linalg::matmul::matmul(out_mat, a_mat, b_mat, None, 1.0, faer::Parallelism::None);
+}
+
+/// Single-threaded zero-allocation row-major GEMM: `out(m x n) = a(m x k) * b(n x k)^T`.
+/// Uses `faer` AVX2 microkernels with `Parallelism::None` so callers can parallelize externally.
+#[inline]
+pub fn gemm_nt_into(m: usize, n: usize, k: usize, a: &[f64], b: &[f64], out: &mut [f64]) {
+    let a_mat = faer::mat::from_row_major_slice::<f64, _, _>(a, m, k);
+    let b_mat = faer::mat::from_row_major_slice::<f64, _, _>(b, n, k);
+    let out_mat = faer::mat::from_row_major_slice_mut::<f64, _, _>(out, m, n);
+    faer::linalg::matmul::matmul(
+        out_mat,
+        a_mat,
+        b_mat.transpose(),
+        None,
+        1.0,
+        faer::Parallelism::None,
+    );
 }
 
 pub fn transpose(a: &Matrix2D) -> Matrix2D {
@@ -166,6 +202,15 @@ pub fn eigh_sym(
         ));
     }
 
+    if n >= 96 {
+        let sym = faer::Mat::<f64>::from_fn(n,n, |i,j| 0.5*(a.get(i,j)+a.get(j,i)));
+        let eig = sym.selfadjoint_eigendecomposition(faer::Side::Lower);
+        let vals: Vec<_> = (0..n).map(|i| eig.s().column_vector().read(i)).collect();
+        let mut vecs = Matrix2D::zeros(n,n);
+        for i in 0..n { for j in 0..n {vecs.set(i,j,eig.u().read(i,j));} }
+        verify_eigen_residual(a,&vals,&vecs)?;
+        return Ok((vals,vecs));
+    }
     // Symmetrize input matrix A = 0.5 * (A + A^T)
     let mut d = Matrix2D::zeros(n, n);
     for i in 0..n {
@@ -174,10 +219,14 @@ pub fn eigh_sym(
         }
     }
     let mut v = Matrix2D::identity(n);
-    let max_sweeps = max_iter.max(60);
-    let threshold = tol.max(1e-15);
+    let max_sweeps = max_iter.max(100);
+    let a_norm = frobenius_norm(&d).max(1.0);
+    // Respect response/SCF accuracy requests down to a rounding-error floor.
+    // A 1e-11*||A|| floor silently prevented Davidson residuals reaching 1e-10.
+    let effective_tol = tol.max(4.0 * f64::EPSILON * a_norm).max(1e-15);
 
     let mut converged = n <= 1;
+    let mut last_off_norm = 0.0;
     for _sweep in 0..max_sweeps {
         let mut off_norm_sq = 0.0;
         for p in 0..n {
@@ -186,15 +235,17 @@ pub fn eigh_sym(
                 off_norm_sq += 2.0 * dpq * dpq;
             }
         }
-        if off_norm_sq.sqrt() <= threshold {
+        last_off_norm = off_norm_sq.sqrt();
+        if last_off_norm <= effective_tol {
             converged = true;
             break;
         }
 
+        let skip_thresh = effective_tol / (2.0 * n as f64);
         for p in 0..n {
             for q in (p + 1)..n {
                 let apq = d.get(p, q);
-                if apq.abs() <= threshold * 1e-2 {
+                if apq.abs() <= skip_thresh {
                     continue;
                 }
                 let app = d.get(p, p);
@@ -237,9 +288,10 @@ pub fn eigh_sym(
     }
 
     if !converged {
-        return Err(CalcError::LinearAlgebra(
-            "Jacobi eigensolver did not converge within maximum sweeps".into(),
-        ));
+        return Err(CalcError::LinearAlgebra(format!(
+            "Jacobi eigensolver did not converge within {} sweeps for N={}: last_off_norm={:.3e}, effective_tol={:.3e}, a_norm={:.3e}",
+            max_sweeps, n, last_off_norm, effective_tol, a_norm
+        )));
     }
 
     let mut pairs: Vec<(f64, usize)> = (0..n).map(|i| (d.get(i, i), i)).collect();
@@ -254,8 +306,14 @@ pub fn eigh_sym(
         }
     }
 
+    verify_eigen_residual(a,&evals,&evecs)?;
+    Ok((evals,evecs))
+}
+
+fn verify_eigen_residual(a:&Matrix2D, evals:&[f64], evecs:&Matrix2D) -> Result<(),CalcError> {
     // Verify eigen-residual ||A * V - V * diag(evals)||_F
-    let av = matmul(a, &evecs);
+    let n = a.rows;
+    let av = matmul(a, evecs);
     let mut res_sq = 0.0;
     for r in 0..n {
         for c in 0..n {
@@ -264,14 +322,103 @@ pub fn eigh_sym(
         }
     }
     let scale = frobenius_norm(a).max(1.0);
-    if res_sq.sqrt() > 1e-9 * scale {
+    if !res_sq.is_finite() || res_sq.sqrt() > 1e-9 * scale {
         return Err(CalcError::LinearAlgebra(format!(
             "Symmetric eigensolver residual too large: {:.3e}",
             res_sq.sqrt()
         )));
     }
 
-    Ok((evals, evecs))
+    Ok(())
+}
+
+/// Computes the symmetric (pseudo-)inverse of a diagonally equilibrated SPD matrix `A`
+/// along with the count of eigenvalues truncated below `rel_cutoff * lambda_max`.
+///
+/// Uses `faer` Householder eigendecomposition for reliable rank detection and Cholesky
+/// (`LL^T`) inversion when full rank, giving near-machine-precision `||A A^-1 - I||`
+/// even for condition numbers `~1e7..1e10`.
+pub fn invert_spd_with_rank_info(
+    a: &Matrix2D,
+    rel_cutoff: f64,
+) -> Result<(Matrix2D, usize), CalcError> {
+    use faer::linalg::solvers::SolverCore;
+    use faer::{Mat, Side};
+
+    let n = a.rows;
+    if n == 0 || a.cols != n || a.data.len() != n * n {
+        return Err(CalcError::LinearAlgebra(
+            "Matrix must be nonempty and square for invert_spd_with_rank_info".into(),
+        ));
+    }
+    if a.data.iter().any(|v| !v.is_finite()) {
+        return Err(CalcError::LinearAlgebra(
+            "Matrix contains NaN or infinite entries".into(),
+        ));
+    }
+
+    let mut scale = Vec::with_capacity(n);
+    for i in 0..n {
+        let d = a.get(i, i);
+        if !d.is_finite() || d <= 0.0 {
+            return Err(CalcError::LinearAlgebra(
+                "Nonpositive/nonfinite SPD metric diagonal".into(),
+            ));
+        }
+        scale.push(1.0 / d.sqrt());
+    }
+
+    let norm = Mat::<f64>::from_fn(n, n, |i, j| {
+        0.5 * (a.get(i, j) + a.get(j, i)) * scale[i] * scale[j]
+    });
+
+    let evd = norm.selfadjoint_eigendecomposition(Side::Lower);
+    let s_col = evd.s().column_vector();
+    let lambda_max = (0..n).map(|i| s_col.read(i)).fold(0.0_f64, f64::max);
+    let cutoff = lambda_max * rel_cutoff;
+    if (0..n).any(|i| s_col.read(i) < -cutoff) {
+        return Err(CalcError::LinearAlgebra("SPD metric is indefinite".into()));
+    }
+
+    let n_truncated = (0..n).filter(|&i| s_col.read(i) <= cutoff).count();
+
+    let norm_inv = if n_truncated == 0 {
+        if let Ok(chol) = norm.cholesky(Side::Lower) {
+            chol.inverse()
+        } else {
+            let u = evd.u();
+            let us_inv = Mat::<f64>::from_fn(n, n, |i, j| {
+                let lam = s_col.read(j);
+                if lam > cutoff {
+                    u.read(i, j) / lam
+                } else {
+                    0.0
+                }
+            });
+            us_inv * u.transpose()
+        }
+    } else {
+        let u = evd.u();
+        let us_inv = Mat::<f64>::from_fn(n, n, |i, j| {
+            let lam = s_col.read(j);
+            if lam > cutoff {
+                u.read(i, j) / lam
+            } else {
+                0.0
+            }
+        });
+        us_inv * u.transpose()
+    };
+
+    let mut out = Matrix2D::zeros(n, n);
+    for i in 0..n {
+        for j in i..n {
+            let val = 0.5 * (norm_inv.read(i, j) + norm_inv.read(j, i)) * scale[i] * scale[j];
+            out.set(i, j, val);
+            out.set(j, i, val);
+        }
+    }
+    Ok((out, n_truncated))
 }
 
 /// Solves `A x = b` via Gaussian elimination with partial pivoting.
@@ -329,6 +476,226 @@ pub fn solve_linear_system(a: &Matrix2D, b: &[f64]) -> Result<Vec<f64>, CalcErro
     Ok(sol)
 }
 
+/// Pre-factored symmetric positive-definite matrix (with optional rank-truncated pseudoinverse
+/// fallback) for solving `A x = b` via diagonally-scaled Cholesky `L L^T` without forming `A^{-1}`.
+#[derive(Debug, Clone)]
+pub struct SpdFactor {
+    pub n: usize,
+    pub n_truncated: usize,
+    pub kappa_unscaled: f64,
+    pub kappa_scaled: f64,
+    scale: Vec<f64>,
+    /// Row-major lower-triangular Cholesky factor `L` of `D^{-1/2} A D^{-1/2}` when full-rank.
+    chol_lower: Option<Vec<f64>>,
+    /// Spectral pseudoinverse fallback when `n_truncated > 0` or Cholesky fails.
+    pinv: Option<Matrix2D>,
+}
+
+impl SpdFactor {
+    /// Factors symmetric matrix `a` using spectral rank check (`rel_cutoff * lambda_max`)
+    /// on `D^{-1/2} A D^{-1/2}` and Cholesky `L L^T` when full rank.
+    pub fn from_matrix(a: &Matrix2D, rel_cutoff: f64) -> Result<Self, CalcError> {
+        Self::factor(a, rel_cutoff, true)
+    }
+
+    pub fn for_solve(a: &Matrix2D, rel_cutoff: f64) -> Result<Self, CalcError> {
+        Self::factor(a, rel_cutoff, false)
+    }
+
+    fn factor(a: &Matrix2D, rel_cutoff: f64, diagnostics: bool) -> Result<Self, CalcError> {
+        use faer::{Mat, Side};
+
+        let n = a.rows;
+        if n == 0 || a.cols != n || a.data.len() != n * n {
+            return Err(CalcError::LinearAlgebra(
+                "Matrix must be nonempty and square for SpdFactor".into(),
+            ));
+        }
+        if a.data.iter().any(|v| !v.is_finite()) {
+            return Err(CalcError::LinearAlgebra(
+                "Matrix contains NaN or infinite entries".into(),
+            ));
+        }
+
+        let mut scale = Vec::with_capacity(n);
+        for i in 0..n {
+            let d = a.get(i, i);
+            if !d.is_finite() || d <= 0.0 {
+                return Err(CalcError::LinearAlgebra(
+                    "Nonpositive/nonfinite SPD metric diagonal".into(),
+                ));
+            }
+            scale.push(1.0 / d.sqrt());
+        }
+
+        let norm = Mat::<f64>::from_fn(n, n, |i, j| {
+            0.5 * (a.get(i, j) + a.get(j, i)) * scale[i] * scale[j]
+        });
+        if !diagnostics && n >= 128 {
+            // A successful factorization after shifting past the largest possible cutoff
+            // certifies full numerical rank. Use a roundoff margin near the boundary.
+            let upper = (0..n).map(|i| (0..n).map(|j| norm.read(i,j).abs()).sum::<f64>())
+                .fold(0.0_f64,f64::max);
+            let shift = upper * (rel_cutoff + 16.0*n as f64*f64::EPSILON);
+            let mut shifted = norm.clone();
+            for i in 0..n { shifted.write(i,i,shifted.read(i,i)-shift); }
+            if shifted.cholesky(Side::Lower).is_ok() {
+                if let Ok(chol) = norm.cholesky(Side::Lower) {
+                    let l = chol.compute_l();
+                    let mut lower = vec![0.0; n*n];
+                    for i in 0..n { for j in 0..=i { lower[i*n+j] = l.read(i,j); } }
+                    return Ok(Self {n, n_truncated:0, kappa_unscaled:f64::NAN,
+                        kappa_scaled:f64::NAN, scale, chol_lower:Some(lower),pinv:None});
+                }
+            }
+        }
+        let evd = norm.selfadjoint_eigendecomposition(Side::Lower);
+        let s_col = evd.s().column_vector();
+        let lambda_max = (0..n).map(|i| s_col.read(i)).fold(0.0_f64, f64::max);
+        let lambda_min = (0..n).map(|i| s_col.read(i)).fold(f64::INFINITY, f64::min);
+        let kappa_scaled = if lambda_min > 0.0 {
+            lambda_max / lambda_min
+        } else {
+            f64::INFINITY
+        };
+        let kappa_unscaled = f64::NAN;
+
+        let cutoff = lambda_max * rel_cutoff;
+        if (0..n).any(|i| s_col.read(i) < -cutoff) {
+            return Err(CalcError::LinearAlgebra("SPD metric is indefinite".into()));
+        }
+        let n_truncated = (0..n).filter(|&i| s_col.read(i) <= cutoff).count();
+
+        if n_truncated == 0 {
+            if let Ok(chol) = norm.cholesky(Side::Lower) {
+                let l_mat = chol.compute_l();
+                let mut chol_lower = vec![0.0; n * n];
+                for i in 0..n {
+                    for j in 0..=i {
+                        chol_lower[i * n + j] = l_mat.read(i, j);
+                    }
+                }
+                return Ok(Self {
+                    n,
+                    n_truncated,
+                    kappa_unscaled,
+                    kappa_scaled,
+                    scale,
+                    chol_lower: Some(chol_lower),
+                    pinv: None,
+                });
+            }
+        }
+
+        let u = evd.u();
+        let us_inv = Mat::<f64>::from_fn(n, n, |i, j| {
+            let lam = s_col.read(j);
+            if lam > cutoff {
+                u.read(i, j) / lam
+            } else {
+                0.0
+            }
+        });
+        let norm_inv = us_inv * u.transpose();
+        let mut pinv = Matrix2D::zeros(n, n);
+        for i in 0..n {
+            for j in i..n {
+                let val = 0.5 * (norm_inv.read(i, j) + norm_inv.read(j, i)) * scale[i] * scale[j];
+                pinv.set(i, j, val);
+                pinv.set(j, i, val);
+            }
+        }
+        Ok(Self {
+            n,
+            n_truncated,
+            kappa_unscaled,
+            kappa_scaled,
+            scale,
+            chol_lower: None,
+            pinv: Some(pinv),
+        })
+    }
+
+    /// Solves `A x = b` using the stored Cholesky factor (or pseudoinverse fallback).
+    pub fn solve(&self, b: &[f64]) -> Vec<f64> {
+        let n = self.n;
+        assert_eq!(b.len(), n, "SpdFactor::solve dimension mismatch");
+
+        if let Some(ref l) = self.chol_lower {
+            let mut y = vec![0.0; n];
+            // Forward substitution: L y = D^{-1/2} b
+            for i in 0..n {
+                let mut sum = self.scale[i] * b[i];
+                let row = i * n;
+                for j in 0..i {
+                    sum -= l[row + j] * y[j];
+                }
+                y[i] = sum / l[row + i];
+            }
+            // Backward substitution: L^T z = y
+            let mut z = vec![0.0; n];
+            for i in (0..n).rev() {
+                let mut sum = y[i];
+                for j in (i + 1)..n {
+                    sum -= l[j * n + i] * z[j];
+                }
+                z[i] = sum / l[i * n + i];
+            }
+            // Unscale: x = D^{-1/2} z
+            for i in 0..n {
+                z[i] *= self.scale[i];
+            }
+            z
+        } else {
+            let pinv = self.pinv.as_ref().expect("SpdFactor has neither chol nor pinv");
+            let mut x = vec![0.0; n];
+            for i in 0..n {
+                let mut sum = 0.0;
+                for j in 0..n {
+                    sum += pinv.get(i, j) * b[j];
+                }
+                x[i] = sum;
+            }
+            x
+        }
+    }
+
+    /// Computes the unscaled spectral condition number `lambda_max / lambda_min` of symmetric `a`.
+    pub fn unscaled_kappa(a: &Matrix2D) -> f64 {
+        use faer::{Mat, Side};
+        let n = a.rows;
+        let raw = Mat::<f64>::from_fn(n, n, |i, j| 0.5 * (a.get(i, j) + a.get(j, i)));
+        let raw_evd = raw.selfadjoint_eigendecomposition(Side::Lower);
+        let raw_s = raw_evd.s().column_vector();
+        let raw_max = (0..n).map(|i| raw_s.read(i)).fold(0.0_f64, f64::max);
+        let raw_min = (0..n).map(|i| raw_s.read(i)).fold(f64::INFINITY, f64::min);
+        if raw_min > 0.0 {
+            raw_max / raw_min
+        } else {
+            f64::INFINITY
+        }
+    }
+
+    /// Materializes the explicit inverse (or pseudoinverse) `A^{-1}` for diagnostics.
+    pub fn to_explicit_inverse(&self) -> Matrix2D {
+        let n = self.n;
+        if let Some(ref pinv) = self.pinv {
+            return pinv.clone();
+        }
+        let mut out = Matrix2D::zeros(n, n);
+        let mut e = vec![0.0; n];
+        for j in 0..n {
+            e[j] = 1.0;
+            let col = self.solve(&e);
+            e[j] = 0.0;
+            for i in 0..n {
+                out.set(i, j, col[i]);
+            }
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -355,5 +722,16 @@ mod tests {
         let vt_v = matmul(&transpose(&evecs), &evecs);
         let id = Matrix2D::identity(n);
         assert!(rms_diff(&vt_v, &id) < 1e-13);
+    }
+
+    #[test]
+    fn requested_eigen_residual_is_not_limited_by_an_arbitrary_relative_floor() {
+        let mut a = Matrix2D::zeros(2, 2);
+        a.data = vec![100.0, 2e-10, 2e-10, 200.0];
+        let (e, v) = eigh_sym(&a, 100, 1e-13).unwrap();
+        let av = matmul(&a, &v);
+        let residual = (0..2).flat_map(|i| (0..2).map(move |j| (i,j)))
+            .map(|(i,j)| (av.get(i,j) - v.get(i,j)*e[j]).powi(2)).sum::<f64>().sqrt();
+        assert!(residual < 1e-12, "eigen residual={residual:.3e}");
     }
 }

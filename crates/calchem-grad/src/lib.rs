@@ -1,18 +1,19 @@
 pub mod derivatives;
 
 use calchem_basis::BasisSet;
-use calchem_dft::{GridLevel, MolecularGrid, XcFunctional, xc_nuclear_gradient};
+use calchem_dft::{xc_nuclear_gradient, GridLevel, MolecularGrid, XcFunctional};
 use calchem_int::screening::SchwarzScreening;
 use calchem_int::symmetry::shell_quartets;
 use calchem_model::{CalcError, Molecule, ScfWavefunction, UhfWavefunction};
 use calchem_tensor::Matrix2D;
 use derivatives::{
-    eri_derivative_quartet, nuclear_repulsion_derivative_with_basis, one_electron_derivative,
+    eri_derivative_quartet, eri_derivative_quartet_with_omega,
+    nuclear_repulsion_derivative_with_basis, one_electron_derivative,
 };
 use rayon::prelude::*;
 
 #[inline]
-fn distinct_shell_permutations(i: usize, j: usize, k: usize, l: usize) -> Vec<[usize; 4]> {
+pub fn distinct_shell_permutations(i: usize, j: usize, k: usize, l: usize) -> Vec<[usize; 4]> {
     let raw = [
         [i, j, k, l],
         [j, i, k, l],
@@ -102,96 +103,146 @@ fn scf_gradient_core(
     pb: &Matrix2D,
     w: &Matrix2D,
     exx_fraction: f64,
-) -> Vec<[f64; 3]> {
+    range_sep: Option<(f64, f64, f64)>,
+    density_fitting: bool,
+) -> Result<Vec<[f64; 3]>, CalcError> {
     let n_atoms = mol.atoms.len();
     let n = basis.n_ao;
 
-    let screening = SchwarzScreening::new(basis, 1e-11);
-    let canonical_quartets = shell_quartets(basis.shells.len());
+    let (std_exx, lr_exx, lr_omega) = match range_sep {
+        Some((alpha, beta, omega)) => (alpha, beta, Some(omega)),
+        None => (exx_fraction, 0.0, None),
+    };
 
-    let g_2e_total = canonical_quartets
-        .par_bridge()
-        .fold(
-            || vec![[0.0; 3]; n_atoms],
-            |mut local_grad, [i, j, k, l]| {
-                if screening.can_skip(i, j, k, l) {
-                    return local_grad;
-                }
-                for [a_idx, b_idx, c_idx, d_idx] in distinct_shell_permutations(i, j, k, l) {
-                    let sh_a = &basis.shells[a_idx];
-                    let sh_b = &basis.shells[b_idx];
-                    let sh_c = &basis.shells[c_idx];
-                    let sh_d = &basis.shells[d_idx];
+    let g_j_ri = if density_fitting {
+        let rij = calchem_int::RiJEngine::new(mol, basis)?;
+        Some(rij.compute_coulomb_gradient(n_atoms, basis, pt)?)
+    } else {
+        None
+    };
 
-                    let mut involved = [
-                        sh_a.atom_index,
-                        sh_b.atom_index,
-                        sh_c.atom_index,
-                        sh_d.atom_index,
-                    ];
-                    involved.sort_unstable();
-                    let mut n_unique_atoms = 0;
-                    for idx in 0..4 {
-                        if idx == 0 || involved[idx] != involved[idx - 1] {
-                            involved[n_unique_atoms] = involved[idx];
-                            n_unique_atoms += 1;
-                        }
+    let need_4c = !density_fitting || std_exx.abs() > 1e-15 || lr_exx.abs() > 1e-15;
+
+    let g_2e_total = if need_4c {
+        let screening = SchwarzScreening::new(basis, 1e-11);
+        let canonical_quartets = shell_quartets(basis.shells.len());
+
+        canonical_quartets
+            .par_bridge()
+            .fold(
+                || vec![[0.0; 3]; n_atoms],
+                |mut local_grad, [i, j, k, l]| {
+                    if screening.can_skip(i, j, k, l) {
+                        return local_grad;
                     }
+                    for [a_idx, b_idx, c_idx, d_idx] in distinct_shell_permutations(i, j, k, l) {
+                        let sh_a = &basis.shells[a_idx];
+                        let sh_b = &basis.shells[b_idx];
+                        let sh_c = &basis.shells[c_idx];
+                        let sh_d = &basis.shells[d_idx];
 
-                    let na = sh_a.n_functions();
-                    let nb = sh_b.n_functions();
-                    let nc = sh_c.n_functions();
-                    let nd = sh_d.n_functions();
+                        let mut involved = [
+                            sh_a.atom_index,
+                            sh_b.atom_index,
+                            sh_c.atom_index,
+                            sh_d.atom_index,
+                        ];
+                        involved.sort_unstable();
+                        let mut n_unique_atoms = 0;
+                        for idx in 0..4 {
+                            if idx == 0 || involved[idx] != involved[idx - 1] {
+                                involved[n_unique_atoms] = involved[idx];
+                                n_unique_atoms += 1;
+                            }
+                        }
 
-                    for &atom in &involved[..n_unique_atoms] {
-                        for q in 0..3 {
-                            let d_block = eri_derivative_quartet([sh_a, sh_b, sh_c, sh_d], atom, q);
-                            let mut d_contrib = 0.0;
-                            for ia in 0..na {
-                                let mu = sh_a.ao_offset + ia;
-                                for ib in 0..nb {
-                                    let nu = sh_b.ao_offset + ib;
-                                    for ic in 0..nc {
-                                        let lam = sh_c.ao_offset + ic;
-                                        for id in 0..nd {
-                                            let sig = sh_d.ao_offset + id;
-                                            let d_val =
-                                                d_block[((ia * nb + ib) * nc + ic) * nd + id];
-                                            if d_val.abs() > 1e-16 {
-                                                let coul = 0.5 * pt.get(mu, nu) * pt.get(lam, sig);
-                                                let gamma = if exx_fraction.abs() < 1e-15 {
-                                                    coul
-                                                } else {
-                                                    let exch = 0.5
-                                                        * exx_fraction
-                                                        * (pa.get(mu, lam) * pa.get(nu, sig)
-                                                            + pb.get(mu, lam) * pb.get(nu, sig));
-                                                    coul - exch
-                                                };
-                                                d_contrib += d_val * gamma;
+                        let na = sh_a.n_functions();
+                        let nb = sh_b.n_functions();
+                        let nc = sh_c.n_functions();
+                        let nd = sh_d.n_functions();
+
+                        for &atom in &involved[..n_unique_atoms] {
+                            for q in 0..3 {
+                                let d_block =
+                                    eri_derivative_quartet([sh_a, sh_b, sh_c, sh_d], atom, q);
+                                let d_block_lr = if lr_omega.is_some() && lr_exx.abs() > 1e-15 {
+                                    Some(eri_derivative_quartet_with_omega(
+                                        [sh_a, sh_b, sh_c, sh_d],
+                                        atom,
+                                        q,
+                                        lr_omega,
+                                    ))
+                                } else {
+                                    None
+                                };
+
+                                let mut d_contrib = 0.0;
+                                for ia in 0..na {
+                                    let mu = sh_a.ao_offset + ia;
+                                    for ib in 0..nb {
+                                        let nu = sh_b.ao_offset + ib;
+                                        for ic in 0..nc {
+                                            let lam = sh_c.ao_offset + ic;
+                                            for id in 0..nd {
+                                                let sig = sh_d.ao_offset + id;
+                                                let idx = ((ia * nb + ib) * nc + ic) * nd + id;
+                                                let d_val = d_block[idx];
+
+                                                if d_val.abs() > 1e-16 {
+                                                    let coul = if density_fitting {
+                                                        0.0
+                                                    } else {
+                                                        0.5 * pt.get(mu, nu) * pt.get(lam, sig)
+                                                    };
+                                                    let gamma = if std_exx.abs() < 1e-15 {
+                                                        coul
+                                                    } else {
+                                                        let exch = 0.5
+                                                            * std_exx
+                                                            * (pa.get(mu, lam) * pa.get(nu, sig)
+                                                                + pb.get(mu, lam)
+                                                                    * pb.get(nu, sig));
+                                                        coul - exch
+                                                    };
+                                                    d_contrib += d_val * gamma;
+                                                }
+
+                                                if let Some(ref d_lr) = d_block_lr {
+                                                    let d_val_lr = d_lr[idx];
+                                                    if d_val_lr.abs() > 1e-16 {
+                                                        let exch_lr = 0.5
+                                                            * lr_exx
+                                                            * (pa.get(mu, lam) * pa.get(nu, sig)
+                                                                + pb.get(mu, lam)
+                                                                    * pb.get(nu, sig));
+                                                        d_contrib -= d_val_lr * exch_lr;
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
+                                local_grad[atom][q] += d_contrib;
                             }
-                            local_grad[atom][q] += d_contrib;
                         }
                     }
-                }
-                local_grad
-            },
-        )
-        .reduce(
-            || vec![[0.0; 3]; n_atoms],
-            |mut a, b| {
-                for i in 0..n_atoms {
-                    for q in 0..3 {
-                        a[i][q] += b[i][q];
+                    local_grad
+                },
+            )
+            .reduce(
+                || vec![[0.0; 3]; n_atoms],
+                |mut a, b| {
+                    for i in 0..n_atoms {
+                        for q in 0..3 {
+                            a[i][q] += b[i][q];
+                        }
                     }
-                }
-                a
-            },
-        );
+                    a
+                },
+            )
+    } else {
+        vec![[0.0; 3]; n_atoms]
+    };
 
     let mut grad = vec![[0.0; 3]; n_atoms];
     for a in 0..n_atoms {
@@ -205,10 +256,11 @@ fn scf_gradient_core(
                     g_1e += pt.get(mu, nu) * h_val - w.get(mu, nu) * ds.get(mu, nu);
                 }
             }
-            grad[a][q] = g_nuc + g_1e + g_2e_total[a][q];
+            let g_ri = g_j_ri.as_ref().map_or(0.0, |g| g[a][q]);
+            grad[a][q] = g_nuc + g_1e + g_2e_total[a][q] + g_ri;
         }
     }
-    grad
+    Ok(grad)
 }
 
 /// Computes the analytical RHF Cartesian energy gradient with respect to nuclear coordinates.
@@ -253,7 +305,17 @@ pub fn rhf_gradient(
     let n_occ = wf.mo_occupations.iter().filter(|&&o| o > 1e-12).count();
     let w = energy_weighted_density(&wf.mo_coefficients, &wf.mo_energies, n, n_occ, 2.0);
 
-    Ok(scf_gradient_core(mol, basis, &pt, &half, &half, &w, 1.0))
+    scf_gradient_core(
+        mol,
+        basis,
+        &pt,
+        &half,
+        &half,
+        &w,
+        1.0,
+        None,
+        wf.density_fitting,
+    )
 }
 
 /// Computes the analytical UHF Cartesian energy gradient (Eh/Bohr) for open-shell systems.
@@ -287,14 +349,26 @@ pub fn uhf_gradient(
     for (t, b) in pt.data.iter_mut().zip(&pb.data) {
         *t += b;
     }
-    let wa = energy_weighted_density(&wf.mo_coefficients_alpha, &wf.mo_energies_alpha, n, wf.n_alpha, 1.0);
-    let wb = energy_weighted_density(&wf.mo_coefficients_beta, &wf.mo_energies_beta, n, wf.n_beta, 1.0);
+    let wa = energy_weighted_density(
+        &wf.mo_coefficients_alpha,
+        &wf.mo_energies_alpha,
+        n,
+        wf.n_alpha,
+        1.0,
+    );
+    let wb = energy_weighted_density(
+        &wf.mo_coefficients_beta,
+        &wf.mo_energies_beta,
+        n,
+        wf.n_beta,
+        1.0,
+    );
     let mut w = wa;
     for (t, b) in w.data.iter_mut().zip(&wb.data) {
         *t += b;
     }
 
-    Ok(scf_gradient_core(mol, basis, &pt, &pa, &pb, &w, 1.0))
+    scf_gradient_core(mol, basis, &pt, &pa, &pb, &w, 1.0, None, wf.density_fitting)
 }
 
 /// Computes the exact analytical Restricted Kohn-Sham (RKS) Cartesian nuclear gradient (Eh/Bohr).
@@ -357,12 +431,22 @@ pub fn rks_gradient_with_grid(
         &half,
         &w,
         xc.exact_exchange_fraction(),
-    );
+        xc.range_separated_params(),
+        wf.density_fitting,
+    )?;
     let g_xc = xc_nuclear_gradient(mol, basis, grid, xc, &half, &half);
     for (ga, gx) in grad.iter_mut().zip(g_xc.iter()) {
         ga[0] += gx[0];
         ga[1] += gx[1];
         ga[2] += gx[2];
+    }
+    if xc == XcFunctional::Wb97xd {
+        let (_, g_disp) = calchem_dft::wb97xd_chg_d2_energy_and_gradient(&mol.atoms)?;
+        for (ga, gd) in grad.iter_mut().zip(g_disp.iter()) {
+            ga[0] += gd[0];
+            ga[1] += gd[1];
+            ga[2] += gd[2];
+        }
     }
     Ok(grad)
 }
@@ -439,12 +523,22 @@ pub fn uks_gradient_with_grid(
         &pb,
         &w,
         xc.exact_exchange_fraction(),
-    );
+        xc.range_separated_params(),
+        wf.density_fitting,
+    )?;
     let g_xc = xc_nuclear_gradient(mol, basis, grid, xc, &pa, &pb);
     for (ga, gx) in grad.iter_mut().zip(g_xc.iter()) {
         ga[0] += gx[0];
         ga[1] += gx[1];
         ga[2] += gx[2];
+    }
+    if xc == XcFunctional::Wb97xd {
+        let (_, g_disp) = calchem_dft::wb97xd_chg_d2_energy_and_gradient(&mol.atoms)?;
+        for (ga, gd) in grad.iter_mut().zip(g_disp.iter()) {
+            ga[0] += gd[0];
+            ga[1] += gd[1];
+            ga[2] += gd[2];
+        }
     }
     Ok(grad)
 }

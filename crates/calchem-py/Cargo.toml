@@ -1,6 +1,6 @@
 [package]
 name = "calchem-py"
-version = "0.2.0"
+version = "0.2.2"
 edition = "2021"
 
 [lib]
@@ -20,5 +20,6 @@ calchem-dft = { path = "../calchem-dft" }
 calchem-tddft = { path = "../calchem-tddft" }
 calchem-vib = { path = "../calchem-vib" }
 calchem-solv = { path = "../calchem-solv" }
+calchem-cuda = { path = "../calchem-cuda" }
 pyo3 = { workspace = true }
 numpy = { workspace = true }

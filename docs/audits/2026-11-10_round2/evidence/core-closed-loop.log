@@ -1,0 +1,127 @@
+     Locking 114 packages to highest compatible versions
+   Compiling libm v0.2.16
+   Compiling autocfg v1.5.1
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling bytemuck v1.25.2
+   Compiling version_check v0.9.5
+   Compiling rand_core v0.6.4
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling nano-gemm-codegen v0.1.0
+   Compiling crossbeam-utils v0.8.23
+   Compiling pest_stack_guard v1.0.0
+   Compiling crossbeam-epoch v0.9.21
+   Compiling rand v0.8.8
+   Compiling crossbeam-deque v0.8.8
+   Compiling reborrow v0.5.5
+   Compiling cc v1.10.0
+   Compiling rayon-core v1.13.0
+   Compiling windows-link v0.2.1
+   Compiling pulp v0.21.5
+   Compiling paste v1.0.15
+   Compiling num-traits v0.2.19
+   Compiling windows-sys v0.61.2
+   Compiling bitflags v2.13.2
+   Compiling either v1.19.0
+   Compiling dyn-stack-macros v0.1.3
+   Compiling memchr v2.8.3
+   Compiling serde_core v1.0.229
+   Compiling raw-cpuid v11.6.0
+   Compiling seq-macro v0.3.6
+   Compiling ucd-trie v0.1.7
+   Compiling psm v0.1.24
+   Compiling stacker v0.1.25
+   Compiling once_cell v1.21.4
+   Compiling dyn-stack v0.13.2
+   Compiling generic-array v0.14.7
+   Compiling syn v2.0.119
+   Compiling syn v3.0.9
+   Compiling nano-gemm-core v0.1.0
+   Compiling num-complex v0.4.6
+   Compiling rayon v1.12.0
+   Compiling serde v1.0.229
+   Compiling typenum v1.20.1
+   Compiling num-integer v0.1.47
+   Compiling nano-gemm-f32 v0.1.0
+   Compiling nano-gemm-f64 v0.1.0
+   Compiling nano-gemm-c32 v0.1.0
+   Compiling nano-gemm-c64 v0.1.0
+   Compiling thiserror v1.0.69
+   Compiling gemm-common v0.18.2
+   Compiling num-bigint v0.4.8
+   Compiling zmij v1.0.23
+   Compiling pest v2.9.5
+   Compiling gemm-f32 v0.18.2
+   Compiling gemm-c32 v0.18.2
+   Compiling gemm-f64 v0.18.2
+   Compiling gemm-c64 v0.18.2
+   Compiling serde_derive v1.0.229
+   Compiling equator-macro v0.2.1
+   Compiling thiserror-impl v1.0.69
+   Compiling pest_meta v2.9.5
+   Compiling equator-macro v0.4.2
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling pulp v0.18.22
+   Compiling coe-rs v0.1.2
+   Compiling pest_generator v2.9.5
+   Compiling serde_json v1.0.154
+   Compiling byteorder v1.5.0
+   Compiling matrixcompare-core v0.1.0
+   Compiling faer-entity v0.20.1
+   Compiling equator v0.2.2
+   Compiling equator v0.4.2
+   Compiling digest v0.10.7
+   Compiling gemm v0.18.2
+   Compiling matrixcompare v0.3.0
+   Compiling pest_derive v2.9.5
+   Compiling rand_distr v0.4.3
+   Compiling dyn-stack v0.11.0
+   Compiling itoa v1.0.18
+   Compiling nano-gemm v0.1.3
+   Compiling dbgf v0.1.2
+   Compiling cpufeatures v0.2.17
+   Compiling generativity v1.2.1
+   Compiling sha2 v0.10.9
+   Compiling calchem-model v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-model)
+   Compiling py_literal v0.4.0
+   Compiling calchem-basis v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-basis)
+   Compiling npyz v0.8.4
+   Compiling faer v0.20.2
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+   Compiling calchem-prop v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-prop)
+   Compiling calchem-grad v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-grad)
+   Compiling calchem-solv v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-solv)
+   Compiling calchem-vib v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-vib)
+warning: unused variable: `e_solv_elec`
+   --> E:\YDW\Trae_Gaussian\crates\calchem-solv\src\scrf.rs:304:9
+    |
+304 |     let e_solv_elec: f64 = 0.5 * q_converged.iter().zip(v_solute_converged.iter()).map(|(&qk, &vk)| qk * vk).sum::<f64>();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `e_solv_elec`
+   --> E:\YDW\Trae_Gaussian\crates\calchem-solv\src\scrf.rs:509:9
+    |
+509 |     let e_solv_elec: f64 = 0.5 * q_converged.iter().zip(v_solute_converged.iter()).map(|(&qk, &vk)| qk * vk).sum::<f64>();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+
+   Compiling calchem-opt v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-opt)
+warning: `calchem-solv` (lib) generated 2 warnings (run `cargo fix --lib -p calchem-solv` to apply 2 suggestions)
+   Compiling calchem-round2-independent-probe v0.0.0 (E:\YDW\Trae_Gaussian\build_target\runtime\round2_20261110\rust_probe)
+    Finished `release` profile [optimized] target(s) in 1m 37s
+     Running `build_target\runtime\round2_20261110\probe_target\release\calchem-round2-independent-probe.exe`
+{"probe":"sparse_vs_dense","n_ao":65,"entries":8385,"exx":0,"max_abs":8.88178419700125232e-16}
+{"probe":"sparse_vs_dense","n_ao":65,"entries":8385,"exx":0.2,"max_abs":8.88178419700125232e-16}
+{"probe":"sparse_vs_dense","n_ao":65,"entries":8385,"exx":1,"max_abs":4.99600361081320443e-16}
+{"probe":"sparse_general_K","max_abs":6.66133814775093924e-16}
+{"probe":"diffuse_grid_charge","exponent":0.0001,"exact":1.0,"integrated":1.00000010706217046e0}
+{"probe":"solvent_optimizer_gradient_fd","step":0.0003,"max_abs":1.00044417195022106e-7}

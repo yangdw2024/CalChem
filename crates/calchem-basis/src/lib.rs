@@ -13,6 +13,40 @@ const BASIS_631GD_JSON: &str = include_str!("../data/6-31gd.json");
 const BASIS_631GDP_JSON: &str = include_str!("../data/6-31gdp.json");
 const LANL2DZ_JSON: &str = include_str!("../data/lanl2dz.json");
 const LANL2DZDP_JSON: &str = include_str!("../data/lanl2dzdp.json");
+const DEF2_UNIVERSAL_JFIT_JSON: &str = include_str!("../data/def2-universal-jfit.json");
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawAuxShellData {
+    shell_type: String,
+    exponents: Vec<f64>,
+    coefficients: Vec<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawAuxBasisFile {
+    elements: HashMap<String, Vec<RawAuxShellData>>,
+}
+
+/// Returns contracted `(ShellType, exponents, raw_coefficients)` shells from
+/// MolSSI BSE `def2-universal-jfit` (Weigend 2006) up to F-shells (`l <= 3`), if available.
+pub fn load_def2_jfit_for_element(atomic_number: u8) -> Option<Vec<(ShellType, Vec<f64>, Vec<f64>)>> {
+    use std::sync::OnceLock;
+    static TABLE: OnceLock<HashMap<String, Vec<RawAuxShellData>>> = OnceLock::new();
+    let map = TABLE.get_or_init(|| {
+        let parsed: RawAuxBasisFile =
+            serde_json::from_str(DEF2_UNIVERSAL_JFIT_JSON).expect("valid def2-universal-jfit.json");
+        parsed.elements
+    });
+    let key = atomic_number.to_string();
+    let raw_shells = map.get(&key)?;
+    let mut out = Vec::new();
+    for sh in raw_shells {
+        if let Ok(st) = ShellType::from_str(&sh.shell_type) {
+            out.push((st, sh.exponents.clone(), sh.coefficients.clone()));
+        }
+    }
+    Some(out)
+}
 
 #[derive(Debug, Clone, Deserialize)]
 struct RawShellData {
@@ -302,11 +336,7 @@ impl BasisSet {
     #[inline]
     pub fn effective_nuclear_charge(&self, mol: &Molecule, atom_idx: usize) -> f64 {
         let z = mol.atoms[atom_idx].z as i32;
-        let n_core = self
-            .core_electrons
-            .get(atom_idx)
-            .copied()
-            .unwrap_or(0) as i32;
+        let n_core = self.core_electrons.get(atom_idx).copied().unwrap_or(0) as i32;
         (z - n_core) as f64
     }
 
@@ -422,7 +452,9 @@ impl BasisSet {
     pub fn validate_uhf_valence(&self, mol: &Molecule) -> Result<(usize, usize), CalcError> {
         let (n_alpha, n_beta) = self.validate_geometry_and_valence(mol)?;
         if n_alpha == 0 {
-            return Err(CalcError::InvalidMolecule("Molecule has no valence electrons".into()));
+            return Err(CalcError::InvalidMolecule(
+                "Molecule has no valence electrons".into(),
+            ));
         }
         Ok((n_alpha, n_beta))
     }
@@ -457,8 +489,7 @@ impl BasisSet {
             for rs in elem_shells {
                 let stype = ShellType::from_str(&rs.shell_type)?;
                 let rep_lmn = stype.components()[0];
-                let norm_coeffs =
-                    normalized_contraction(&rs.exponents, &rs.coefficients, rep_lmn)?;
+                let norm_coeffs = normalized_contraction(&rs.exponents, &rs.coefficients, rep_lmn)?;
 
                 let mut prims = Vec::with_capacity(rs.exponents.len());
                 for ((&exp, &raw_coeff), &coeff) in rs

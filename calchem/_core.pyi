@@ -23,6 +23,7 @@ class ScfNotConvergedError(RuntimeError): ...
 class RustCoreError(RuntimeError): ...
 
 class PyScfWavefunction:
+    density_fitting: bool
     converged: bool
     iterations: int
     total_energy_hartree: float
@@ -47,6 +48,10 @@ class PyScfWavefunction:
     charge: int
     multiplicity: int
     xc_functional: Optional[str]
+    gpu_kernel_invocations: int
+    gpu_fallback_invocations: int
+    diis_disk_backed: bool
+    rij_metric_truncated_modes: int
     @property
     def homo_energy_hartree(self) -> Optional[float]: ...
     @property
@@ -133,6 +138,9 @@ def run_single_point(
     damping: float = 0.0,
     xc: Optional[str] = None,
     grid_level: str = "medium",
+    direct: Optional[bool] = None,
+    density_fitting: bool = False,
+    use_gpu: bool = False,
 ) -> PyScfWavefunction: ...
 
 def run_gradient(
@@ -144,6 +152,8 @@ def run_gradient(
     method: str = "auto",
     xc: Optional[str] = None,
     grid_level: str = "medium",
+    density_fitting: bool = False,
+    use_gpu: bool = False,
 ) -> NDArray[np.float64]: ...
 
 def run_optimize(
@@ -158,6 +168,8 @@ def run_optimize(
     grid_level: str = "medium",
     dispersion: Optional[str] = None,
     solvent: Optional[str] = None,
+    density_fitting: bool = False,
+    use_gpu: bool = False,
 ) -> PyOptResult: ...
 
 def auto_orbital_grid_spec(
@@ -486,6 +498,7 @@ class IrcPoint:
     geometry_bohr: List[List[float]]
 
 class IrcBranch:
+    converged_to_minimum: bool
     direction: str
     n_points: int
     barrier_kcal_mol: float
@@ -497,6 +510,9 @@ class IrcResult:
     forward: Optional[IrcBranch]
     reverse: Optional[IrcBranch]
     total_points: int
+    barrier_forward_kcal_mol: Optional[float]
+    barrier_reverse_kcal_mol: Optional[float]
+    reaction_energy_kcal_mol: Optional[float]
 
 def run_ts_search(
     symbols: Sequence[str],

@@ -44,7 +44,12 @@ fn test_primitive_normalization_s_p_d() {
         [0, 0, 2],
     ] {
         let s_self = normalized_primitive_self_overlap(alpha, alpha, lmn);
-        assert!((s_self - 1.0).abs() < 1e-15, "lmn={:?}, s_self={}", lmn, s_self);
+        assert!(
+            (s_self - 1.0).abs() < 1e-15,
+            "lmn={:?}, s_self={}",
+            lmn,
+            s_self
+        );
     }
 }
 

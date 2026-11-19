@@ -1,0 +1,13 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.45s
+     Running tests\cuda_rij_test.rs (build_target\debug\deps\cuda_rij_test-c1dcd160898a0aaa.exe)
+
+running 3 tests
+CUDA is available: true
+CUDA device memory: 7.34 GB free / 8.55 GB total
+test test_cuda_device_detection ... ok
+CUDA vs CPU max absolute error: 1.679e-15
+test test_cuda_rij_contraction_accuracy ... ok
+test test_cuda_graceful_cpu_fallback ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+

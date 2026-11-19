@@ -11,20 +11,262 @@ use calchem_model::Molecule;
 use calchem_tensor::Matrix2D;
 use rayon::prelude::*;
 
-use crate::ao_grid::{AoGradVal, AoHessVal, PrecomputedAoShell, eval_aos_grad, eval_aos_hess};
-use crate::grid::{MolecularGrid, becke_weight_nuclear_gradient};
-use crate::xc::{XcFunctional, eval_xc_spin};
+use crate::ao_grid::{
+    eval_aos_grad, eval_aos_grad_filtered, eval_aos_hess, AoGradVal, AoHessVal, PrecomputedAoShell,
+};
+use crate::grid::{becke_weight_nuclear_gradient, GridPoint, MolecularGrid};
+use crate::xc::{eval_xc_spin, XcFunctional};
 
 const GRID_CHUNK_SIZE: usize = 256;
 const DENSITY_SCREEN: f64 = 1e-18;
+
+fn bounded_worker_count(n: usize, channels: usize) -> usize {
+    let bytes = n
+        .saturating_mul(n)
+        .saturating_mul(8)
+        .saturating_mul(channels)
+        .max(1);
+    let budget = std::env::var("CALCHEM_MAX_DIRECT_BYTES")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(4 * 1024 * 1024 * 1024);
+    rayon::current_num_threads().min((budget / bytes).max(1))
+}
+
+fn bounded_grid_chunk_size(points: usize, n: usize, channels: usize) -> usize {
+    let workers = bounded_worker_count(n, channels);
+    points.div_ceil(workers).max(GRID_CHUNK_SIZE)
+}
 
 #[inline]
 fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
+pub struct RksWorkspace<'a> {
+    pub active: Vec<AoGradVal>,
+    pub local_indices: Vec<usize>,
+    pub vals: Vec<f64>,
+    pub phi_p: Vec<f64>,
+    pub z_vec: Vec<f64>,
+    pub candidate_shells: Vec<&'a PrecomputedAoShell>,
+    pub ao_indices: Vec<usize>,
+    pub ao_to_local: Vec<usize>,
+    pub p_sub: Vec<f64>,
+    pub v_sub: Vec<f64>,
+}
+
+impl<'a> RksWorkspace<'a> {
+    pub fn new(n: usize, n_shells: usize) -> Self {
+        let init_m = n.min(256);
+        Self {
+            active: Vec::with_capacity(n),
+            local_indices: Vec::with_capacity(n),
+            vals: Vec::with_capacity(n),
+            phi_p: Vec::with_capacity(n),
+            z_vec: Vec::with_capacity(n),
+            candidate_shells: Vec::with_capacity(n_shells),
+            ao_indices: Vec::with_capacity(n),
+            ao_to_local: vec![usize::MAX; n],
+            p_sub: vec![0.0f64; init_m * init_m],
+            v_sub: vec![0.0f64; init_m * init_m],
+        }
+    }
+
+    #[inline]
+    pub fn ensure_capacity(&mut self, m: usize) {
+        let needed = m * m;
+        if self.p_sub.len() < needed {
+            self.p_sub.resize(needed, 0.0);
+            self.v_sub.resize(needed, 0.0);
+        }
+    }
+}
+
+const BATCH_SIZE: usize = 128;
+
+#[allow(clippy::too_many_arguments)]
+fn accumulate_rks_points_with<'a, F>(
+    chunk: &[GridPoint],
+    n: usize,
+    shells: &'a [PrecomputedAoShell],
+    p_slice: &[f64],
+    mut eval_fn: F,
+    e_loc: &mut f64,
+    e_comp: &mut f64,
+    v_loc: &mut [f64],
+    ws: &mut RksWorkspace<'a>,
+) where
+    F: FnMut(f64, f64) -> crate::xc::XcPointOut,
+{
+    for sub_chunk in chunk.chunks(BATCH_SIZE) {
+        let mut min_c = [f64::INFINITY; 3];
+        let mut max_c = [-f64::INFINITY; 3];
+        let mut has_points = false;
+
+        for gp in sub_chunk {
+            if gp.weight.abs() < 1e-24 {
+                continue;
+            }
+            has_points = true;
+            for q in 0..3 {
+                if gp.coords[q] < min_c[q] { min_c[q] = gp.coords[q]; }
+                if gp.coords[q] > max_c[q] { max_c[q] = gp.coords[q]; }
+            }
+        }
+
+        if !has_points {
+            continue;
+        }
+
+        let center = [
+            0.5 * (min_c[0] + max_c[0]),
+            0.5 * (min_c[1] + max_c[1]),
+            0.5 * (min_c[2] + max_c[2]),
+        ];
+        let r_box = {
+            let dx = max_c[0] - center[0];
+            let dy = max_c[1] - center[1];
+            let dz = max_c[2] - center[2];
+            (dx * dx + dy * dy + dz * dz).sqrt()
+        };
+
+        ws.candidate_shells.clear();
+        ws.ao_indices.clear();
+
+        for sh in shells {
+            let dx = sh.center[0] - center[0];
+            let dy = sh.center[1] - center[1];
+            let dz = sh.center[2] - center[2];
+            let d2 = dx * dx + dy * dy + dz * dz;
+            let thresh = r_box + sh.r_cutoff;
+            if d2 <= thresh * thresh {
+                ws.candidate_shells.push(sh);
+                for c in 0..sh.n_functions() {
+                    ws.ao_indices.push(sh.ao_offset + c);
+                }
+            }
+        }
+
+        let m = ws.ao_indices.len();
+        if m == 0 {
+            continue;
+        }
+
+        ws.ensure_capacity(m);
+
+        for (local_i, &mu) in ws.ao_indices.iter().enumerate() {
+            ws.ao_to_local[mu] = local_i;
+        }
+
+        for i in 0..m {
+            let mu = ws.ao_indices[i];
+            let row_p = &p_slice[mu * n..(mu + 1) * n];
+            let sub_p_row = &mut ws.p_sub[i * m..(i + 1) * m];
+            for j in 0..m {
+                let nu = ws.ao_indices[j];
+                sub_p_row[j] = row_p[nu];
+            }
+        }
+
+        ws.v_sub[..m * m].fill(0.0);
+
+        for gp in sub_chunk {
+            let w = gp.weight;
+            if w.abs() < 1e-24 {
+                continue;
+            }
+            eval_aos_grad_filtered(&ws.candidate_shells, gp.coords, &mut ws.active);
+            if ws.active.is_empty() {
+                continue;
+            }
+
+            ws.local_indices.clear();
+            ws.vals.clear();
+            for a in ws.active.iter() {
+                ws.local_indices.push(ws.ao_to_local[a.mu]);
+                ws.vals.push(a.val);
+            }
+
+            ws.phi_p.clear();
+            let mut rho_t = 0.0;
+            let mut grad_rho_t = [0.0f64; 3];
+
+            for (k_i, a_i) in ws.active.iter().enumerate() {
+                let li = ws.local_indices[k_i];
+                let sub_p_row = &ws.p_sub[li * m..(li + 1) * m];
+                let mut s = 0.0;
+                for (&lj, &v) in ws.local_indices.iter().zip(ws.vals.iter()) {
+                    s += sub_p_row[lj] * v;
+                }
+                ws.phi_p.push(s);
+                rho_t += a_i.val * s;
+                grad_rho_t[0] += 2.0 * a_i.grad[0] * s;
+                grad_rho_t[1] += 2.0 * a_i.grad[1] * s;
+                grad_rho_t[2] += 2.0 * a_i.grad[2] * s;
+            }
+
+            if rho_t < DENSITY_SCREEN {
+                continue;
+            }
+
+            let rho_s = 0.5 * rho_t;
+            let g_ss = 0.25 * dot3(grad_rho_t, grad_rho_t);
+            let out = eval_fn(rho_s, g_ss);
+
+            let term = w * out.f_xc - *e_comp;
+            let next = *e_loc + term;
+            *e_comp = (next - *e_loc) - term;
+            *e_loc = next;
+
+            // Closed-shell spin symmetry: U_alpha = (v_gamma_aa + 0.5 * v_gamma_ab) * grad_rho_t
+            let u_scale = out.v_gamma_aa + 0.5 * out.v_gamma_ab;
+            let u_vec = [
+                u_scale * grad_rho_t[0],
+                u_scale * grad_rho_t[1],
+                u_scale * grad_rho_t[2],
+            ];
+
+            ws.z_vec.clear();
+            let half_wv = 0.5 * w * out.v_rho_a;
+            for a_i in ws.active.iter() {
+                let z_i = half_wv * a_i.val + w * dot3(u_vec, a_i.grad);
+                ws.z_vec.push(z_i);
+            }
+
+            let pt_m = ws.active.len();
+            for i in 0..pt_m {
+                let li = ws.local_indices[i];
+                let phi_i = ws.vals[i];
+                let z_i = ws.z_vec[i];
+                let sub_v_row = &mut ws.v_sub[li * m..(li + 1) * m];
+                for j in 0..=i {
+                    let lj = ws.local_indices[j];
+                    sub_v_row[lj] += z_i * ws.vals[j] + phi_i * ws.z_vec[j];
+                }
+            }
+        }
+
+        // Scatter V_sub into thread-local v_loc (lower triangle)
+        for i in 0..m {
+            let mu = ws.ao_indices[i];
+            let row_out = &mut v_loc[mu * n..(mu + 1) * n];
+            let sub_v_row = &ws.v_sub[i * m..(i + 1) * m];
+            for j in 0..=i {
+                let nu = ws.ao_indices[j];
+                row_out[nu] += sub_v_row[j];
+            }
+        }
+
+        // Reset ao_to_local for next batch
+        for &mu in &ws.ao_indices {
+            ws.ao_to_local[mu] = usize::MAX;
+        }
+    }
+}
+
 /// Evaluates closed-shell Kohn-Sham $(E_{\text{xc}}, V^{\text{xc}})$ from spin-summed total density
-/// $P^t = 2 P^\alpha$ (`n_ao x n_ao`).
+/// $P^t = 2 P^\alpha$ (`n_ao x n_ao`). Supports both prebuilt and zero-residency streaming grids.
 pub fn evaluate_vxc_rks(
     basis: &BasisSet,
     grid: &MolecularGrid,
@@ -32,107 +274,1016 @@ pub fn evaluate_vxc_rks(
     density_total: &Matrix2D,
 ) -> (f64, Matrix2D) {
     let n = basis.n_ao;
-    if n == 0 || grid.points.is_empty() {
+    if n == 0 || (grid.points.is_empty() && grid.streaming.is_none()) {
         return (0.0, Matrix2D::zeros(n, n));
     }
 
     let shells = PrecomputedAoShell::from_basis(basis);
     let p_slice = &density_total.data;
 
-    let (e_xc, v_upper) = grid
-        .points
-        .par_chunks(GRID_CHUNK_SIZE)
-        .map(|chunk| {
-            let mut e_loc = 0.0f64;
-            let mut v_loc = vec![0.0f64; n * n];
-            let mut active: Vec<AoGradVal> = Vec::with_capacity(n);
-            let mut phi_p: Vec<f64> = Vec::with_capacity(n);
-            let mut z_vec: Vec<f64> = Vec::with_capacity(n);
+    let (e_xc, v_upper) = if let Some((ref mol, radial_min)) = grid.streaming {
+        if grid.points.is_empty() {
+            let tasks = grid.streaming_tasks();
+            if tasks.is_empty() {
+                return (0.0, Matrix2D::zeros(n, n));
+            }
+            let workers = bounded_worker_count(n, 1);
+            let task_chunk_len = tasks.len().div_ceil(workers).max(1);
+            tasks
+                .par_chunks(task_chunk_len)
+                .map(|task_slice| {
+                    let mut e_loc = 0.0f64;
+                    let mut e_comp = 0.0f64;
+                    let mut v_loc = vec![0.0f64; n * n];
+                    let mut ws = RksWorkspace::new(n, shells.len());
+                    let mut batch_pts: Vec<GridPoint> = Vec::with_capacity(2048);
 
-            for gp in chunk {
+                    for &(atom_idx, rad_start, rad_end) in task_slice {
+                        batch_pts.clear();
+                        MolecularGrid::generate_task_points(
+                            mol,
+                            grid.level,
+                            radial_min,
+                            atom_idx,
+                            rad_start,
+                            rad_end,
+                            &mut batch_pts,
+                        );
+                        accumulate_rks_points_with(
+                            &batch_pts,
+                            n,
+                            &shells,
+                            p_slice,
+                            |rs, gss| eval_xc_spin(func, rs, rs, gss, gss, gss),
+                            &mut e_loc,
+                            &mut e_comp,
+                            &mut v_loc,
+                            &mut ws,
+                        );
+                    }
+                    (e_loc, v_loc)
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .reduce(|(ea, mut va), (eb, vb)| {
+                    for (dst, src) in va.iter_mut().zip(vb.iter()) {
+                        *dst += *src;
+                    }
+                    (ea + eb, va)
+                })
+                .expect("nonempty streaming tasks")
+        } else {
+            unreachable!()
+        }
+    } else {
+        grid.points
+            .par_chunks(bounded_grid_chunk_size(grid.points.len(), n, 1))
+            .map(|chunk| {
+                let mut e_loc = 0.0f64;
+                let mut e_comp = 0.0f64;
+                let mut v_loc = vec![0.0f64; n * n];
+                let mut ws = RksWorkspace::new(n, shells.len());
+
+                accumulate_rks_points_with(
+                    chunk,
+                    n,
+                    &shells,
+                    p_slice,
+                    |rs, gss| eval_xc_spin(func, rs, rs, gss, gss, gss),
+                    &mut e_loc,
+                    &mut e_comp,
+                    &mut v_loc,
+                    &mut ws,
+                );
+                (e_loc, v_loc)
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .reduce(|(ea, mut va), (eb, vb)| {
+                for (dst, src) in va.iter_mut().zip(vb.iter()) {
+                    *dst += *src;
+                }
+                (ea + eb, va)
+            })
+            .expect("nonempty grid")
+    };
+
+    let mut v_mat = Matrix2D {rows:n,cols:n,data:v_upper};
+    for i in 0..n {
+        for j in 0..i { v_mat.data[j*n+i] = v_mat.data[i*n+j]; }
+    }
+    (e_xc, v_mat)
+}
+
+struct CachedAoBatch {
+    ao_indices: Vec<usize>,
+    weights: Vec<f64>,
+    /// Row-major `(m, b)` where `m = ao_indices.len()`, `b = weights.len()`.
+    phi: Vec<f64>,
+    dphi_x: Vec<f64>,
+    dphi_y: Vec<f64>,
+    dphi_z: Vec<f64>,
+}
+
+struct GpuVxcState {
+    grid: calchem_cuda::GpuVxcGrid,
+    weights: Vec<f64>,
+}
+
+/// High-performance GPU + BLAS-3 (`faer` GEMM) RKS exchange-correlation integration engine
+/// with spatial-batched AO screening across SCF iterations.
+pub struct RksVxcEngine {
+    n_ao: usize,
+    gpu: Option<GpuVxcState>,
+    batches: Option<Vec<CachedAoBatch>>,
+}
+
+impl RksVxcEngine {
+    /// Builds a CPU BLAS-3 RKS $V_{\text{xc}}$ engine for a fixed geometry/basis/grid.
+    pub fn new(basis: &BasisSet, grid: &MolecularGrid) -> Self {
+        Self::new_with_gpu(basis, grid, false)
+    }
+
+    /// Builds an RKS $V_{\text{xc}}$ engine, optionally uploading compact spatial-screened
+    /// grid & basis metadata (~10–20 MB) to CUDA VRAM for on-the-fly FP64 GPU evaluation.
+    pub fn new_with_gpu(basis: &BasisSet, grid: &MolecularGrid, use_gpu: bool) -> Self {
+        let n_ao = basis.n_ao;
+        if n_ao == 0 || grid.points.is_empty() || grid.streaming.is_some() {
+            return Self {
+                n_ao,
+                gpu: None,
+                batches: None,
+            };
+        }
+
+        let shells = PrecomputedAoShell::from_basis(basis);
+        let raw_chunks: Vec<&[GridPoint]> = grid.points.chunks(BATCH_SIZE).collect();
+
+        // First pass: screen shells per batch and compute active point indices.
+        let batch_meta: Vec<(Vec<usize>, Vec<usize>)> = raw_chunks
+            .par_iter()
+            .map(|sub_chunk| {
+                let mut min_c = [f64::INFINITY; 3];
+                let mut max_c = [-f64::INFINITY; 3];
+                let mut pt_idxs = Vec::with_capacity(sub_chunk.len());
+                for (local_g, gp) in sub_chunk.iter().enumerate() {
+                    if gp.weight.abs() < 1e-24 {
+                        continue;
+                    }
+                    pt_idxs.push(local_g);
+                    for q in 0..3 {
+                        if gp.coords[q] < min_c[q] {
+                            min_c[q] = gp.coords[q];
+                        }
+                        if gp.coords[q] > max_c[q] {
+                            max_c[q] = gp.coords[q];
+                        }
+                    }
+                }
+                if pt_idxs.is_empty() {
+                    return (Vec::new(), pt_idxs);
+                }
+                let center = [
+                    0.5 * (min_c[0] + max_c[0]),
+                    0.5 * (min_c[1] + max_c[1]),
+                    0.5 * (min_c[2] + max_c[2]),
+                ];
+                let r_box = {
+                    let dx = max_c[0] - center[0];
+                    let dy = max_c[1] - center[1];
+                    let dz = max_c[2] - center[2];
+                    (dx * dx + dy * dy + dz * dz).sqrt()
+                };
+                let mut cand_shell_idxs = Vec::new();
+                for (si, sh) in shells.iter().enumerate() {
+                    let dx = sh.center[0] - center[0];
+                    let dy = sh.center[1] - center[1];
+                    let dz = sh.center[2] - center[2];
+                    let d2 = dx * dx + dy * dy + dz * dz;
+                    let thresh = r_box + sh.r_cutoff;
+                    if d2 <= thresh * thresh {
+                        cand_shell_idxs.push(si);
+                    }
+                }
+                (cand_shell_idxs, pt_idxs)
+            })
+            .collect();
+
+        // Try GPU on-the-fly FP64 Vxc path first when GPU is enabled (< 25 MB VRAM, zero 2 GB RAM cache!)
+        if use_gpu && calchem_cuda::is_cuda_available() {
+            let mut gpu_shells = Vec::with_capacity(shells.len());
+            let mut gpu_prims = Vec::new();
+            let mut gpu_comps = Vec::new();
+            for sh in &shells {
+                let prim_start = gpu_prims.len() as i32;
+                for pr in &sh.prims {
+                    gpu_prims.push(calchem_cuda::AoPrimGpu {
+                        exponent: pr.exponent,
+                        weighted_norm: pr.weighted_norm,
+                    });
+                }
+                let comp_start = gpu_comps.len() as i32;
+                for (ic, &c) in sh.comps.iter().enumerate() {
+                    gpu_comps.push(calchem_cuda::AoCompGpu {
+                        scale: sh.comp_scales[ic],
+                        lx: c[0] as i32,
+                        ly: c[1] as i32,
+                        lz: c[2] as i32,
+                        _pad: 0,
+                    });
+                }
+                gpu_shells.push(calchem_cuda::AoShellGpu {
+                    center: sh.center,
+                    r2_cutoff: sh.r2_cutoff,
+                    ao_offset: sh.ao_offset as i32,
+                    n_funcs: sh.comps.len() as i32,
+                    prim_start,
+                    n_prims: sh.prims.len() as i32,
+                    comp_start,
+                    _pad: 0,
+                });
+            }
+
+            let mut gpu_pts = Vec::with_capacity(grid.points.len());
+            let mut weights = Vec::with_capacity(grid.points.len());
+            let mut cand_offsets = Vec::with_capacity(batch_meta.len() + 1);
+            let mut cand_shells_flat = Vec::new();
+            cand_offsets.push(0i32);
+            let mut batch_id = 0i32;
+
+            for (sub_chunk, (cand_sh, pt_idxs)) in raw_chunks.iter().zip(batch_meta.iter()) {
+                if pt_idxs.is_empty() || cand_sh.is_empty() {
+                    continue;
+                }
+                for &si in cand_sh {
+                    cand_shells_flat.push(si as i32);
+                }
+                cand_offsets.push(cand_shells_flat.len() as i32);
+                for &lg in pt_idxs {
+                    let gp = &sub_chunk[lg];
+                    gpu_pts.push(calchem_cuda::GridPtGpu {
+                        x: gp.coords[0],
+                        y: gp.coords[1],
+                        z: gp.coords[2],
+                        batch_id,
+                        _pad: 0,
+                    });
+                    weights.push(gp.weight);
+                }
+                batch_id += 1;
+            }
+
+            if let Some(gpu_grid) = calchem_cuda::GpuVxcGrid::upload(
+                &gpu_shells,
+                &gpu_prims,
+                &gpu_comps,
+                &gpu_pts,
+                &cand_offsets,
+                &cand_shells_flat,
+                n_ao,
+            ) {
+                if std::env::var_os("CALCHEM_PROFILE").is_some() {
+                    eprintln!(
+                        "[vxc_gpu] uploaded pts={} batches={} cand_entries={}",
+                        gpu_pts.len(),
+                        batch_id,
+                        cand_shells_flat.len()
+                    );
+                }
+                return Self {
+                    n_ao,
+                    gpu: Some(GpuVxcState {
+                        grid: gpu_grid,
+                        weights,
+                    }),
+                    batches: None,
+                };
+            }
+        }
+
+        let max_bytes: usize = std::env::var("CALCHEM_MAX_AO_GRID_BYTES")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(2560 << 20);
+        if max_bytes == 0 {
+            return Self {
+                n_ao,
+                gpu: None,
+                batches: None,
+            };
+        }
+
+        let mut total_bytes: u128 = 0;
+        for (cand_shells, pt_idxs) in &batch_meta {
+            let m: usize = cand_shells.iter().map(|&si| shells[si].n_functions()).sum();
+            let b = pt_idxs.len();
+            total_bytes += (m as u128) * (b as u128) * 4 * 8;
+        }
+        if std::env::var_os("CALCHEM_PROFILE").is_some() {
+            eprintln!(
+                "[vxc_cache] batches={} bytes={} limit={}",
+                batch_meta.len(),
+                total_bytes,
+                max_bytes
+            );
+        }
+        if total_bytes > max_bytes as u128 {
+            return Self {
+                n_ao,
+                gpu: None,
+                batches: None,
+            };
+        }
+
+        // Second pass: evaluate AO values & gradients into contiguous row-major (m x b) blocks.
+        let batches: Vec<CachedAoBatch> = raw_chunks
+            .par_iter()
+            .zip(batch_meta.par_iter())
+            .filter_map(|(sub_chunk, (cand_shell_idxs, pt_idxs))| {
+                let b = pt_idxs.len();
+                if b == 0 || cand_shell_idxs.is_empty() {
+                    return None;
+                }
+                let cand_shells: Vec<&PrecomputedAoShell> =
+                    cand_shell_idxs.iter().map(|&si| &shells[si]).collect();
+                let mut ao_indices = Vec::new();
+                for sh in &cand_shells {
+                    for c in 0..sh.n_functions() {
+                        ao_indices.push(sh.ao_offset + c);
+                    }
+                }
+                let m = ao_indices.len();
+                let mut ao_to_local = vec![usize::MAX; n_ao];
+                for (li, &mu) in ao_indices.iter().enumerate() {
+                    ao_to_local[mu] = li;
+                }
+
+                let mut weights = Vec::with_capacity(b);
+                let mut phi = vec![0.0f64; m * b];
+                let mut dphi_x = vec![0.0f64; m * b];
+                let mut dphi_y = vec![0.0f64; m * b];
+                let mut dphi_z = vec![0.0f64; m * b];
+                let mut active = Vec::with_capacity(m);
+
+                for (g, &local_g) in pt_idxs.iter().enumerate() {
+                    let gp = &sub_chunk[local_g];
+                    weights.push(gp.weight);
+                    eval_aos_grad_filtered(&cand_shells, gp.coords, &mut active);
+                    for a in &active {
+                        let li = ao_to_local[a.mu];
+                        if li < m {
+                            let idx = li * b + g;
+                            phi[idx] = a.val;
+                            dphi_x[idx] = a.grad[0];
+                            dphi_y[idx] = a.grad[1];
+                            dphi_z[idx] = a.grad[2];
+                        }
+                    }
+                }
+
+                Some(CachedAoBatch {
+                    ao_indices,
+                    weights,
+                    phi,
+                    dphi_x,
+                    dphi_y,
+                    dphi_z,
+                })
+            })
+            .collect();
+
+        Self {
+            n_ao,
+            gpu: None,
+            batches: Some(batches),
+        }
+    }
+
+    /// Evaluates closed-shell $(E_{\text{xc}}, V^{\text{xc}})$ using GPU FP64 kernels if resident,
+    /// else batched BLAS-3 GEMM on cached AO grid, else streaming CPU fallback.
+    pub fn evaluate(
+        &self,
+        basis: &BasisSet,
+        grid: &MolecularGrid,
+        func: XcFunctional,
+        density_total: &Matrix2D,
+    ) -> (f64, Matrix2D) {
+        let n = self.n_ao;
+        if let Some(ref gpu_state) = self.gpu {
+            let n_pts = gpu_state.weights.len();
+            let mut rho_grad = vec![0.0f64; n_pts * 4];
+            if gpu_state
+                .grid
+                .eval_rho_grad(&density_total.data, &mut rho_grad)
+            {
+                let mut wv = vec![0.0f64; n_pts * 4];
+                let workers = rayon::current_num_threads().max(1);
+                let pt_chunk = n_pts.div_ceil(workers).max(1024);
+                let e_xc: f64 = wv
+                    .par_chunks_mut(pt_chunk * 4)
+                    .zip(rho_grad.par_chunks(pt_chunk * 4))
+                    .zip(gpu_state.weights.par_chunks(pt_chunk))
+                    .map(|((wv_ch, rg_ch), w_ch)| {
+                        let mut e_loc = 0.0f64;
+                        let mut e_comp = 0.0f64;
+                        for g in 0..w_ch.len() {
+                            let o = g * 4;
+                            let rt = rg_ch[o];
+                            if rt < DENSITY_SCREEN {
+                                continue;
+                            }
+                            let w = w_ch[g];
+                            let grad_x = rg_ch[o + 1];
+                            let grad_y = rg_ch[o + 2];
+                            let grad_z = rg_ch[o + 3];
+                            let rho_s = 0.5 * rt;
+                            let g_ss =
+                                0.25 * (grad_x * grad_x + grad_y * grad_y + grad_z * grad_z);
+                            let out = eval_xc_spin(func, rho_s, rho_s, g_ss, g_ss, g_ss);
+
+                            let term = w * out.f_xc - e_comp;
+                            let next = e_loc + term;
+                            e_comp = (next - e_loc) - term;
+                            e_loc = next;
+
+                            wv_ch[o] = 0.5 * w * out.v_rho_a;
+                            let wu_scale = w * (out.v_gamma_aa + 0.5 * out.v_gamma_ab);
+                            wv_ch[o + 1] = wu_scale * grad_x;
+                            wv_ch[o + 2] = wu_scale * grad_y;
+                            wv_ch[o + 3] = wu_scale * grad_z;
+                        }
+                        e_loc
+                    })
+                    .sum();
+
+                let mut v_lower = vec![0.0f64; n * n];
+                if gpu_state.grid.accumulate_vxc(&wv, &mut v_lower) {
+                    let mut v_mat = Matrix2D {
+                        rows: n,
+                        cols: n,
+                        data: v_lower,
+                    };
+                    for i in 0..n {
+                        for j in 0..i {
+                            v_mat.data[j * n + i] = v_mat.data[i * n + j];
+                        }
+                    }
+                    return (e_xc, v_mat);
+                }
+            }
+        }
+
+        let Some(ref batches) = self.batches else {
+            return evaluate_vxc_rks(basis, grid, func, density_total);
+        };
+        let n = self.n_ao;
+        if n == 0 || batches.is_empty() {
+            return (0.0, Matrix2D::zeros(n, n));
+        }
+
+        let p_slice = &density_total.data;
+        let workers = bounded_worker_count(n, 1);
+        let chunk_len = batches.len().div_ceil(workers).max(1);
+
+        let (e_xc, v_lower) = batches
+            .par_chunks(chunk_len)
+            .map(|batch_slice| {
+                let mut e_loc = 0.0f64;
+                let mut e_comp = 0.0f64;
+                let mut v_loc = vec![0.0f64; n * n];
+                let mut p_sub = Vec::<f64>::new();
+                let mut t_buf = Vec::<f64>::new();
+                let mut z_buf = Vec::<f64>::new();
+                let mut v_sub = Vec::<f64>::new();
+                let mut rho = [0.0f64; BATCH_SIZE];
+                let mut gx = [0.0f64; BATCH_SIZE];
+                let mut gy = [0.0f64; BATCH_SIZE];
+                let mut gz = [0.0f64; BATCH_SIZE];
+                let mut w_vrho = [0.0f64; BATCH_SIZE];
+                let mut wu_x = [0.0f64; BATCH_SIZE];
+                let mut wu_y = [0.0f64; BATCH_SIZE];
+                let mut wu_z = [0.0f64; BATCH_SIZE];
+
+                for batch in batch_slice {
+                    let m = batch.ao_indices.len();
+                    let b = batch.weights.len();
+                    if m == 0 || b == 0 {
+                        continue;
+                    }
+                    let mm = m * m;
+                    let mb = m * b;
+                    if p_sub.len() < mm {
+                        p_sub.resize(mm, 0.0);
+                        v_sub.resize(mm, 0.0);
+                    }
+                    if t_buf.len() < mb {
+                        t_buf.resize(mb, 0.0);
+                        z_buf.resize(mb, 0.0);
+                    }
+
+                    // 1. Gather contiguous sub-density P_sub (m x m)
+                    for i in 0..m {
+                        let mu = batch.ao_indices[i];
+                        let row_p = &p_slice[mu * n..(mu + 1) * n];
+                        let dst = &mut p_sub[i * m..(i + 1) * m];
+                        for j in 0..m {
+                            dst[j] = row_p[batch.ao_indices[j]];
+                        }
+                    }
+
+                    // 2. BLAS-3 GEMM: T(m x b) = P_sub(m x m) * Phi(m x b)
+                    calchem_tensor::gemm_nn_into(
+                        m,
+                        b,
+                        m,
+                        &p_sub[..mm],
+                        &batch.phi[..mb],
+                        &mut t_buf[..mb],
+                    );
+
+                    // 3. Evaluate rho and grad_rho (contiguous inner loop over g in 0..b -> AVX2!)
+                    rho[..b].fill(0.0);
+                    gx[..b].fill(0.0);
+                    gy[..b].fill(0.0);
+                    gz[..b].fill(0.0);
+                    for i in 0..m {
+                        let off = i * b;
+                        let t_row = &t_buf[off..off + b];
+                        let p_row = &batch.phi[off..off + b];
+                        let dx_row = &batch.dphi_x[off..off + b];
+                        let dy_row = &batch.dphi_y[off..off + b];
+                        let dz_row = &batch.dphi_z[off..off + b];
+                        for g in 0..b {
+                            let tg = t_row[g];
+                            rho[g] += p_row[g] * tg;
+                            gx[g] += dx_row[g] * tg;
+                            gy[g] += dy_row[g] * tg;
+                            gz[g] += dz_row[g] * tg;
+                        }
+                    }
+
+                    // 4. Evaluate XC functional at each grid point
+                    let mut any_active = false;
+                    for g in 0..b {
+                        let rt = rho[g];
+                        if rt < DENSITY_SCREEN {
+                            w_vrho[g] = 0.0;
+                            wu_x[g] = 0.0;
+                            wu_y[g] = 0.0;
+                            wu_z[g] = 0.0;
+                            continue;
+                        }
+                        any_active = true;
+                        let w = batch.weights[g];
+                        let grad_x = 2.0 * gx[g];
+                        let grad_y = 2.0 * gy[g];
+                        let grad_z = 2.0 * gz[g];
+                        let rho_s = 0.5 * rt;
+                        let g_ss = 0.25 * (grad_x * grad_x + grad_y * grad_y + grad_z * grad_z);
+                        let out = eval_xc_spin(func, rho_s, rho_s, g_ss, g_ss, g_ss);
+
+                        let term = w * out.f_xc - e_comp;
+                        let next = e_loc + term;
+                        e_comp = (next - e_loc) - term;
+                        e_loc = next;
+
+                        w_vrho[g] = 0.5 * w * out.v_rho_a;
+                        let wu_scale = w * (out.v_gamma_aa + 0.5 * out.v_gamma_ab);
+                        wu_x[g] = wu_scale * grad_x;
+                        wu_y[g] = wu_scale * grad_y;
+                        wu_z[g] = wu_scale * grad_z;
+                    }
+                    if !any_active {
+                        continue;
+                    }
+
+                    // 5. Assemble Z(m x b) (contiguous inner loop over g in 0..b -> AVX2!)
+                    for i in 0..m {
+                        let off = i * b;
+                        let z_row = &mut z_buf[off..off + b];
+                        let p_row = &batch.phi[off..off + b];
+                        let dx_row = &batch.dphi_x[off..off + b];
+                        let dy_row = &batch.dphi_y[off..off + b];
+                        let dz_row = &batch.dphi_z[off..off + b];
+                        for g in 0..b {
+                            z_row[g] = w_vrho[g] * p_row[g]
+                                + wu_x[g] * dx_row[g]
+                                + wu_y[g] * dy_row[g]
+                                + wu_z[g] * dz_row[g];
+                        }
+                    }
+
+                    // 6. BLAS-3 GEMM: V_sub(m x m) = Z(m x b) * Phi(m x b)^T
+                    calchem_tensor::gemm_nt_into(
+                        m,
+                        m,
+                        b,
+                        &z_buf[..mb],
+                        &batch.phi[..mb],
+                        &mut v_sub[..mm],
+                    );
+
+                    // 7. Scatter symmetrized (V_sub + V_sub^T) into lower triangle of v_loc
+                    for i in 0..m {
+                        let mu = batch.ao_indices[i];
+                        let row_out = &mut v_loc[mu * n..(mu + 1) * n];
+                        let vi_off = i * m;
+                        for j in 0..=i {
+                            let nu = batch.ao_indices[j];
+                            row_out[nu] += v_sub[vi_off + j] + v_sub[j * m + i];
+                        }
+                    }
+                }
+                (e_loc, v_loc)
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .reduce(|(ea, mut va), (eb, vb)| {
+                for (dst, src) in va.iter_mut().zip(vb.iter()) {
+                    *dst += *src;
+                }
+                (ea + eb, va)
+            })
+            .expect("nonempty batches");
+
+        let mut v_mat = Matrix2D {
+            rows: n,
+            cols: n,
+            data: v_lower,
+        };
+        for i in 0..n {
+            for j in 0..i {
+                v_mat.data[j * n + i] = v_mat.data[i * n + j];
+            }
+        }
+        (e_xc, v_mat)
+    }
+}
+
+/// Evaluates RKS `(e_x_unscaled, e_c, e_xc_total, v_xc)` for a custom `PbeAbParams` variant.
+#[doc(hidden)]
+pub fn evaluate_vxc_rks_pbe_ab(
+    basis: &BasisSet,
+    grid: &MolecularGrid,
+    params: crate::xc::PbeAbParams,
+    x_scale: f64,
+    density_total: &Matrix2D,
+) -> (f64, f64, f64, Matrix2D) {
+    let n = basis.n_ao;
+    let shells = PrecomputedAoShell::from_basis(basis);
+    let p_slice = &density_total.data;
+    let tasks = grid.streaming_tasks();
+    let (mol, radial_min) = grid
+        .streaming
+        .as_ref()
+        .expect("evaluate_vxc_rks_pbe_ab requires streaming grid");
+
+    let (e_x, e_c, e_xc, v_upper) = tasks
+        .par_iter()
+        .map(|&(atom_idx, rad_start, rad_end)| {
+            let mut ex_loc = 0.0f64;
+            let mut ec_loc = 0.0f64;
+            let mut e_loc = 0.0f64;
+            let mut e_comp = 0.0f64;
+            let mut v_loc = vec![0.0f64; n * n];
+            let mut ws = RksWorkspace::new(n, shells.len());
+            let mut batch_pts: Vec<GridPoint> = Vec::with_capacity(2048);
+
+            batch_pts.clear();
+            MolecularGrid::generate_task_points(
+                mol,
+                grid.level,
+                *radial_min,
+                atom_idx,
+                rad_start,
+                rad_end,
+                &mut batch_pts,
+            );
+            accumulate_rks_points_with(
+                &batch_pts,
+                n,
+                &shells,
+                p_slice,
+                |rs, gss| {
+                    let (ex, ec, out) = crate::xc::eval_pbe_ab(params, rs, rs, gss, gss, gss, x_scale);
+                    ex_loc += out.f_xc * 0.0; // avoid unused warning
+                    let _ = (ex, ec);
+                    out
+                },
+                &mut e_loc,
+                &mut e_comp,
+                &mut v_loc,
+                &mut ws,
+            );
+            // Separate X and C energies on the same batch_pts
+            for gp in &batch_pts {
                 let w = gp.weight;
                 if w.abs() < 1e-24 {
                     continue;
                 }
-                eval_aos_grad(&shells, gp.coords, &mut active);
-                if active.is_empty() {
+                eval_aos_grad(&shells, gp.coords, &mut ws.active);
+                if ws.active.is_empty() {
                     continue;
                 }
-
-                phi_p.clear();
                 let mut rho_t = 0.0;
                 let mut grad_rho_t = [0.0f64; 3];
-
-                for a_i in &active {
+                for a_i in ws.active.iter() {
                     let row = &p_slice[a_i.mu * n..(a_i.mu + 1) * n];
                     let mut s = 0.0;
-                    for a_j in &active {
+                    for a_j in ws.active.iter() {
                         s += row[a_j.mu] * a_j.val;
                     }
-                    phi_p.push(s);
                     rho_t += a_i.val * s;
                     grad_rho_t[0] += 2.0 * a_i.grad[0] * s;
                     grad_rho_t[1] += 2.0 * a_i.grad[1] * s;
                     grad_rho_t[2] += 2.0 * a_i.grad[2] * s;
                 }
-
                 if rho_t < DENSITY_SCREEN {
                     continue;
                 }
-
-                let rho_s = 0.5 * rho_t;
-                let g_ss = 0.25 * dot3(grad_rho_t, grad_rho_t);
-                let out = eval_xc_spin(func, rho_s, rho_s, g_ss, g_ss, g_ss);
-
-                e_loc += w * out.f_xc;
-
-                // Closed-shell spin symmetry: U_alpha = (v_gamma_aa + 0.5 * v_gamma_ab) * grad_rho_t
-                let u_scale = out.v_gamma_aa + 0.5 * out.v_gamma_ab;
-                let u_vec = [
-                    u_scale * grad_rho_t[0],
-                    u_scale * grad_rho_t[1],
-                    u_scale * grad_rho_t[2],
-                ];
-
-                z_vec.clear();
-                let half_wv = 0.5 * w * out.v_rho_a;
-                for a_i in &active {
-                    let z_i = half_wv * a_i.val + w * dot3(u_vec, a_i.grad);
-                    z_vec.push(z_i);
-                }
-
-                let m = active.len();
-                for i in 0..m {
-                    let mu = active[i].mu;
-                    let phi_i = active[i].val;
-                    let z_i = z_vec[i];
-                    let row_out = &mut v_loc[mu * n..(mu + 1) * n];
-                    for j in 0..m {
-                        let nu = active[j].mu;
-                        row_out[nu] += z_i * active[j].val + phi_i * z_vec[j];
-                    }
-                }
+                let rs = 0.5 * rho_t;
+                let gss = 0.25 * dot3(grad_rho_t, grad_rho_t);
+                let (ex, ec, _) = crate::xc::eval_pbe_ab(params, rs, rs, gss, gss, gss, x_scale);
+                ex_loc += w * ex;
+                ec_loc += w * ec;
             }
-
-            (e_loc, v_loc)
+            (ex_loc, ec_loc, e_loc, v_loc)
         })
         .reduce(
-            || (0.0f64, vec![0.0f64; n * n]),
-            |(ea, mut va), (eb, vb)| {
-                for (dst, src) in va.iter_mut().zip(vb.iter()) {
-                    *dst += *src;
+            || (0.0, 0.0, 0.0, vec![0.0f64; n * n]),
+            |(xa, ca, ea, mut va), (xb, cb, eb, vb)| {
+                for (d, s) in va.iter_mut().zip(vb.iter()) {
+                    *d += *s;
                 }
-                (ea + eb, va)
+                (xa + xb, ca + cb, ea + eb, va)
             },
         );
 
-    let mut v_mat = Matrix2D::zeros(n, n);
-    v_mat.data = v_upper;
-    (e_xc, v_mat)
+    let mut v_mat = Matrix2D {rows:n,cols:n,data:v_upper};
+    for i in 0..n {
+        for j in 0..i { v_mat.data[j*n+i] = v_mat.data[i*n+j]; }
+    }
+    (e_x, e_c, e_xc, v_mat)
+}
+
+pub struct UksWorkspace<'a> {
+    pub active: Vec<AoGradVal>,
+    pub local_indices: Vec<usize>,
+    pub vals: Vec<f64>,
+    pub za_vec: Vec<f64>,
+    pub zb_vec: Vec<f64>,
+    pub candidate_shells: Vec<&'a PrecomputedAoShell>,
+    pub ao_indices: Vec<usize>,
+    pub ao_to_local: Vec<usize>,
+    pub pa_sub: Vec<f64>,
+    pub pb_sub: Vec<f64>,
+    pub va_sub: Vec<f64>,
+    pub vb_sub: Vec<f64>,
+}
+
+impl<'a> UksWorkspace<'a> {
+    pub fn new(n: usize, n_shells: usize) -> Self {
+        let init_m = n.min(256);
+        Self {
+            active: Vec::with_capacity(n),
+            local_indices: Vec::with_capacity(n),
+            vals: Vec::with_capacity(n),
+            za_vec: Vec::with_capacity(n),
+            zb_vec: Vec::with_capacity(n),
+            candidate_shells: Vec::with_capacity(n_shells),
+            ao_indices: Vec::with_capacity(n),
+            ao_to_local: vec![usize::MAX; n],
+            pa_sub: vec![0.0f64; init_m * init_m],
+            pb_sub: vec![0.0f64; init_m * init_m],
+            va_sub: vec![0.0f64; init_m * init_m],
+            vb_sub: vec![0.0f64; init_m * init_m],
+        }
+    }
+
+    #[inline]
+    pub fn ensure_capacity(&mut self, m: usize) {
+        let needed = m * m;
+        if self.pa_sub.len() < needed {
+            self.pa_sub.resize(needed, 0.0);
+            self.pb_sub.resize(needed, 0.0);
+            self.va_sub.resize(needed, 0.0);
+            self.vb_sub.resize(needed, 0.0);
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn accumulate_uks_points<'a>(
+    chunk: &[GridPoint],
+    n: usize,
+    shells: &'a [PrecomputedAoShell],
+    pa_slice: &[f64],
+    pb_slice: &[f64],
+    func: XcFunctional,
+    e_loc: &mut f64,
+    e_comp: &mut f64,
+    va_loc: &mut [f64],
+    vb_loc: &mut [f64],
+    ws: &mut UksWorkspace<'a>,
+) {
+    for sub_chunk in chunk.chunks(BATCH_SIZE) {
+        let mut min_c = [f64::INFINITY; 3];
+        let mut max_c = [-f64::INFINITY; 3];
+        let mut has_points = false;
+
+        for gp in sub_chunk {
+            if gp.weight.abs() < 1e-24 {
+                continue;
+            }
+            has_points = true;
+            for q in 0..3 {
+                if gp.coords[q] < min_c[q] { min_c[q] = gp.coords[q]; }
+                if gp.coords[q] > max_c[q] { max_c[q] = gp.coords[q]; }
+            }
+        }
+
+        if !has_points {
+            continue;
+        }
+
+        let center = [
+            0.5 * (min_c[0] + max_c[0]),
+            0.5 * (min_c[1] + max_c[1]),
+            0.5 * (min_c[2] + max_c[2]),
+        ];
+        let r_box = {
+            let dx = max_c[0] - center[0];
+            let dy = max_c[1] - center[1];
+            let dz = max_c[2] - center[2];
+            (dx * dx + dy * dy + dz * dz).sqrt()
+        };
+
+        ws.candidate_shells.clear();
+        ws.ao_indices.clear();
+
+        for sh in shells {
+            let dx = sh.center[0] - center[0];
+            let dy = sh.center[1] - center[1];
+            let dz = sh.center[2] - center[2];
+            let d2 = dx * dx + dy * dy + dz * dz;
+            let thresh = r_box + sh.r_cutoff;
+            if d2 <= thresh * thresh {
+                ws.candidate_shells.push(sh);
+                for c in 0..sh.n_functions() {
+                    ws.ao_indices.push(sh.ao_offset + c);
+                }
+            }
+        }
+
+        let m = ws.ao_indices.len();
+        if m == 0 {
+            continue;
+        }
+
+        ws.ensure_capacity(m);
+
+        for (local_i, &mu) in ws.ao_indices.iter().enumerate() {
+            ws.ao_to_local[mu] = local_i;
+        }
+
+        for i in 0..m {
+            let mu = ws.ao_indices[i];
+            let row_pa = &pa_slice[mu * n..(mu + 1) * n];
+            let row_pb = &pb_slice[mu * n..(mu + 1) * n];
+            let sub_pa_row = &mut ws.pa_sub[i * m..(i + 1) * m];
+            let sub_pb_row = &mut ws.pb_sub[i * m..(i + 1) * m];
+            for j in 0..m {
+                let nu = ws.ao_indices[j];
+                sub_pa_row[j] = row_pa[nu];
+                sub_pb_row[j] = row_pb[nu];
+            }
+        }
+
+        ws.va_sub[..m * m].fill(0.0);
+        ws.vb_sub[..m * m].fill(0.0);
+
+        for gp in sub_chunk {
+            let w = gp.weight;
+            if w.abs() < 1e-24 {
+                continue;
+            }
+
+            eval_aos_grad_filtered(&ws.candidate_shells, gp.coords, &mut ws.active);
+            if ws.active.is_empty() {
+                continue;
+            }
+
+            ws.local_indices.clear();
+            ws.vals.clear();
+            for a in ws.active.iter() {
+                ws.local_indices.push(ws.ao_to_local[a.mu]);
+                ws.vals.push(a.val);
+            }
+
+            let mut rho_a = 0.0;
+            let mut rho_b = 0.0;
+            let mut grad_a = [0.0f64; 3];
+            let mut grad_b = [0.0f64; 3];
+
+            for (k_i, a_i) in ws.active.iter().enumerate() {
+                let li = ws.local_indices[k_i];
+                let sub_pa_row = &ws.pa_sub[li * m..(li + 1) * m];
+                let sub_pb_row = &ws.pb_sub[li * m..(li + 1) * m];
+                let mut sa = 0.0;
+                let mut sb = 0.0;
+                for (&lj, &v) in ws.local_indices.iter().zip(ws.vals.iter()) {
+                    sa += sub_pa_row[lj] * v;
+                    sb += sub_pb_row[lj] * v;
+                }
+                rho_a += a_i.val * sa;
+                rho_b += a_i.val * sb;
+                for q in 0..3 {
+                    grad_a[q] += 2.0 * a_i.grad[q] * sa;
+                    grad_b[q] += 2.0 * a_i.grad[q] * sb;
+                }
+            }
+
+            let ra = rho_a.max(0.0);
+            let rb = rho_b.max(0.0);
+            if ra + rb < DENSITY_SCREEN {
+                continue;
+            }
+
+            let gaa = dot3(grad_a, grad_a);
+            let gab = dot3(grad_a, grad_b);
+            let gbb = dot3(grad_b, grad_b);
+            let out = eval_xc_spin(func, ra, rb, gaa, gab, gbb);
+
+            let term = w * out.f_xc - *e_comp;
+            let next = *e_loc + term;
+            *e_comp = (next - *e_loc) - term;
+            *e_loc = next;
+
+            let ua = [
+                2.0 * out.v_gamma_aa * grad_a[0] + out.v_gamma_ab * grad_b[0],
+                2.0 * out.v_gamma_aa * grad_a[1] + out.v_gamma_ab * grad_b[1],
+                2.0 * out.v_gamma_aa * grad_a[2] + out.v_gamma_ab * grad_b[2],
+            ];
+            let ub = [
+                2.0 * out.v_gamma_bb * grad_b[0] + out.v_gamma_ab * grad_a[0],
+                2.0 * out.v_gamma_bb * grad_b[1] + out.v_gamma_ab * grad_a[1],
+                2.0 * out.v_gamma_bb * grad_b[2] + out.v_gamma_ab * grad_a[2],
+            ];
+
+            ws.za_vec.clear();
+            ws.zb_vec.clear();
+            let half_wva = 0.5 * w * out.v_rho_a;
+            let half_wvb = 0.5 * w * out.v_rho_b;
+            for a_i in ws.active.iter() {
+                ws.za_vec.push(half_wva * a_i.val + w * dot3(ua, a_i.grad));
+                ws.zb_vec.push(half_wvb * a_i.val + w * dot3(ub, a_i.grad));
+            }
+
+            let pt_m = ws.active.len();
+            for i in 0..pt_m {
+                let li = ws.local_indices[i];
+                let phi_i = ws.vals[i];
+                let za_i = ws.za_vec[i];
+                let zb_i = ws.zb_vec[i];
+                let sub_va_row = &mut ws.va_sub[li * m..(li + 1) * m];
+                let sub_vb_row = &mut ws.vb_sub[li * m..(li + 1) * m];
+                for j in 0..=i {
+                    let lj = ws.local_indices[j];
+                    let phi_j = ws.vals[j];
+                    sub_va_row[lj] += za_i * phi_j + phi_i * ws.za_vec[j];
+                    sub_vb_row[lj] += zb_i * phi_j + phi_i * ws.zb_vec[j];
+                }
+            }
+        }
+
+        // Scatter V_sub into thread-local va_loc and vb_loc
+        for i in 0..m {
+            let mu = ws.ao_indices[i];
+            let sub_va_row = &ws.va_sub[i * m..(i + 1) * m];
+            let sub_vb_row = &ws.vb_sub[i * m..(i + 1) * m];
+            let mu_offset = mu * n;
+            for j in 0..=i {
+                let nu = ws.ao_indices[j];
+                let va_val = sub_va_row[j];
+                let vb_val = sub_vb_row[j];
+                va_loc[mu_offset + nu] += va_val;
+                vb_loc[mu_offset + nu] += vb_val;
+                if i != j {
+                    va_loc[nu * n + mu] += va_val;
+                    vb_loc[nu * n + mu] += vb_val;
+                }
+            }
+        }
+
+        // Reset ao_to_local for next batch
+        for &mu in &ws.ao_indices {
+            ws.ao_to_local[mu] = usize::MAX;
+        }
+    }
 }
 
 /// Evaluates spin-polarized open-shell Kohn-Sham $(E_{\text{xc}}, V^{\text{xc},\alpha}, V^{\text{xc},\beta})$
-/// from per-spin densities $P^\alpha, P^\beta$ (`n_ao x n_ao`).
+/// from per-spin densities $P^\alpha, P^\beta$ (`n_ao x n_ao`). Supports both prebuilt and streaming grids.
 pub fn evaluate_vxc_uks(
     basis: &BasisSet,
     grid: &MolecularGrid,
@@ -141,7 +1292,7 @@ pub fn evaluate_vxc_uks(
     pb: &Matrix2D,
 ) -> (f64, Matrix2D, Matrix2D) {
     let n = basis.n_ao;
-    if n == 0 || grid.points.is_empty() {
+    if n == 0 || (grid.points.is_empty() && grid.streaming.is_none()) {
         return (0.0, Matrix2D::zeros(n, n), Matrix2D::zeros(n, n));
     }
 
@@ -149,104 +1300,94 @@ pub fn evaluate_vxc_uks(
     let pa_slice = &pa.data;
     let pb_slice = &pb.data;
 
-    let (e_xc, va_data, vb_data) = grid
-        .points
-        .par_chunks(GRID_CHUNK_SIZE)
-        .map(|chunk| {
-            let mut e_loc = 0.0f64;
-            let mut va_loc = vec![0.0f64; n * n];
-            let mut vb_loc = vec![0.0f64; n * n];
-            let mut active: Vec<AoGradVal> = Vec::with_capacity(n);
-            let mut za_vec: Vec<f64> = Vec::with_capacity(n);
-            let mut zb_vec: Vec<f64> = Vec::with_capacity(n);
-
-            for gp in chunk {
-                let w = gp.weight;
-                if w.abs() < 1e-24 {
-                    continue;
-                }
-                eval_aos_grad(&shells, gp.coords, &mut active);
-                if active.is_empty() {
-                    continue;
-                }
-
-                let mut rho_a = 0.0;
-                let mut rho_b = 0.0;
-                let mut grad_a = [0.0f64; 3];
-                let mut grad_b = [0.0f64; 3];
-
-                for a_i in &active {
-                    let row_a = &pa_slice[a_i.mu * n..(a_i.mu + 1) * n];
-                    let row_b = &pb_slice[a_i.mu * n..(a_i.mu + 1) * n];
-                    let mut sa = 0.0;
-                    let mut sb = 0.0;
-                    for a_j in &active {
-                        sa += row_a[a_j.mu] * a_j.val;
-                        sb += row_b[a_j.mu] * a_j.val;
-                    }
-                    rho_a += a_i.val * sa;
-                    rho_b += a_i.val * sb;
-                    for q in 0..3 {
-                        grad_a[q] += 2.0 * a_i.grad[q] * sa;
-                        grad_b[q] += 2.0 * a_i.grad[q] * sb;
-                    }
-                }
-
-                let ra = rho_a.max(0.0);
-                let rb = rho_b.max(0.0);
-                if ra + rb < DENSITY_SCREEN {
-                    continue;
-                }
-
-                let gaa = dot3(grad_a, grad_a);
-                let gab = dot3(grad_a, grad_b);
-                let gbb = dot3(grad_b, grad_b);
-                let out = eval_xc_spin(func, ra, rb, gaa, gab, gbb);
-
-                e_loc += w * out.f_xc;
-
-                let ua = [
-                    2.0 * out.v_gamma_aa * grad_a[0] + out.v_gamma_ab * grad_b[0],
-                    2.0 * out.v_gamma_aa * grad_a[1] + out.v_gamma_ab * grad_b[1],
-                    2.0 * out.v_gamma_aa * grad_a[2] + out.v_gamma_ab * grad_b[2],
-                ];
-                let ub = [
-                    2.0 * out.v_gamma_bb * grad_b[0] + out.v_gamma_ab * grad_a[0],
-                    2.0 * out.v_gamma_bb * grad_b[1] + out.v_gamma_ab * grad_a[1],
-                    2.0 * out.v_gamma_bb * grad_b[2] + out.v_gamma_ab * grad_a[2],
-                ];
-
-                za_vec.clear();
-                zb_vec.clear();
-                let half_wva = 0.5 * w * out.v_rho_a;
-                let half_wvb = 0.5 * w * out.v_rho_b;
-                for a_i in &active {
-                    za_vec.push(half_wva * a_i.val + w * dot3(ua, a_i.grad));
-                    zb_vec.push(half_wvb * a_i.val + w * dot3(ub, a_i.grad));
-                }
-
-                let m = active.len();
-                for i in 0..m {
-                    let mu = active[i].mu;
-                    let phi_i = active[i].val;
-                    let za_i = za_vec[i];
-                    let zb_i = zb_vec[i];
-                    let row_va = &mut va_loc[mu * n..(mu + 1) * n];
-                    let row_vb = &mut vb_loc[mu * n..(mu + 1) * n];
-                    for j in 0..m {
-                        let nu = active[j].mu;
-                        let phi_j = active[j].val;
-                        row_va[nu] += za_i * phi_j + phi_i * za_vec[j];
-                        row_vb[nu] += zb_i * phi_j + phi_i * zb_vec[j];
-                    }
-                }
+    let (e_xc, va_data, vb_data) = if let Some((ref mol, radial_min)) = grid.streaming {
+        if grid.points.is_empty() {
+            let tasks = grid.streaming_tasks();
+            if tasks.is_empty() {
+                return (0.0, Matrix2D::zeros(n, n), Matrix2D::zeros(n, n));
             }
+            let workers = bounded_worker_count(n, 2);
+            let task_chunk_len = tasks.len().div_ceil(workers).max(1);
+            tasks
+                .par_chunks(task_chunk_len)
+                .map(|task_slice| {
+                    let mut e_loc = 0.0f64;
+                    let mut e_comp = 0.0f64;
+                    let mut va_loc = vec![0.0f64; n * n];
+                    let mut vb_loc = vec![0.0f64; n * n];
+                    let mut ws = UksWorkspace::new(n, shells.len());
+                    let mut batch_pts: Vec<GridPoint> = Vec::with_capacity(2048);
 
-            (e_loc, va_loc, vb_loc)
-        })
-        .reduce(
-            || (0.0f64, vec![0.0f64; n * n], vec![0.0f64; n * n]),
-            |(ea, mut va1, mut vb1), (eb, va2, vb2)| {
+                    for &(atom_idx, rad_start, rad_end) in task_slice {
+                        batch_pts.clear();
+                        MolecularGrid::generate_task_points(
+                            mol,
+                            grid.level,
+                            radial_min,
+                            atom_idx,
+                            rad_start,
+                            rad_end,
+                            &mut batch_pts,
+                        );
+                        accumulate_uks_points(
+                            &batch_pts,
+                            n,
+                            &shells,
+                            pa_slice,
+                            pb_slice,
+                            func,
+                            &mut e_loc,
+                            &mut e_comp,
+                            &mut va_loc,
+                            &mut vb_loc,
+                            &mut ws,
+                        );
+                    }
+                    (e_loc, va_loc, vb_loc)
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .reduce(|(ea, mut va1, mut vb1), (eb, va2, vb2)| {
+                    for (d, s) in va1.iter_mut().zip(va2.iter()) {
+                        *d += *s;
+                    }
+                    for (d, s) in vb1.iter_mut().zip(vb2.iter()) {
+                        *d += *s;
+                    }
+                    (ea + eb, va1, vb1)
+                })
+                .expect("nonempty streaming tasks")
+        } else {
+            unreachable!()
+        }
+    } else {
+        grid.points
+            .par_chunks(bounded_grid_chunk_size(grid.points.len(), n, 2))
+            .map(|chunk| {
+                let mut e_loc = 0.0f64;
+                let mut e_comp = 0.0f64;
+                let mut va_loc = vec![0.0f64; n * n];
+                let mut vb_loc = vec![0.0f64; n * n];
+                let mut ws = UksWorkspace::new(n, shells.len());
+
+                accumulate_uks_points(
+                    chunk,
+                    n,
+                    &shells,
+                    pa_slice,
+                    pb_slice,
+                    func,
+                    &mut e_loc,
+                    &mut e_comp,
+                    &mut va_loc,
+                    &mut vb_loc,
+                    &mut ws,
+                );
+                (e_loc, va_loc, vb_loc)
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .reduce(|(ea, mut va1, mut vb1), (eb, va2, vb2)| {
                 for (d, s) in va1.iter_mut().zip(va2.iter()) {
                     *d += *s;
                 }
@@ -254,14 +1395,148 @@ pub fn evaluate_vxc_uks(
                     *d += *s;
                 }
                 (ea + eb, va1, vb1)
-            },
-        );
+            })
+            .expect("nonempty grid")
+    };
 
     let mut va = Matrix2D::zeros(n, n);
     let mut vb = Matrix2D::zeros(n, n);
     va.data = va_data;
     vb.data = vb_data;
     (e_xc, va, vb)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn accumulate_xc_grad_points(
+    chunk: &[GridPoint],
+    mol: &Molecule,
+    n: usize,
+    shells: &[PrecomputedAoShell],
+    pa_slice: &[f64],
+    pb_slice: &[f64],
+    func: XcFunctional,
+    local_grad: &mut [[f64; 3]],
+    active: &mut Vec<AoHessVal>,
+    phi_pa: &mut Vec<f64>,
+    phi_pb: &mut Vec<f64>,
+    gpa: &mut Vec<[f64; 3]>,
+    gpb: &mut Vec<[f64; 3]>,
+) {
+    for gp in chunk {
+        if gp.raw_weight.abs() < 1e-24 {
+            continue;
+        }
+        eval_aos_hess(shells, gp.coords, active);
+        if active.is_empty() {
+            continue;
+        }
+
+        phi_pa.clear();
+        phi_pb.clear();
+        gpa.clear();
+        gpb.clear();
+
+        let mut rho_a = 0.0;
+        let mut rho_b = 0.0;
+        let mut grad_a = [0.0f64; 3];
+        let mut grad_b = [0.0f64; 3];
+
+        for a_i in active.iter() {
+            let row_a = &pa_slice[a_i.mu * n..(a_i.mu + 1) * n];
+            let row_b = &pb_slice[a_i.mu * n..(a_i.mu + 1) * n];
+            let mut sa = 0.0;
+            let mut sb = 0.0;
+            let mut ga_vec = [0.0f64; 3];
+            let mut gb_vec = [0.0f64; 3];
+
+            for a_j in active.iter() {
+                let p_a = row_a[a_j.mu];
+                let p_b = row_b[a_j.mu];
+                sa += p_a * a_j.val;
+                sb += p_b * a_j.val;
+                for q in 0..3 {
+                    ga_vec[q] += p_a * a_j.grad[q];
+                    gb_vec[q] += p_b * a_j.grad[q];
+                }
+            }
+
+            phi_pa.push(sa);
+            phi_pb.push(sb);
+            gpa.push(ga_vec);
+            gpb.push(gb_vec);
+
+            rho_a += a_i.val * sa;
+            rho_b += a_i.val * sb;
+            for q in 0..3 {
+                grad_a[q] += 2.0 * a_i.grad[q] * sa;
+                grad_b[q] += 2.0 * a_i.grad[q] * sb;
+            }
+        }
+
+        let ra = rho_a.max(0.0);
+        let rb = rho_b.max(0.0);
+        if ra + rb < DENSITY_SCREEN {
+            continue;
+        }
+
+        let gaa = dot3(grad_a, grad_a);
+        let gab = dot3(grad_a, grad_b);
+        let gbb = dot3(grad_b, grad_b);
+        let out = eval_xc_spin(func, ra, rb, gaa, gab, gbb);
+
+        let w = gp.weight;
+        if w.abs() > 1e-24 {
+            let ua = [
+                2.0 * out.v_gamma_aa * grad_a[0] + out.v_gamma_ab * grad_b[0],
+                2.0 * out.v_gamma_aa * grad_a[1] + out.v_gamma_ab * grad_b[1],
+                2.0 * out.v_gamma_aa * grad_a[2] + out.v_gamma_ab * grad_b[2],
+            ];
+            let ub = [
+                2.0 * out.v_gamma_bb * grad_b[0] + out.v_gamma_ab * grad_a[0],
+                2.0 * out.v_gamma_bb * grad_b[1] + out.v_gamma_ab * grad_a[1],
+                2.0 * out.v_gamma_bb * grad_b[2] + out.v_gamma_ab * grad_a[2],
+            ];
+
+            let mut sum_ao_force = [0.0f64; 3];
+
+            for (idx, a_i) in active.iter().enumerate() {
+                let atom = a_i.atom_index;
+                let sa = phi_pa[idx];
+                let sb = phi_pb[idx];
+                let ua_dot_gpa = dot3(ua, gpa[idx]);
+                let ub_dot_gpb = dot3(ub, gpb[idx]);
+
+                for q in 0..3 {
+                    let dphi_dq = a_i.grad[q];
+                    let hrow = a_i.hess_row(q);
+
+                    let term_a = out.v_rho_a * dphi_dq * sa
+                        + dot3(ua, hrow) * sa
+                        + dphi_dq * ua_dot_gpa;
+                    let term_b = out.v_rho_b * dphi_dq * sb
+                        + dot3(ub, hrow) * sb
+                        + dphi_dq * ub_dot_gpb;
+
+                    let f_aq = -2.0 * w * (term_a + term_b);
+                    local_grad[atom][q] += f_aq;
+                    sum_ao_force[q] += f_aq;
+                }
+            }
+
+            for q in 0..3 {
+                local_grad[gp.host_atom][q] -= sum_ao_force[q];
+            }
+        }
+
+        becke_weight_nuclear_gradient(
+            mol,
+            gp.host_atom,
+            gp.coords,
+            gp.raw_weight,
+            local_grad,
+            out.f_xc,
+        );
+    }
 }
 
 /// Evaluates the exact analytical nuclear gradient $\left.\frac{\partial E_{\text{xc}}}{\partial \mathbf{R}_A}\right|_{P^\alpha, P^\beta}$
@@ -276,13 +1551,69 @@ pub fn xc_nuclear_gradient(
 ) -> Vec<[f64; 3]> {
     let n_atoms = mol.atoms.len();
     let n = basis.n_ao;
-    if n_atoms <= 1 || n == 0 || grid.points.is_empty() {
+    if n_atoms <= 1 || n == 0 || (grid.points.is_empty() && grid.streaming.is_none()) {
         return vec![[0.0; 3]; n_atoms];
     }
 
     let shells = PrecomputedAoShell::from_basis(basis);
     let pa_slice = &pa.data;
     let pb_slice = &pb.data;
+
+    if let Some((_, radial_min)) = grid.streaming {
+        if grid.points.is_empty() {
+            let tasks = grid.streaming_tasks();
+            return tasks
+                .into_par_iter()
+                .fold(
+                    || vec![[0.0f64; 3]; n_atoms],
+                    |mut local_grad, (atom_idx, rad_start, rad_end)| {
+                        let mut active: Vec<AoHessVal> = Vec::with_capacity(n);
+                        let mut phi_pa: Vec<f64> = Vec::with_capacity(n);
+                        let mut phi_pb: Vec<f64> = Vec::with_capacity(n);
+                        let mut gpa: Vec<[f64; 3]> = Vec::with_capacity(n);
+                        let mut gpb: Vec<[f64; 3]> = Vec::with_capacity(n);
+                        let mut batch_pts: Vec<GridPoint> = Vec::with_capacity(2048);
+
+                        MolecularGrid::generate_task_points(
+                            mol,
+                            grid.level,
+                            radial_min,
+                            atom_idx,
+                            rad_start,
+                            rad_end,
+                            &mut batch_pts,
+                        );
+                        accumulate_xc_grad_points(
+                            &batch_pts,
+                            mol,
+                            n,
+                            &shells,
+                            pa_slice,
+                            pb_slice,
+                            func,
+                            &mut local_grad,
+                            &mut active,
+                            &mut phi_pa,
+                            &mut phi_pb,
+                            &mut gpa,
+                            &mut gpb,
+                        );
+                        local_grad
+                    },
+                )
+                .reduce(
+                    || vec![[0.0f64; 3]; n_atoms],
+                    |mut ga, gb| {
+                        for i in 0..n_atoms {
+                            for q in 0..3 {
+                                ga[i][q] += gb[i][q];
+                            }
+                        }
+                        ga
+                    },
+                );
+        }
+    }
 
     grid.points
         .par_chunks(GRID_CHUNK_SIZE)
@@ -294,126 +1625,21 @@ pub fn xc_nuclear_gradient(
             let mut gpa: Vec<[f64; 3]> = Vec::with_capacity(n);
             let mut gpb: Vec<[f64; 3]> = Vec::with_capacity(n);
 
-            for gp in chunk {
-                if gp.raw_weight.abs() < 1e-24 {
-                    continue;
-                }
-                eval_aos_hess(&shells, gp.coords, &mut active);
-                if active.is_empty() {
-                    continue;
-                }
-
-                phi_pa.clear();
-                phi_pb.clear();
-                gpa.clear();
-                gpb.clear();
-
-                let mut rho_a = 0.0;
-                let mut rho_b = 0.0;
-                let mut grad_a = [0.0f64; 3];
-                let mut grad_b = [0.0f64; 3];
-
-                for a_i in &active {
-                    let row_a = &pa_slice[a_i.mu * n..(a_i.mu + 1) * n];
-                    let row_b = &pb_slice[a_i.mu * n..(a_i.mu + 1) * n];
-                    let mut sa = 0.0;
-                    let mut sb = 0.0;
-                    let mut ga_vec = [0.0f64; 3];
-                    let mut gb_vec = [0.0f64; 3];
-
-                    for a_j in &active {
-                        let p_a = row_a[a_j.mu];
-                        let p_b = row_b[a_j.mu];
-                        sa += p_a * a_j.val;
-                        sb += p_b * a_j.val;
-                        for q in 0..3 {
-                            ga_vec[q] += p_a * a_j.grad[q];
-                            gb_vec[q] += p_b * a_j.grad[q];
-                        }
-                    }
-
-                    phi_pa.push(sa);
-                    phi_pb.push(sb);
-                    gpa.push(ga_vec);
-                    gpb.push(gb_vec);
-
-                    rho_a += a_i.val * sa;
-                    rho_b += a_i.val * sb;
-                    for q in 0..3 {
-                        grad_a[q] += 2.0 * a_i.grad[q] * sa;
-                        grad_b[q] += 2.0 * a_i.grad[q] * sb;
-                    }
-                }
-
-                let ra = rho_a.max(0.0);
-                let rb = rho_b.max(0.0);
-                if ra + rb < DENSITY_SCREEN {
-                    continue;
-                }
-
-                let gaa = dot3(grad_a, grad_a);
-                let gab = dot3(grad_a, grad_b);
-                let gbb = dot3(grad_b, grad_b);
-                let out = eval_xc_spin(func, ra, rb, gaa, gab, gbb);
-
-                let w = gp.weight;
-                if w.abs() > 1e-24 {
-                    let ua = [
-                        2.0 * out.v_gamma_aa * grad_a[0] + out.v_gamma_ab * grad_b[0],
-                        2.0 * out.v_gamma_aa * grad_a[1] + out.v_gamma_ab * grad_b[1],
-                        2.0 * out.v_gamma_aa * grad_a[2] + out.v_gamma_ab * grad_b[2],
-                    ];
-                    let ub = [
-                        2.0 * out.v_gamma_bb * grad_b[0] + out.v_gamma_ab * grad_a[0],
-                        2.0 * out.v_gamma_bb * grad_b[1] + out.v_gamma_ab * grad_a[1],
-                        2.0 * out.v_gamma_bb * grad_b[2] + out.v_gamma_ab * grad_a[2],
-                    ];
-
-                    // 1. Fixed-grid AO center nuclear gradient + 2. Host-atom translation invariance:
-                    // Since r_g = R_host + u_g co-moves with host atom H, moving R_H shifts r_g by +dR_H,
-                    // contributing +d(f_xc)/dr_g = -sum_B f_AO(B, g) onto atom H!
-                    let mut sum_ao_force = [0.0f64; 3];
-
-                    for (idx, a_i) in active.iter().enumerate() {
-                        let atom = a_i.atom_index;
-                        let sa = phi_pa[idx];
-                        let sb = phi_pb[idx];
-                        let ua_dot_gpa = dot3(ua, gpa[idx]);
-                        let ub_dot_gpb = dot3(ub, gpb[idx]);
-
-                        for q in 0..3 {
-                            let dphi_dq = a_i.grad[q];
-                            let hrow = a_i.hess_row(q);
-
-                            let term_a = out.v_rho_a * dphi_dq * sa
-                                + dot3(ua, hrow) * sa
-                                + dphi_dq * ua_dot_gpa;
-                            let term_b = out.v_rho_b * dphi_dq * sb
-                                + dot3(ub, hrow) * sb
-                                + dphi_dq * ub_dot_gpb;
-
-                            let f_aq = -2.0 * w * (term_a + term_b);
-                            local_grad[atom][q] += f_aq;
-                            sum_ao_force[q] += f_aq;
-                        }
-                    }
-
-                    for q in 0..3 {
-                        local_grad[gp.host_atom][q] -= sum_ao_force[q];
-                    }
-                }
-
-                // 3. Analytical Becke quadrature weight nuclear derivative:
-                becke_weight_nuclear_gradient(
-                    mol,
-                    gp.host_atom,
-                    gp.coords,
-                    gp.raw_weight,
-                    &mut local_grad,
-                    out.f_xc,
-                );
-            }
-
+            accumulate_xc_grad_points(
+                chunk,
+                mol,
+                n,
+                &shells,
+                pa_slice,
+                pb_slice,
+                func,
+                &mut local_grad,
+                &mut active,
+                &mut phi_pa,
+                &mut phi_pb,
+                &mut gpa,
+                &mut gpb,
+            );
             local_grad
         })
         .reduce(
@@ -638,6 +1864,104 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_streaming_grid_matches_materialized_vxc_and_gradient_with_zero_residency() {
+        let mol = distorted_water(None);
+        let basis = BasisSet::from_name("6-31g(d)", &mol).expect("6-31g(d)");
+        let grid_mat = MolecularGrid::build_for_basis(&mol, &basis, GridLevel::Medium);
+        let grid_stream = MolecularGrid::build_streaming_for_basis(&mol, &basis, GridLevel::Medium);
+
+        assert!(!grid_mat.points.is_empty());
+        assert!(
+            grid_stream.points.is_empty() && grid_stream.is_streaming(),
+            "Streaming grid must retain zero full-grid Vec<GridPoint> residency"
+        );
+
+        let n = basis.n_ao;
+        let p_tot = make_positive_density(n, 1);
+        let pa = make_positive_density(n, 3);
+        let pb = make_positive_density(n, 8);
+
+        for func in [XcFunctional::Svwn5, XcFunctional::Pbe, XcFunctional::B3lyp, XcFunctional::CamB3lyp] {
+            let (e_m, v_m) = evaluate_vxc_rks(&basis, &grid_mat, func, &p_tot);
+            let (e_s, v_s) = evaluate_vxc_rks(&basis, &grid_stream, func, &p_tot);
+            assert!(
+                (e_m - e_s).abs() < 1e-13,
+                "{func:?} RKS streaming E_xc mismatch: {e_m} vs {e_s}"
+            );
+            for idx in 0..n * n {
+                assert!(
+                    (v_m.data[idx] - v_s.data[idx]).abs() < 1e-13,
+                    "{func:?} RKS streaming V_xc mismatch at {idx}"
+                );
+            }
+
+            let (eu_m, va_m, vb_m) = evaluate_vxc_uks(&basis, &grid_mat, func, &pa, &pb);
+            let (eu_s, va_s, vb_s) = evaluate_vxc_uks(&basis, &grid_stream, func, &pa, &pb);
+            assert!((eu_m - eu_s).abs() < 1e-13);
+            for idx in 0..n * n {
+                assert!((va_m.data[idx] - va_s.data[idx]).abs() < 1e-13);
+                assert!((vb_m.data[idx] - vb_s.data[idx]).abs() < 1e-13);
+            }
+
+            let g_m = xc_nuclear_gradient(&mol, &basis, &grid_mat, func, &pa, &pb);
+            let g_s = xc_nuclear_gradient(&mol, &basis, &grid_stream, func, &pa, &pb);
+            for a in 0..mol.atoms.len() {
+                for q in 0..3 {
+                    assert!(
+                        (g_m[a][q] - g_s[a][q]).abs() < 1e-13,
+                        "{func:?} streaming XC grad mismatch at ({a},{q})"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_gpu_vxc_matches_cpu_to_machine_precision() {
+        if !calchem_cuda::is_cuda_available() {
+            return;
+        }
+        let mol = distorted_water(None);
+        let basis = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+        let grid = MolecularGrid::build_for_basis(&mol, &basis, GridLevel::Coarse);
+        let n = basis.n_ao;
+        let p_tot = make_positive_density(n, 7);
+
+        let gpu_eng = RksVxcEngine::new_with_gpu(&basis, &grid, true);
+        assert!(gpu_eng.gpu.is_some(), "GPU Vxc engine should initialize on CUDA device");
+        let cpu_eng = RksVxcEngine::new_with_gpu(&basis, &grid, false);
+
+        for func in [XcFunctional::Svwn5, XcFunctional::Pbe, XcFunctional::B3lyp, XcFunctional::CamB3lyp] {
+            let (e_ref, v_ref) = evaluate_vxc_rks(&basis, &grid, func, &p_tot);
+            let (e_cpu, v_cpu) = cpu_eng.evaluate(&basis, &grid, func, &p_tot);
+            let (e_gpu, v_gpu) = gpu_eng.evaluate(&basis, &grid, func, &p_tot);
+
+            assert!(
+                (e_gpu - e_ref).abs() < 1e-12,
+                "{func:?} GPU E_xc mismatch: gpu={e_gpu:.15} ref={e_ref:.15}"
+            );
+            assert!(
+                (e_cpu - e_ref).abs() < 1e-12,
+                "{func:?} CPU BLAS-3 E_xc mismatch: cpu={e_cpu:.15} ref={e_ref:.15}"
+            );
+            let mut max_gpu_err = 0.0f64;
+            let mut max_cpu_err = 0.0f64;
+            for idx in 0..n * n {
+                max_gpu_err = max_gpu_err.max((v_gpu.data[idx] - v_ref.data[idx]).abs());
+                max_cpu_err = max_cpu_err.max((v_cpu.data[idx] - v_ref.data[idx]).abs());
+            }
+            assert!(
+                max_gpu_err < 1e-11,
+                "{func:?} GPU V_xc max abs error {max_gpu_err:.3e} >= 1e-11"
+            );
+            assert!(
+                max_cpu_err < 1e-12,
+                "{func:?} CPU BLAS-3 V_xc max abs error {max_cpu_err:.3e} >= 1e-12"
+            );
         }
     }
 }

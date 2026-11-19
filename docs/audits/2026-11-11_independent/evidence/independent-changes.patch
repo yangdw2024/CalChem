@@ -1,0 +1,2696 @@
+--- before/calchem/_core.pyi
++++ after/calchem/_core.pyi
+@@ -23,6 +23,7 @@
+ class RustCoreError(RuntimeError): ...
+ 
+ class PyScfWavefunction:
++    density_fitting: bool
+     converged: bool
+     iterations: int
+     total_energy_hartree: float
+--- before/calchem/backends/native.py
++++ after/calchem/backends/native.py
+@@ -22,7 +22,7 @@
+     "rhf", "hf", "uhf",
+     "rks", "uks", "roks", "dft",
+     "svwn", "svwn5", "lda", "blyp", "pbe", "b3lyp", "b3lyp5", "pbe0",
+-    "camb3lyp", "cam-b3lyp", "wb97x", "wb97xd", "wb97x-d",
++    "camb3lyp", "cam-b3lyp",
+     "mp2", "mp4", "ccsd", "ccsd(t)", "ccsdt", "ccd", "casscf",
+     "cis", "tdhf", "tddft", "tda", "tda-dft",
+ ]
+@@ -344,10 +344,10 @@
+             res_extra = {}
+             if d3_energy is not None:
+                 res_extra["d3_dispersion_hartree"] = d3_energy
+-            if xc_canon in ("cam-b3lyp", "wb97x", "wb97x-d"):
++            if xc_canon == "cam-b3lyp":
+                 res_extra["method_theory_note"] = (
+-                    "Native global-hybrid approximation (static c_HF). "
+-                    "Range-separated attenuated ERI (erf(mu*r12)/r12) requires external adapter (Gaussian/ORCA)."
++                    "Native CAM exchange: 0.19 K_full + 0.46 K_erf(omega=0.33), "
++                    "with ITYH short-range B88 and VWN5/LYP correlation; external molecular certification pending."
+                 )
+ 
+             return Result(
+@@ -1265,7 +1265,7 @@
+         )
+ 
+     def solvation(self, request: CalculationRequest) -> Result:
+-        """纯 Rust 连续介质溶剂化能与自洽反应场计算 (PCM / COSMO / SMD / SCRF)。"""
++        """Rust C-PCM/COSMO SCRF；面积乘表面张力修正并非 SMD。"""
+         from .. import _core as rust_core
+         started = datetime.now()
+         t0 = time.time()
+--- before/calchem/solvent/smd.py
++++ after/calchem/solvent/smd.py
+@@ -1,6 +1,6 @@
+ """SMD (Solvation Model based on Density) 溶剂模型模块。
+ 
+-纯 Rust 原生高性能 C-PCM / SMD 自洽反应场与全溶剂化能求解器。
++保留 SMD 接口并明确拒绝未实现的物理模型。
+ """
+ 
+ from __future__ import annotations
+@@ -21,9 +21,11 @@
+         self.pcm = PCM(self.mf, solvent=self.solvent, solvent_model="cpcm", include_cds=True)
+ 
+     def kernel(self) -> float:
+-        """执行 SMD 溶剂化计算，返回 Delta G_solv (kcal/mol)。"""
+-        self.e_solv_kcal_mol = self.pcm.kernel()
+-        return self.e_solv_kcal_mol
++        raise NotImplementedError(
++            "SMD is not implemented: C-PCM plus macroscopic surface tension times area "
++            "does not reproduce SMD atomic surface tensions and solvent descriptors. "
++            "Use PCM explicitly or an external SMD backend."
++        )
+ 
+     @property
+     def e_solv(self) -> float:
+@@ -33,4 +35,4 @@
+         return self.e_solv_kcal_mol
+ 
+     def __repr__(self) -> str:
+-        return f"SMD(solvent='{self.solvent}', delta_g_solv={self.e_solv:.2f} kcal/mol)"
++        return f"SMD(solvent='{self.solvent}', status='not implemented')"
+--- before/crates/calchem-cuda/build.rs
++++ after/crates/calchem-cuda/build.rs
+@@ -13,7 +13,9 @@
+     };
+ 
+     if !has_nvcc {
+-        println!("cargo:warning=NVCC not found; calchem-cuda will compile with CPU fallback stubs.");
++        println!(
++            "cargo:warning=NVCC not found; calchem-cuda will compile with CPU fallback stubs."
++        );
+         println!("cargo:rustc-cfg=no_cuda");
+         return;
+     }
+@@ -27,28 +29,27 @@
+         "libcalchem_cuda.a"
+     };
+     let lib_path = out_dir.join(lib_name);
+-    let prebuilt_lib = manifest_dir.join("lib").join(lib_name);
+ 
+     let mut compiled = false;
+ 
+     // First attempt compilation via NVCC
+     let ps_cmd = format!(
+-        "& nvcc -ccbin D:\\MICROS~3\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64 --lib -O3 -Xcompiler /wd4819 '{}' -o '{}'",
++        "& nvcc -ccbin D:\\MICROS~3\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64 --lib -O3 -Xcompiler /MD -Xcompiler /wd4819 '{}' -o '{}'",
+         cu_path.display(),
+         lib_path.display()
+     );
+-    if let Ok(s) = Command::new("powershell").arg("-Command").arg(&ps_cmd).status() {
++    if let Ok(s) = Command::new("powershell")
++        .arg("-Command")
++        .arg(&ps_cmd)
++        .status()
++    {
+         if s.success() && lib_path.exists() {
+             compiled = true;
+         }
+     }
+ 
+-    // Fall back to prebuilt lib if available
+-    if !compiled && prebuilt_lib.exists() {
+-        if std::fs::copy(&prebuilt_lib, &lib_path).is_ok() {
+-            compiled = true;
+-        }
+-    }
++    // Never substitute an unverified prebuilt archive after a source build failure:
++    // it can silently reintroduce old kernels and invalidate every source-level fix.
+ 
+     if compiled {
+         println!("cargo:rustc-link-search=native={}", out_dir.display());
+--- before/crates/calchem-cuda/src/cuda_kernels.cu
++++ after/crates/calchem-cuda/src/cuda_kernels.cu
+@@ -1,6 +1,17 @@
+ #include <cuda_runtime.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <stdint.h>
++#include <string.h>
++#include <mutex>
++
++// Serialize allocation scopes so the per-call ceiling also bounds this module's
++// aggregate live allocations. Destructors cover every error/early return.
++static std::mutex rij_mutex;
++struct DeviceBuffer {
++    double* ptr = nullptr;
++    ~DeviceBuffer() { if (ptr) cudaFree(ptr); }
++};
+ 
+ #ifdef _WIN32
+ #include <windows.h>
+@@ -64,12 +75,12 @@
+     int n_p,
+     int n_ao_sq
+ ) {
+-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
++    size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+     if (idx < n_ao_sq) {
+         double sum = 0.0;
+         #pragma unroll 4
+         for (int p = 0; p < n_p; ++p) {
+-            sum += x_block[p] * b_block[p * n_ao_sq + idx];
++            sum += x_block[p] * b_block[(size_t)p * n_ao_sq + idx];
+         }
+         j_matrix[idx] += sum;
+     }
+@@ -83,49 +94,56 @@
+     int n_ao_sq,
+     size_t memory_limit_bytes
+ ) {
++    std::lock_guard<std::mutex> lock(rij_mutex);
+     if (!h_b_block || !h_x_block || !h_j || n_p <= 0 || n_ao_sq <= 0) {
+         return -1;
+     }
+ 
+-    size_t req_bytes = ((size_t)n_p * (size_t)n_ao_sq + (size_t)n_p + (size_t)n_ao_sq) * sizeof(double);
+-    if (memory_limit_bytes > 0 && req_bytes > memory_limit_bytes) {
++    size_t b_count = (size_t)n_p * (size_t)n_ao_sq;
++    if (b_count > SIZE_MAX / sizeof(double) - (size_t)n_p - (size_t)n_ao_sq) return -2;
++    size_t req_bytes = (b_count + (size_t)n_p + (size_t)n_ao_sq) * sizeof(double);
++    if (req_bytes > memory_limit_bytes) {
+         return -2; // Memory budget exceeded -> CPU fallback
+     }
+ 
+     size_t free_mem = 0, total_mem = 0;
+-    if (cudaMemGetInfo(&free_mem, &total_mem) != cudaSuccess || free_mem < req_bytes + 64 * 1024 * 1024) {
++    if (cudaMemGetInfo(&free_mem, &total_mem) != cudaSuccess || free_mem < req_bytes || free_mem - req_bytes < 64 * 1024 * 1024) {
+         return -3; // Insufficient VRAM -> CPU fallback
+     }
+ 
+-    double *d_b = NULL, *d_x = NULL, *d_j = NULL;
+-    cudaError_t err = cudaMalloc((void**)&d_b, (size_t)n_p * n_ao_sq * sizeof(double));
++    DeviceBuffer db, dx, dj;
++    cudaError_t err = cudaMalloc((void**)&db.ptr, b_count * sizeof(double));
+     if (err != cudaSuccess) return -4;
+ 
+-    err = cudaMalloc((void**)&d_x, (size_t)n_p * sizeof(double));
+-    if (err != cudaSuccess) { cudaFree(d_b); return -4; }
++    err = cudaMalloc((void**)&dx.ptr, (size_t)n_p * sizeof(double));
++    if (err != cudaSuccess) return -4;
+ 
+-    err = cudaMalloc((void**)&d_j, (size_t)n_ao_sq * sizeof(double));
+-    if (err != cudaSuccess) { cudaFree(d_b); cudaFree(d_x); return -4; }
++    err = cudaMalloc((void**)&dj.ptr, (size_t)n_ao_sq * sizeof(double));
++    if (err != cudaSuccess) return -4;
+ 
+-    cudaMemcpy(d_b, h_b_block, (size_t)n_p * n_ao_sq * sizeof(double), cudaMemcpyHostToDevice);
+-    cudaMemcpy(d_x, h_x_block, (size_t)n_p * sizeof(double), cudaMemcpyHostToDevice);
+-    cudaMemcpy(d_j, h_j, (size_t)n_ao_sq * sizeof(double), cudaMemcpyHostToDevice);
++    if (cudaMemcpy(db.ptr, h_b_block, b_count * sizeof(double), cudaMemcpyHostToDevice) != cudaSuccess
++        || cudaMemcpy(dx.ptr, h_x_block, (size_t)n_p * sizeof(double), cudaMemcpyHostToDevice) != cudaSuccess
++        || cudaMemcpy(dj.ptr, h_j, (size_t)n_ao_sq * sizeof(double), cudaMemcpyHostToDevice) != cudaSuccess) return -5;
+ 
+     int block_size = 256;
+-    int grid_size = (n_ao_sq + block_size - 1) / block_size;
+-    rij_accumulate_kernel<<<grid_size, block_size>>>(d_b, d_x, d_j, n_p, n_ao_sq);
++    int grid_size = (int)(((size_t)n_ao_sq + block_size - 1) / block_size);
++    rij_accumulate_kernel<<<grid_size, block_size>>>(db.ptr, dx.ptr, dj.ptr, n_p, n_ao_sq);
++    if (cudaGetLastError() != cudaSuccess) return -5;
+ 
+     err = cudaDeviceSynchronize();
+     if (err != cudaSuccess) {
+-        cudaFree(d_b); cudaFree(d_x); cudaFree(d_j);
+         return -5;
+     }
+ 
+-    cudaMemcpy(h_j, d_j, (size_t)n_ao_sq * sizeof(double), cudaMemcpyDeviceToHost);
+-
+-    cudaFree(d_b);
+-    cudaFree(d_x);
+-    cudaFree(d_j);
++    // Commit only a complete successful transfer; a failed GPU attempt leaves h_j
++    // unchanged and can safely be recomputed on the CPU.
++    size_t j_bytes = (size_t)n_ao_sq * sizeof(double);
++    double* result = (double*)malloc(j_bytes);
++    if (!result) return -4;
++    err = cudaMemcpy(result, dj.ptr, j_bytes, cudaMemcpyDeviceToHost);
++    if (err == cudaSuccess) memcpy(h_j, result, j_bytes);
++    free(result);
++    if (err != cudaSuccess) return -5;
+ 
+     return 0;
+ }
+--- before/crates/calchem-cuda/src/lib.rs
++++ after/crates/calchem-cuda/src/lib.rs
+@@ -22,7 +22,9 @@
+ 
+ /// Checks whether a functional CUDA device is available and accessible.
+ pub fn is_cuda_available() -> bool {
+-    if !GPU_ENABLED.load(Ordering::Relaxed) {
++    if !GPU_ENABLED.load(Ordering::Relaxed)
++        || std::env::var("CALCHEM_DISABLE_GPU").is_ok_and(|v| v == "1")
++    {
+         return false;
+     }
+     #[cfg(not(no_cuda))]
+@@ -43,7 +45,9 @@
+ /// Queries free and total device memory in bytes.
+ pub fn get_cuda_memory_info() -> Result<(usize, usize), CalcError> {
+     if !is_cuda_available() {
+-        return Err(CalcError::UnsupportedMethod("CUDA device unavailable".into()));
++        return Err(CalcError::UnsupportedMethod(
++            "CUDA device unavailable".into(),
++        ));
+     }
+     #[cfg(not(no_cuda))]
+     unsafe {
+@@ -53,12 +57,16 @@
+         if ret == 0 {
+             Ok((free, total))
+         } else {
+-            Err(CalcError::Internal(format!("cudaMemGetInfo failed with code {ret}")))
++            Err(CalcError::Internal(format!(
++                "cudaMemGetInfo failed with code {ret}"
++            )))
+         }
+     }
+     #[cfg(no_cuda)]
+     {
+-        Err(CalcError::UnsupportedMethod("CUDA not compiled into binary".into()))
++        Err(CalcError::UnsupportedMethod(
++            "CUDA not compiled into binary".into(),
++        ))
+     }
+ }
+ 
+@@ -72,6 +80,20 @@
+     n_p: usize,
+     n_ao_sq: usize,
+ ) -> bool {
++    // Validate the complete FFI contract before exposing any safe Rust slice as a raw pointer.
++    let Some(b_len) = n_p.checked_mul(n_ao_sq) else {
++        return false;
++    };
++    if n_p == 0
++        || n_ao_sq == 0
++        || n_p > i32::MAX as usize
++        || n_ao_sq > i32::MAX as usize
++        || b_block.len() != b_len
++        || x_block.len() != n_p
++        || j_matrix.len() != n_ao_sq
++    {
++        return false;
++    }
+     if !is_cuda_available() {
+         return false;
+     }
+@@ -84,7 +106,12 @@
+             j_matrix.as_mut_ptr(),
+             n_p as i32,
+             n_ao_sq as i32,
+-            MAX_GPU_MEMORY_BYTES,
++            std::env::var("CALCHEM_MAX_GPU_MEM_MB")
++                .ok()
++                .and_then(|v| v.parse::<usize>().ok())
++                .and_then(|v| v.checked_mul(1024 * 1024))
++                .unwrap_or(MAX_GPU_MEMORY_BYTES)
++                .min(MAX_GPU_MEMORY_BYTES),
+         );
+         ret == 0
+     }
+--- before/crates/calchem-dft/src/vxc.rs
++++ after/crates/calchem-dft/src/vxc.rs
+@@ -17,6 +17,20 @@
+ 
+ const GRID_CHUNK_SIZE: usize = 256;
+ const DENSITY_SCREEN: f64 = 1e-18;
++
++fn bounded_grid_chunk_size(points: usize, n: usize, channels: usize) -> usize {
++    let bytes = n
++        .saturating_mul(n)
++        .saturating_mul(8)
++        .saturating_mul(channels)
++        .max(1);
++    let budget = std::env::var("CALCHEM_MAX_DIRECT_BYTES")
++        .ok()
++        .and_then(|v| v.parse::<usize>().ok())
++        .unwrap_or(4 * 1024 * 1024 * 1024);
++    let workers = rayon::current_num_threads().min((budget / bytes).max(1));
++    points.div_ceil(workers).max(GRID_CHUNK_SIZE)
++}
+ 
+ #[inline]
+ fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
+@@ -41,9 +55,10 @@
+ 
+     let (e_xc, v_upper) = grid
+         .points
+-        .par_chunks(GRID_CHUNK_SIZE)
++        .par_chunks(bounded_grid_chunk_size(grid.points.len(), n, 1))
+         .map(|chunk| {
+             let mut e_loc = 0.0f64;
++            let mut e_comp = 0.0f64;
+             let mut v_loc = vec![0.0f64; n * n];
+             let mut active: Vec<AoGradVal> = Vec::with_capacity(n);
+             let mut phi_p: Vec<f64> = Vec::with_capacity(n);
+@@ -84,7 +99,10 @@
+                 let g_ss = 0.25 * dot3(grad_rho_t, grad_rho_t);
+                 let out = eval_xc_spin(func, rho_s, rho_s, g_ss, g_ss, g_ss);
+ 
+-                e_loc += w * out.f_xc;
++                let term = w * out.f_xc - e_comp;
++                let next = e_loc + term;
++                e_comp = (next - e_loc) - term;
++                e_loc = next;
+ 
+                 // Closed-shell spin symmetry: U_alpha = (v_gamma_aa + 0.5 * v_gamma_ab) * grad_rho_t
+                 let u_scale = out.v_gamma_aa + 0.5 * out.v_gamma_ab;
+@@ -116,15 +134,15 @@
+ 
+             (e_loc, v_loc)
+         })
+-        .reduce(
+-            || (0.0f64, vec![0.0f64; n * n]),
+-            |(ea, mut va), (eb, vb)| {
+-                for (dst, src) in va.iter_mut().zip(vb.iter()) {
+-                    *dst += *src;
+-                }
+-                (ea + eb, va)
+-            },
+-        );
++        .collect::<Vec<_>>()
++        .into_iter()
++        .reduce(|(ea, mut va), (eb, vb)| {
++            for (dst, src) in va.iter_mut().zip(vb.iter()) {
++                *dst += *src;
++            }
++            (ea + eb, va)
++        })
++        .expect("nonempty grid");
+ 
+     let mut v_mat = Matrix2D::zeros(n, n);
+     v_mat.data = v_upper;
+@@ -151,9 +169,10 @@
+ 
+     let (e_xc, va_data, vb_data) = grid
+         .points
+-        .par_chunks(GRID_CHUNK_SIZE)
++        .par_chunks(bounded_grid_chunk_size(grid.points.len(), n, 2))
+         .map(|chunk| {
+             let mut e_loc = 0.0f64;
++            let mut e_comp = 0.0f64;
+             let mut va_loc = vec![0.0f64; n * n];
+             let mut vb_loc = vec![0.0f64; n * n];
+             let mut active: Vec<AoGradVal> = Vec::with_capacity(n);
+@@ -203,7 +222,10 @@
+                 let gbb = dot3(grad_b, grad_b);
+                 let out = eval_xc_spin(func, ra, rb, gaa, gab, gbb);
+ 
+-                e_loc += w * out.f_xc;
++                let term = w * out.f_xc - e_comp;
++                let next = e_loc + term;
++                e_comp = (next - e_loc) - term;
++                e_loc = next;
+ 
+                 let ua = [
+                     2.0 * out.v_gamma_aa * grad_a[0] + out.v_gamma_ab * grad_b[0],
+@@ -244,18 +266,18 @@
+ 
+             (e_loc, va_loc, vb_loc)
+         })
+-        .reduce(
+-            || (0.0f64, vec![0.0f64; n * n], vec![0.0f64; n * n]),
+-            |(ea, mut va1, mut vb1), (eb, va2, vb2)| {
+-                for (d, s) in va1.iter_mut().zip(va2.iter()) {
+-                    *d += *s;
+-                }
+-                for (d, s) in vb1.iter_mut().zip(vb2.iter()) {
+-                    *d += *s;
+-                }
+-                (ea + eb, va1, vb1)
+-            },
+-        );
++        .collect::<Vec<_>>()
++        .into_iter()
++        .reduce(|(ea, mut va1, mut vb1), (eb, va2, vb2)| {
++            for (d, s) in va1.iter_mut().zip(va2.iter()) {
++                *d += *s;
++            }
++            for (d, s) in vb1.iter_mut().zip(vb2.iter()) {
++                *d += *s;
++            }
++            (ea + eb, va1, vb1)
++        })
++        .expect("nonempty grid");
+ 
+     let mut va = Matrix2D::zeros(n, n);
+     let mut vb = Matrix2D::zeros(n, n);
+--- before/crates/calchem-dft/src/xc.rs
++++ after/crates/calchem-dft/src/xc.rs
+@@ -26,18 +26,24 @@
+     B3lyp5,
+     /// Hybrid PBE0 (`PBE1PBE`): `0.25 HF + 0.75 PBE_X + 1.00 PBE_C`
+     Pbe0,
+-    /// Global-Hybrid approximation to CAM-B3LYP (static HF exchange c_HF = 0.42).
+-    /// Note: Standard range-separated attenuated ERIs (erf(mu*r12)/r12) require external adapters.
++    /// CAM-B3LYP with ITYH short-range B88 exchange and attenuated exact exchange.
+     CamB3lyp,
+-    /// Global-Hybrid approximation to wB97X-D (static HF exchange c_HF = 0.22).
+-    /// Note: Standard range-separated attenuated ERIs require external adapters.
++    /// Legacy incomplete approximation; rejected by validate_native().
+     Wb97xd,
+ }
+ 
+ impl XcFunctional {
+     pub const SUPPORTED_NAMES: &'static [&'static str] = &[
+-        "svwn5", "svwn", "lda", "blyp", "pbe", "b3lyp", "b3lyp5", "pbe0",
+-        "camb3lyp", "cam-b3lyp", "wb97xd", "wb97x-d", "wb97x",
++        "svwn5",
++        "svwn",
++        "lda",
++        "blyp",
++        "pbe",
++        "b3lyp",
++        "b3lyp5",
++        "pbe0",
++        "camb3lyp",
++        "cam-b3lyp",
+     ];
+ 
+     pub fn from_name(name: &str) -> Result<Self, CalcError> {
+@@ -75,8 +81,13 @@
+         }
+     }
+ 
+-    /// Native core supports all registered XC functionals including range-separated hybrids.
++    /// Reject an incomplete model rather than publishing it under a standard functional name.
+     pub fn validate_native(self) -> Result<(), CalcError> {
++        if self == Self::Wb97xd {
++            return Err(CalcError::UnsupportedMethod(
++                "wB97X-D is not implemented faithfully: missing fitted B97 correlation, short-range exchange and original dispersion; use an external backend".into()
++            ));
++        }
+         Ok(())
+     }
+ 
+@@ -767,10 +778,26 @@
+         let df_da = -(8.0 / 3.0) * sqrt_pi + 16.0 * a;
+         return (f.clamp(0.0, 1.0), df_da);
+     }
+-    if a > 15.0 {
+-        let f = 1.0 / (36.0 * a * a);
+-        let df_da = -1.0 / (18.0 * a * a * a);
+-        return (f.clamp(0.0, 1.0), df_da);
++    if a >= 2.0 {
++        // Expansion through a^-12 avoids cancellation of terms of order a^4.
++        let z = 1.0 / (a * a);
++        let coefficients = [
++            1.0 / 36.0,
++            -1.0 / 960.0,
++            1.0 / 26880.0,
++            -1.0 / 829440.0,
++            1.0 / 28385280.0,
++            -1.0 / 1073479680.0,
++        ];
++        let mut f = 0.0;
++        let mut df_da = 0.0;
++        let mut power = z;
++        for (k, c) in coefficients.into_iter().enumerate() {
++            f += c * power;
++            df_da -= (2 * (k + 1)) as f64 * c * power / a;
++            power *= z;
++        }
++        return (f, df_da);
+     }
+ 
+     let a2 = a * a;
+@@ -802,7 +829,10 @@
+     let v_rho_tot = vra_slater + vra_b88;
+     let v_gam_tot = vgaa_b88;
+ 
+-    let k_f = (6.0 * PI * PI * rho_s).cbrt();
++    // ITYH uses the gradient-dependent B88 enhancement K=-f_x/rho^(4/3),
++    // not the LDA Fermi wave vector. Differentiate its dependence on both rho and gamma.
++    let k_b88 = -fx_tot / rho_s.powf(4.0 / 3.0);
++    let k_f = (9.0 * PI / (2.0 * k_b88)).sqrt() * rho_s.cbrt();
+     let mu = 0.33;
+     let a = mu / (2.0 * k_f);
+     let (f_atten, df_da) = camb3lyp_attenuation(a);
+@@ -811,12 +841,13 @@
+     // W(a) = 0.35 + 0.46 * F_atten(a)
+     let w = 0.35 + 0.46 * f_atten;
+     let dw_da = 0.46 * df_da;
+-    let da_drho = -(1.0 / 3.0) * a / rho_s;
++    let da_drho = a * (0.5 * v_rho_tot / fx_tot - 1.0 / rho_s);
++    let da_dgamma = 0.5 * a * v_gam_tot / fx_tot;
+     let dw_drho = dw_da * da_drho;
+ 
+     let f = w * fx_tot;
+     let v_rho = w * v_rho_tot + dw_drho * fx_tot;
+-    let v_gamma = w * v_gam_tot;
++    let v_gamma = w * v_gam_tot + dw_da * da_dgamma * fx_tot;
+ 
+     (f, v_rho, v_gamma)
+ }
+@@ -891,6 +922,39 @@
+ #[cfg(test)]
+ mod tests {
+     use super::*;
++
++    #[test]
++    fn cam_exchange_matches_independent_70_digit_ityh_reference() {
++        // Generated by docs/audits/2026-11-11_independent/probes/cam_reference.py.
++        for (rho, gamma, e, vr, vg) in [
++            (
++                0.05,
++                0.001,
++                -0.010533928866947627,
++                -0.2932000891552038,
++                -0.10900565576558356,
++            ),
++            (
++                0.2,
++                0.1,
++                -0.07507503986684043,
++                -0.4990012926064571,
++                -0.01800971179470531,
++            ),
++            (
++                0.001,
++                0.3,
++                -0.003471498357842851,
++                -0.5447077074153023,
++                -0.005110453550847137,
++            ),
++        ] {
++            let got = camb3lyp_x_one_spin(rho, gamma);
++            assert!((got.0 - e).abs() < 1e-12, "energy {got:?}");
++            assert!((got.1 - vr).abs() < 1e-10, "rho partial {got:?}");
++            assert!((got.2 - vg).abs() < 1e-10, "gradient partial {got:?}");
++        }
++    }
+ 
+     fn assert_xc_partials_match_fd(
+         func: XcFunctional,
+--- before/crates/calchem-grad/src/lib.rs
++++ after/crates/calchem-grad/src/lib.rs
+@@ -250,6 +250,9 @@
+     basis: &BasisSet,
+     wf: &ScfWavefunction,
+ ) -> Result<Vec<[f64; 3]>, CalcError> {
++    if wf.density_fitting {
++        return Err(CalcError::UnsupportedMethod("RI-J analytic gradients require auxiliary metric and three-center derivatives, which are not implemented".into()));
++    }
+     if !wf.converged {
+         return Err(CalcError::NotConverged {
+             iterations: wf.iterations,
+@@ -283,7 +286,9 @@
+     let n_occ = wf.mo_occupations.iter().filter(|&&o| o > 1e-12).count();
+     let w = energy_weighted_density(&wf.mo_coefficients, &wf.mo_energies, n, n_occ, 2.0);
+ 
+-    Ok(scf_gradient_core(mol, basis, &pt, &half, &half, &w, 1.0, None))
++    Ok(scf_gradient_core(
++        mol, basis, &pt, &half, &half, &w, 1.0, None,
++    ))
+ }
+ 
+ /// Computes the analytical UHF Cartesian energy gradient (Eh/Bohr) for open-shell systems.
+@@ -292,6 +297,9 @@
+     basis: &BasisSet,
+     wf: &UhfWavefunction,
+ ) -> Result<Vec<[f64; 3]>, CalcError> {
++    if wf.density_fitting {
++        return Err(CalcError::UnsupportedMethod("RI-J analytic gradients require auxiliary metric and three-center derivatives, which are not implemented".into()));
++    }
+     if !wf.converged {
+         return Err(CalcError::NotConverged {
+             iterations: wf.iterations,
+@@ -359,6 +367,9 @@
+     grid: &MolecularGrid,
+     wf: &ScfWavefunction,
+ ) -> Result<Vec<[f64; 3]>, CalcError> {
++    if wf.density_fitting {
++        return Err(CalcError::UnsupportedMethod("RI-J analytic gradients require auxiliary metric and three-center derivatives, which are not implemented".into()));
++    }
+     if !wf.converged {
+         return Err(CalcError::NotConverged {
+             iterations: wf.iterations,
+@@ -430,6 +441,9 @@
+     grid: &MolecularGrid,
+     wf: &UhfWavefunction,
+ ) -> Result<Vec<[f64; 3]>, CalcError> {
++    if wf.density_fitting {
++        return Err(CalcError::UnsupportedMethod("RI-J analytic gradients require auxiliary metric and three-center derivatives, which are not implemented".into()));
++    }
+     if !wf.converged {
+         return Err(CalcError::NotConverged {
+             iterations: wf.iterations,
+--- before/crates/calchem-int/src/density_fitting.rs
++++ after/crates/calchem-int/src/density_fitting.rs
+@@ -53,8 +53,9 @@
+     /// optimized for Coulomb expansion from the primary orbital basis set.
+     ///
+     /// For each atom, spans the exponent range of orbital shell pairs
+-    /// [alpha_min, 2 * alpha_max] with geometric ratio ~ 2.2, covering
+-    /// angular momenta L_aux in 0..=(2 * L_max).min(3).
++    /// [0.5 * alpha_min, 2 * alpha_max] with geometric ratio 2.0.
++    /// Angular coverage uses the explicit valence/steep heuristics below;
++    /// it is not a complete product basis and has no universal fitting error bound.
+     pub fn build_auto_jfit(mol: &Molecule, primary: &BasisSet) -> Self {
+         let mut shells = Vec::new();
+         let mut ao_offset = 0;
+@@ -97,11 +98,12 @@
+             }
+ 
+             // Target exponent span for auxiliary fitting functions:
+-            let fit_min = (min_exp * 0.8).max(0.06);
+-            let fit_max = (max_exp * 1.5).min(500.0);
++            // Do not clip diffuse/tight orbital products to fixed 0.06/500 limits.
++            let fit_min = min_exp * 0.5;
++            let fit_max = max_exp * 2.0;
+ 
+             // Generate geometric progression of exponents
+-            let ratio = 2.7_f64;
++            let ratio = 2.0_f64;
+             let mut exps = Vec::new();
+             let mut cur = fit_min;
+             while cur <= fit_max {
+@@ -174,7 +176,14 @@
+ }
+ 
+ impl Eri2CenterData {
+-    fn new(gamma_p: f64, r_p: [f64; 3], gamma_q: f64, r_q: [f64; 3], max_p: usize, max_q: usize) -> Self {
++    fn new(
++        gamma_p: f64,
++        r_p: [f64; 3],
++        gamma_q: f64,
++        r_q: [f64; 3],
++        max_p: usize,
++        max_q: usize,
++    ) -> Self {
+         let p = gamma_p;
+         let q = gamma_q;
+         let zeta = p + q;
+@@ -195,7 +204,11 @@
+         let dp = max_p + 1;
+         let dq = max_q + 1;
+         let dm = max_m + 1;
+-        let cache_len = if max_m == 0 { 0 } else { dp * dp * dp * dq * dq * dq * dm };
++        let cache_len = if max_m == 0 {
++            0
++        } else {
++            dp * dp * dp * dq * dq * dq * dm
++        };
+ 
+         Self {
+             p,
+@@ -376,19 +389,54 @@
+ /// Inverts the symmetric positive-definite 2-center metric matrix V = (P | Q)
+ /// using spectral thresholding to handle near-linear dependencies cleanly.
+ pub fn invert_coulomb_metric(v: &Matrix2D) -> Result<Matrix2D, CalcError> {
+-    let (evals, evecs) = eigh_sym(v, 200, 1e-10)?;
+     let n = v.rows;
++    if n == 0 || v.cols != n || v.data.len() != n * n {
++        return Err(CalcError::LinearAlgebra(
++            "Coulomb metric must be nonempty and square".into(),
++        ));
++    }
++    // Diagonal equilibration makes the rank criterion independent of auxiliary
++    // function normalization; a fixed absolute cutoff on raw V does not.
++    let mut scale = Vec::with_capacity(n);
++    for i in 0..n {
++        let d = v.get(i, i);
++        if !d.is_finite() || d <= 0.0 {
++            return Err(CalcError::LinearAlgebra(
++                "Nonpositive/nonfinite Coulomb metric diagonal".into(),
++            ));
++        }
++        scale.push(1.0 / d.sqrt());
++    }
++    let mut normalized = Matrix2D::zeros(n, n);
++    for i in 0..n {
++        for j in 0..n {
++            normalized.set(i, j, v.get(i, j) * scale[i] * scale[j]);
++        }
++    }
++    let (evals, evecs) = eigh_sym(&normalized, 200, 1e-13)?;
++    let cutoff = evals.iter().copied().fold(0.0_f64, f64::max) * 1e-9;
++    if evals.iter().any(|&e| e < -cutoff) {
++        return Err(CalcError::LinearAlgebra(
++            "Coulomb metric is indefinite".into(),
++        ));
++    }
+     let mut inv_evals = Matrix2D::zeros(n, n);
+     for (i, &val) in evals.iter().enumerate() {
+-        if val > 1e-11 {
++        if val > cutoff {
+             inv_evals.set(i, i, 1.0 / val);
+         } else {
+             inv_evals.set(i, i, 0.0);
+         }
+     }
+-    let tmp = matmul(v, &matmul(&evecs, &inv_evals));
+-    let _ = tmp; // sanity
+-    let v_inv = matmul(&matmul(&evecs, &inv_evals), &calchem_tensor::transpose(&evecs));
++    let mut v_inv = matmul(
++        &matmul(&evecs, &inv_evals),
++        &calchem_tensor::transpose(&evecs),
++    );
++    for i in 0..n {
++        for j in 0..n {
++            v_inv.set(i, j, v_inv.get(i, j) * scale[i] * scale[j]);
++        }
++    }
+     Ok(v_inv)
+ }
+ 
+@@ -438,7 +486,11 @@
+             (p * r_p[2] + q * pair_cd.p[2]) / zeta,
+         ];
+         let wp = [w[0] - r_p[0], w[1] - r_p[1], w[2] - r_p[2]];
+-        let wq = [w[0] - pair_cd.p[0], w[1] - pair_cd.p[1], w[2] - pair_cd.p[2]];
++        let wq = [
++            w[0] - pair_cd.p[0],
++            w[1] - pair_cd.p[1],
++            w[2] - pair_cd.p[2],
++        ];
+         let pq2 = (r_p[0] - pair_cd.p[0]).powi(2)
+             + (r_p[1] - pair_cd.p[1]).powi(2)
+             + (r_p[2] - pair_cd.p[2]).powi(2);
+@@ -450,7 +502,11 @@
+         let dp = max_p + 1;
+         let dab = max_ab + 1;
+         let dm = max_m + 1;
+-        let cache_len = if max_m == 0 { 0 } else { dp * dp * dp * dab * dab * dab * dm };
++        let cache_len = if max_m == 0 {
++            0
++        } else {
++            dp * dp * dp * dab * dab * dab * dm
++        };
+ 
+         Self {
+             qc: pair_cd.pa,
+@@ -594,11 +650,7 @@
+ 
+ /// Evaluates a 3-center contracted shell block: (P | i j) where P is an auxiliary shell
+ /// and (i, j) are orbital shells. Returns a 3D block flattened as [P][i][j].
+-pub fn shell_3center_block(
+-    p_shell: &AuxiliaryShell,
+-    i_shell: &Shell,
+-    j_shell: &Shell,
+-) -> Vec<f64> {
++pub fn shell_3center_block(p_shell: &AuxiliaryShell, i_shell: &Shell, j_shell: &Shell) -> Vec<f64> {
+     let np = p_shell.n_functions();
+     let ni = i_shell.n_functions();
+     let nj = j_shell.n_functions();
+@@ -648,6 +700,7 @@
+ /// fast O(N^3) Coulomb matrix accumulation with optional 3-center tensor caching
+ /// and Schwarz screening.
+ pub struct RiJEngine {
++    pub use_gpu: bool,
+     pub aux_basis: AuxiliaryBasisSet,
+     pub v_inv: Matrix2D,
+     pub cached_b: Option<Vec<f64>>,
+@@ -659,13 +712,27 @@
+     /// Builds the RI-J engine for a given molecule and primary basis.
+     pub fn new(mol: &Molecule, primary: &BasisSet) -> Result<Self, CalcError> {
+         let aux_basis = AuxiliaryBasisSet::build_auto_jfit(mol, primary);
++        let budget = std::env::var("CALCHEM_MAX_MEMORY_BYTES")
++            .ok()
++            .and_then(|v| v.parse::<u128>().ok())
++            .unwrap_or(8 * 1024 * 1024 * 1024);
++        // Dense metric eigensolver/inverse has several simultaneously live N_aux^2 arrays.
++        let metric_bytes = 12 * (aux_basis.n_aux as u128).pow(2) * 8;
++        if metric_bytes > budget {
++            return Err(CalcError::UnsupportedBasis(format!(
++                "RI-J metric workspace estimate {metric_bytes} bytes exceeds budget {budget}"
++            )));
++        }
+         let v = compute_2center_coulomb_metric(&aux_basis);
+         let v_inv = invert_coulomb_metric(&v)?;
+ 
+         let n_ao = primary.n_ao;
+         let n_aux = aux_basis.n_aux;
+         let n_ao_sq = n_ao * n_ao;
+-        let req_bytes = n_aux * n_ao_sq * 8;
++        let req_bytes = n_aux
++            .checked_mul(n_ao_sq)
++            .and_then(|v| v.checked_mul(8))
++            .ok_or_else(|| CalcError::UnsupportedBasis("RI-J tensor dimensions overflow".into()))?;
+ 
+         let max_df_bytes: usize = std::env::var("CALCHEM_MAX_DF_BYTES")
+             .ok()
+@@ -692,14 +759,22 @@
+             let primary_bounds = shell_pair_bounds(primary);
+             let n_primary_shells = primary.shells.len();
+ 
+-            let b_rows: Vec<Vec<f64>> = aux_basis
++            let mut b_flat = vec![0.0; n_aux * n_ao_sq];
++            let mut remainder = b_flat.as_mut_slice();
++            let mut slices = Vec::with_capacity(aux_basis.shells.len());
++            for shell in &aux_basis.shells {
++                let (rows, rest) = remainder.split_at_mut(shell.n_functions() * n_ao_sq);
++                slices.push(rows);
++                remainder = rest;
++            }
++            aux_basis
+                 .shells
+                 .par_iter()
++                .zip(slices.into_par_iter())
+                 .enumerate()
+-                .map(|(p_idx, p_shell)| {
++                .for_each(|(p_idx, (p_shell, shell_rows))| {
+                     let np = p_shell.n_functions();
+                     let p_b = aux_diag_bounds[p_idx];
+-                    let mut shell_rows = vec![0.0f64; np * n_ao_sq];
+ 
+                     for i_idx in 0..n_primary_shells {
+                         let i_shell = &primary.shells[i_idx];
+@@ -731,20 +806,15 @@
+                             }
+                         }
+                     }
+-                    shell_rows
+-                })
+-                .collect();
+-
+-            let mut b_flat = Vec::with_capacity(n_aux * n_ao_sq);
+-            for row in b_rows {
+-                b_flat.extend(row);
+-            }
++                });
++
+             Some(b_flat)
+         } else {
+             None
+         };
+ 
+         Ok(Self {
++            use_gpu: false,
+             aux_basis,
+             v_inv,
+             cached_b,
+@@ -756,6 +826,15 @@
+     /// Evaluates the fitted Coulomb matrix J_μν = ∑_P (P|μν) x_P
+     /// using either precomputed cached tensor or screened parallel accumulation.
+     pub fn build_coulomb(&self, primary: &BasisSet, density: &Matrix2D) -> Matrix2D {
++        assert_eq!(
++            primary.n_ao, self.n_ao,
++            "RI-J orbital basis dimension mismatch"
++        );
++        assert_eq!(
++            (density.rows, density.cols, density.data.len()),
++            (self.n_ao, self.n_ao, self.n_ao * self.n_ao),
++            "RI-J density dimension mismatch"
++        );
+         let n_ao = primary.n_ao;
+         let n_aux = self.aux_basis.n_aux;
+         let n_ao_sq = n_ao * n_ao;
+@@ -788,7 +867,7 @@
+             // 3. J_{μν} = ∑_P x_P B_{P, μν}
+             let mut j_data = vec![0.0; n_ao_sq];
+             let mut used_gpu = false;
+-            if calchem_cuda::is_cuda_available() {
++            if self.use_gpu && calchem_cuda::is_cuda_available() {
+                 used_gpu = calchem_cuda::cuda_rij_contract_coulomb(
+                     b_tensor,
+                     &x_vec,
+--- before/crates/calchem-int/src/direct_fock.rs
++++ after/crates/calchem-int/src/direct_fock.rs
+@@ -1,7 +1,6 @@
+ use crate::eri::{eri_shell_quartet, eri_shell_quartet_with_omega};
+ use crate::screening::SchwarzScreening;
+ use calchem_basis::{BasisSet, Shell};
+-use rayon::prelude::*;
+ 
+ /// Pre-screened shell pair with its Cauchy-Schwarz bound.
+ #[derive(Debug, Clone, Copy)]
+@@ -176,7 +175,7 @@
+                         continue;
+                     }
+                     let val = block[((ia * nb + ib) * nc + ic) * nd + id];
+-                    if val.abs() > 1e-16 {
++                    if val != 0.0 {
+                         let s1 = if mu == nu { 2.0 } else { 1.0 };
+                         let s2 = if lam == sig { 2.0 } else { 1.0 };
+                         let s3 = if mu == lam && nu == sig { 2.0 } else { 1.0 };
+@@ -253,7 +252,7 @@
+                         continue;
+                     }
+                     let val = block[((ia * nb + ib) * nc + ic) * nd + id];
+-                    if val.abs() > 1e-16 {
++                    if val != 0.0 {
+                         let s1 = if mu == nu { 2.0 } else { 1.0 };
+                         let s2 = if lam == sig { 2.0 } else { 1.0 };
+                         let s3 = if mu == lam && nu == sig { 2.0 } else { 1.0 };
+@@ -328,7 +327,7 @@
+                         continue;
+                     }
+                     let val = block[((ia * nb + ib) * nc + ic) * nd + id];
+-                    if val.abs() > 1e-16 {
++                    if val != 0.0 {
+                         let s1 = if mu == nu { 2.0 } else { 1.0 };
+                         let s2 = if lam == sig { 2.0 } else { 1.0 };
+                         let s3 = if mu == lam && nu == sig { 2.0 } else { 1.0 };
+@@ -404,7 +403,9 @@
+     /// Initializes a Direct Fock engine with precomputed Schwarz screening bounds and significant shell pairs.
+     pub fn new(basis: &BasisSet, threshold: f64) -> Self {
+         let screening = SchwarzScreening::new(basis, threshold);
+-        let sig_pairs = find_significant_shell_pairs(basis, &screening, threshold);
++        // A density-independent pair cutoff cannot bound a later contraction with
++        // an arbitrary density. Retain pairs and screen complete quartets using D.
++        let sig_pairs = find_significant_shell_pairs(basis, &screening, 0.0);
+         Self {
+             n_ao: basis.n_ao,
+             n_shells: basis.shells.len(),
+@@ -459,7 +460,8 @@
+         let k_workers = num_workers.max(1);
+         let total_candidates = num_pairs * (num_pairs + 1) / 2;
+ 
+-        let mut worker_buffers: Vec<Vec<f64>> = (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
++        let mut worker_buffers: Vec<Vec<f64>> =
++            (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
+         let mut worker_stats: Vec<DirectFockStats> = vec![DirectFockStats::default(); k_workers];
+ 
+         if k_workers == 1 {
+@@ -490,8 +492,8 @@
+                         let d_jk = d[j * n_shells + k];
+                         let d_jl = d[j * n_shells + l];
+                         let d_exch = d_ik.max(d_il).max(d_jk).max(d_jl);
+-                        let bound_k = exx_fraction * b_ijkl * d_exch;
+-                        bound_j.max(bound_k)
++                        let bound_k = 4.0 * exx_fraction.abs() * b_ijkl * d_exch;
++                        bound_j + bound_k
+                     } else {
+                         bound_j
+                     };
+@@ -511,7 +513,19 @@
+                     let block = eri_shell_quartet(sh_a, sh_b, sh_c, sh_d);
+ 
+                     contract_quartet_rks(
+-                        i, j, k, l, sh_a, sh_b, sh_c, sh_d, &block, p, n, exx_fraction, local_g,
++                        i,
++                        j,
++                        k,
++                        l,
++                        sh_a,
++                        sh_b,
++                        sh_c,
++                        sh_d,
++                        &block,
++                        p,
++                        n,
++                        exx_fraction,
++                        local_g,
+                     );
+                 }
+             }
+@@ -519,62 +533,73 @@
+             let next_pair = std::sync::atomic::AtomicUsize::new(0);
+             let d_ref = &d;
+             rayon::scope(|s| {
+-                for (local_g, local_stats) in worker_buffers.iter_mut().zip(worker_stats.iter_mut()) {
++                for (local_g, local_stats) in worker_buffers.iter_mut().zip(worker_stats.iter_mut())
++                {
+                     let next_pair = &next_pair;
+-                    s.spawn(move |_| {
+-                        loop {
+-                            let p_idx = next_pair.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+-                            if p_idx >= num_pairs {
+-                                break;
++                    s.spawn(move |_| loop {
++                        let p_idx = next_pair.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                        if p_idx >= num_pairs {
++                            break;
++                        }
++                        let pair_p = &self.sig_pairs[p_idx];
++                        let i = pair_p.shell_i;
++                        let j = pair_p.shell_j;
++                        let b_ij = pair_p.bound;
++                        let d_ij = d_ref[i * n_shells + j];
++                        let sh_a = &basis.shells[i];
++                        let sh_b = &basis.shells[j];
++
++                        for q_idx in 0..=p_idx {
++                            local_stats.total_quartet_candidates += 1;
++                            let pair_q = &self.sig_pairs[q_idx];
++                            let k = pair_q.shell_i;
++                            let l = pair_q.shell_j;
++                            let b_kl = pair_q.bound;
++                            let b_ijkl = b_ij * b_kl;
++
++                            let d_kl = d_ref[k * n_shells + l];
++                            let bound_j = 4.0 * b_ijkl * d_ij.max(d_kl);
++                            let bound = if has_exchange {
++                                let d_ik = d_ref[i * n_shells + k];
++                                let d_il = d_ref[i * n_shells + l];
++                                let d_jk = d_ref[j * n_shells + k];
++                                let d_jl = d_ref[j * n_shells + l];
++                                let d_exch = d_ik.max(d_il).max(d_jk).max(d_jl);
++                                let bound_k = 4.0 * exx_fraction.abs() * b_ijkl * d_exch;
++                                bound_j + bound_k
++                            } else {
++                                bound_j
++                            };
++
++                            if threshold > 0.0 && bound < threshold {
++                                local_stats.skipped_quartets += 1;
++                                local_stats.cumulative_bound_error += bound;
++                                if bound > local_stats.max_skipped_bound {
++                                    local_stats.max_skipped_bound = bound;
++                                }
++                                continue;
+                             }
+-                            let pair_p = &self.sig_pairs[p_idx];
+-                            let i = pair_p.shell_i;
+-                            let j = pair_p.shell_j;
+-                            let b_ij = pair_p.bound;
+-                            let d_ij = d_ref[i * n_shells + j];
+-                            let sh_a = &basis.shells[i];
+-                            let sh_b = &basis.shells[j];
+-
+-                            for q_idx in 0..=p_idx {
+-                                local_stats.total_quartet_candidates += 1;
+-                                let pair_q = &self.sig_pairs[q_idx];
+-                                let k = pair_q.shell_i;
+-                                let l = pair_q.shell_j;
+-                                let b_kl = pair_q.bound;
+-                                let b_ijkl = b_ij * b_kl;
+-
+-                                let d_kl = d_ref[k * n_shells + l];
+-                                let bound_j = 4.0 * b_ijkl * d_ij.max(d_kl);
+-                                let bound = if has_exchange {
+-                                    let d_ik = d_ref[i * n_shells + k];
+-                                    let d_il = d_ref[i * n_shells + l];
+-                                    let d_jk = d_ref[j * n_shells + k];
+-                                    let d_jl = d_ref[j * n_shells + l];
+-                                    let d_exch = d_ik.max(d_il).max(d_jk).max(d_jl);
+-                                    let bound_k = exx_fraction * b_ijkl * d_exch;
+-                                    bound_j.max(bound_k)
+-                                } else {
+-                                    bound_j
+-                                };
+-
+-                                if threshold > 0.0 && bound < threshold {
+-                                    local_stats.skipped_quartets += 1;
+-                                    local_stats.cumulative_bound_error += bound;
+-                                    if bound > local_stats.max_skipped_bound {
+-                                        local_stats.max_skipped_bound = bound;
+-                                    }
+-                                    continue;
+-                                }
+-
+-                                local_stats.computed_quartets += 1;
+-                                let sh_c = &basis.shells[k];
+-                                let sh_d = &basis.shells[l];
+-                                let block = eri_shell_quartet(sh_a, sh_b, sh_c, sh_d);
+-
+-                                contract_quartet_rks(
+-                                    i, j, k, l, sh_a, sh_b, sh_c, sh_d, &block, p, n, exx_fraction, local_g,
+-                                );
+-                            }
++
++                            local_stats.computed_quartets += 1;
++                            let sh_c = &basis.shells[k];
++                            let sh_d = &basis.shells[l];
++                            let block = eri_shell_quartet(sh_a, sh_b, sh_c, sh_d);
++
++                            contract_quartet_rks(
++                                i,
++                                j,
++                                k,
++                                l,
++                                sh_a,
++                                sh_b,
++                                sh_c,
++                                sh_d,
++                                &block,
++                                p,
++                                n,
++                                exx_fraction,
++                                local_g,
++                            );
+                         }
+                     });
+                 }
+@@ -624,7 +649,8 @@
+         exx_fraction: f64,
+         threshold: f64,
+     ) -> Vec<f64> {
+-        self.build_rks_with_stats(basis, p, exx_fraction, threshold).0
++        self.build_rks_with_stats(basis, p, exx_fraction, threshold)
++            .0
+     }
+ 
+     /// Evaluates exact exchange matrix `K_{mu,nu}[P] = sum_{lam,sig} (mu lam|nu sig)_omega P_{lam,sig}`
+@@ -646,7 +672,8 @@
+         }
+ 
+         let k_workers = num_workers.max(1);
+-        let mut worker_buffers: Vec<Vec<f64>> = (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
++        let mut worker_buffers: Vec<Vec<f64>> =
++            (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
+ 
+         if k_workers == 1 {
+             let local_k = &mut worker_buffers[0];
+@@ -670,7 +697,7 @@
+                     let d_jk = d[j * n_shells + k];
+                     let d_jl = d[j * n_shells + l];
+                     let d_exch = d_ik.max(d_il).max(d_jk).max(d_jl);
+-                    let bound = b_ijkl * d_exch;
++                    let bound = 4.0 * b_ijkl * d_exch;
+                     if threshold > 0.0 && bound < threshold {
+                         continue;
+                     }
+@@ -687,48 +714,48 @@
+             rayon::scope(|s| {
+                 for local_k in worker_buffers.iter_mut() {
+                     let next_pair = &next_pair;
+-                    s.spawn(move |_| {
+-                        loop {
+-                            let p_idx = next_pair.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+-                            if p_idx >= num_pairs {
+-                                break;
++                    s.spawn(move |_| loop {
++                        let p_idx = next_pair.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                        if p_idx >= num_pairs {
++                            break;
++                        }
++                        let pair_p = &self.sig_pairs[p_idx];
++                        let i = pair_p.shell_i;
++                        let j = pair_p.shell_j;
++                        let b_ij = pair_p.bound;
++                        let sh_a = &basis.shells[i];
++                        let sh_b = &basis.shells[j];
++
++                        for q_idx in 0..=p_idx {
++                            let pair_q = &self.sig_pairs[q_idx];
++                            let k = pair_q.shell_i;
++                            let l = pair_q.shell_j;
++                            let b_kl = pair_q.bound;
++                            let b_ijkl = b_ij * b_kl;
++
++                            let d_ik = d_ref[i * n_shells + k];
++                            let d_il = d_ref[i * n_shells + l];
++                            let d_jk = d_ref[j * n_shells + k];
++                            let d_jl = d_ref[j * n_shells + l];
++                            let d_exch = d_ik.max(d_il).max(d_jk).max(d_jl);
++                            let bound = 4.0 * b_ijkl * d_exch;
++                            if threshold > 0.0 && bound < threshold {
++                                continue;
+                             }
+-                            let pair_p = &self.sig_pairs[p_idx];
+-                            let i = pair_p.shell_i;
+-                            let j = pair_p.shell_j;
+-                            let b_ij = pair_p.bound;
+-                            let sh_a = &basis.shells[i];
+-                            let sh_b = &basis.shells[j];
+-
+-                            for q_idx in 0..=p_idx {
+-                                let pair_q = &self.sig_pairs[q_idx];
+-                                let k = pair_q.shell_i;
+-                                let l = pair_q.shell_j;
+-                                let b_kl = pair_q.bound;
+-                                let b_ijkl = b_ij * b_kl;
+-
+-                                let d_ik = d_ref[i * n_shells + k];
+-                                let d_il = d_ref[i * n_shells + l];
+-                                let d_jk = d_ref[j * n_shells + k];
+-                                let d_jl = d_ref[j * n_shells + l];
+-                                let d_exch = d_ik.max(d_il).max(d_jk).max(d_jl);
+-                                let bound = b_ijkl * d_exch;
+-                                if threshold > 0.0 && bound < threshold {
+-                                    continue;
+-                                }
+-
+-                                let sh_c = &basis.shells[k];
+-                                let sh_d = &basis.shells[l];
+-                                let block = eri_shell_quartet_with_omega(sh_a, sh_b, sh_c, sh_d, omega);
+-                                contract_quartet_k(i, j, k, l, sh_a, sh_b, sh_c, sh_d, &block, p, n, local_k);
+-                            }
++
++                            let sh_c = &basis.shells[k];
++                            let sh_d = &basis.shells[l];
++                            let block = eri_shell_quartet_with_omega(sh_a, sh_b, sh_c, sh_d, omega);
++                            contract_quartet_k(
++                                i, j, k, l, sh_a, sh_b, sh_c, sh_d, &block, p, n, local_k,
++                            );
+                         }
+                     });
+                 }
+             });
+         }
+ 
+-        let mut final_k = vec![0.0f64; n * n];
++        let mut final_k = worker_buffers.remove(0);
+         for w_buf in worker_buffers {
+             for idx in 0..n * n {
+                 final_k[idx] += w_buf[idx];
+@@ -777,14 +804,20 @@
+ 
+         let num_pairs = self.sig_pairs.len();
+         if num_pairs == 0 {
+-            return (vec![0.0f64; n * n], vec![0.0f64; n * n], DirectFockStats::default());
++            return (
++                vec![0.0f64; n * n],
++                vec![0.0f64; n * n],
++                DirectFockStats::default(),
++            );
+         }
+ 
+         let k_workers = num_workers.max(1);
+         let total_candidates = num_pairs * (num_pairs + 1) / 2;
+ 
+-        let mut worker_buffers_a: Vec<Vec<f64>> = (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
+-        let mut worker_buffers_b: Vec<Vec<f64>> = (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
++        let mut worker_buffers_a: Vec<Vec<f64>> =
++            (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
++        let mut worker_buffers_b: Vec<Vec<f64>> =
++            (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
+         let mut worker_stats: Vec<DirectFockStats> = vec![DirectFockStats::default(); k_workers];
+ 
+         if k_workers == 1 {
+@@ -820,8 +853,8 @@
+                             .max(db[i * n_shells + l])
+                             .max(db[j * n_shells + k])
+                             .max(db[j * n_shells + l]);
+-                        let bound_k = exx_fraction * b_ijkl * da_exch.max(db_exch);
+-                        bound_j.max(bound_k)
++                        let bound_k = 4.0 * exx_fraction.abs() * b_ijkl * da_exch.max(db_exch);
++                        bound_j + bound_k
+                     } else {
+                         bound_j
+                     };
+@@ -841,7 +874,22 @@
+                     let block = eri_shell_quartet(sh_a, sh_b, sh_c, sh_d);
+ 
+                     contract_quartet_uks(
+-                        i, j, k, l, sh_a, sh_b, sh_c, sh_d, &block, pa, pb, &pt, n, exx_fraction, local_ga, local_gb,
++                        i,
++                        j,
++                        k,
++                        l,
++                        sh_a,
++                        sh_b,
++                        sh_c,
++                        sh_d,
++                        &block,
++                        pa,
++                        pb,
++                        &pt,
++                        n,
++                        exx_fraction,
++                        local_ga,
++                        local_gb,
+                     );
+                 }
+             }
+@@ -858,63 +906,77 @@
+                     .zip(worker_stats.iter_mut())
+                 {
+                     let next_pair = &next_pair;
+-                    s.spawn(move |_| {
+-                        loop {
+-                            let p_idx = next_pair.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+-                            if p_idx >= num_pairs {
+-                                break;
++                    s.spawn(move |_| loop {
++                        let p_idx = next_pair.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                        if p_idx >= num_pairs {
++                            break;
++                        }
++                        let pair_p = &self.sig_pairs[p_idx];
++                        let i = pair_p.shell_i;
++                        let j = pair_p.shell_j;
++                        let b_ij = pair_p.bound;
++                        let dt_ij = dt_ref[i * n_shells + j];
++                        let sh_a = &basis.shells[i];
++                        let sh_b = &basis.shells[j];
++
++                        for q_idx in 0..=p_idx {
++                            local_stats.total_quartet_candidates += 1;
++                            let pair_q = &self.sig_pairs[q_idx];
++                            let k = pair_q.shell_i;
++                            let l = pair_q.shell_j;
++                            let b_kl = pair_q.bound;
++                            let b_ijkl = b_ij * b_kl;
++
++                            let dt_kl = dt_ref[k * n_shells + l];
++                            let bound_j = 4.0 * b_ijkl * dt_ij.max(dt_kl);
++                            let bound = if has_exchange {
++                                let da_exch = da_ref[i * n_shells + k]
++                                    .max(da_ref[i * n_shells + l])
++                                    .max(da_ref[j * n_shells + k])
++                                    .max(da_ref[j * n_shells + l]);
++                                let db_exch = db_ref[i * n_shells + k]
++                                    .max(db_ref[i * n_shells + l])
++                                    .max(db_ref[j * n_shells + k])
++                                    .max(db_ref[j * n_shells + l]);
++                                let bound_k =
++                                    4.0 * exx_fraction.abs() * b_ijkl * da_exch.max(db_exch);
++                                bound_j + bound_k
++                            } else {
++                                bound_j
++                            };
++
++                            if threshold > 0.0 && bound < threshold {
++                                local_stats.skipped_quartets += 1;
++                                local_stats.cumulative_bound_error += bound;
++                                if bound > local_stats.max_skipped_bound {
++                                    local_stats.max_skipped_bound = bound;
++                                }
++                                continue;
+                             }
+-                            let pair_p = &self.sig_pairs[p_idx];
+-                            let i = pair_p.shell_i;
+-                            let j = pair_p.shell_j;
+-                            let b_ij = pair_p.bound;
+-                            let dt_ij = dt_ref[i * n_shells + j];
+-                            let sh_a = &basis.shells[i];
+-                            let sh_b = &basis.shells[j];
+-
+-                            for q_idx in 0..=p_idx {
+-                                local_stats.total_quartet_candidates += 1;
+-                                let pair_q = &self.sig_pairs[q_idx];
+-                                let k = pair_q.shell_i;
+-                                let l = pair_q.shell_j;
+-                                let b_kl = pair_q.bound;
+-                                let b_ijkl = b_ij * b_kl;
+-
+-                                let dt_kl = dt_ref[k * n_shells + l];
+-                                let bound_j = 4.0 * b_ijkl * dt_ij.max(dt_kl);
+-                                let bound = if has_exchange {
+-                                    let da_exch = da_ref[i * n_shells + k]
+-                                        .max(da_ref[i * n_shells + l])
+-                                        .max(da_ref[j * n_shells + k])
+-                                        .max(da_ref[j * n_shells + l]);
+-                                    let db_exch = db_ref[i * n_shells + k]
+-                                        .max(db_ref[i * n_shells + l])
+-                                        .max(db_ref[j * n_shells + k])
+-                                        .max(db_ref[j * n_shells + l]);
+-                                    let bound_k = exx_fraction * b_ijkl * da_exch.max(db_exch);
+-                                    bound_j.max(bound_k)
+-                                } else {
+-                                    bound_j
+-                                };
+-
+-                                if threshold > 0.0 && bound < threshold {
+-                                    local_stats.skipped_quartets += 1;
+-                                    local_stats.cumulative_bound_error += bound;
+-                                    if bound > local_stats.max_skipped_bound {
+-                                        local_stats.max_skipped_bound = bound;
+-                                    }
+-                                    continue;
+-                                }
+-
+-                                local_stats.computed_quartets += 1;
+-                                let sh_c = &basis.shells[k];
+-                                let sh_d = &basis.shells[l];
+-                                let block = eri_shell_quartet(sh_a, sh_b, sh_c, sh_d);
+-
+-                                contract_quartet_uks(
+-                                    i, j, k, l, sh_a, sh_b, sh_c, sh_d, &block, pa, pb, pt_ref, n, exx_fraction, local_ga, local_gb,
+-                                );
+-                            }
++
++                            local_stats.computed_quartets += 1;
++                            let sh_c = &basis.shells[k];
++                            let sh_d = &basis.shells[l];
++                            let block = eri_shell_quartet(sh_a, sh_b, sh_c, sh_d);
++
++                            contract_quartet_uks(
++                                i,
++                                j,
++                                k,
++                                l,
++                                sh_a,
++                                sh_b,
++                                sh_c,
++                                sh_d,
++                                &block,
++                                pa,
++                                pb,
++                                pt_ref,
++                                n,
++                                exx_fraction,
++                                local_ga,
++                                local_gb,
++                            );
+                         }
+                     });
+                 }
+--- before/crates/calchem-int/src/eri.rs
++++ after/crates/calchem-int/src/eri.rs
+@@ -41,9 +41,7 @@
+         max_ab: usize,
+         max_cd: usize,
+     ) -> Self {
+-        Self::new_with_omega(
+-            alpha, a, beta, b, gamma, c, delta, d, max_ab, max_cd, None,
+-        )
++        Self::new_with_omega(alpha, a, beta, b, gamma, c, delta, d, max_ab, max_cd, None)
+     }
+ 
+     pub fn new_with_omega(
+@@ -87,13 +85,17 @@
+         let mut boys = vec![0.0; max_m + 1];
+ 
+         let (t_arg, theta) = match omega {
+-            Some(w_val) if w_val > 0.0 => {
+-                let w2 = w_val * w_val;
+-                let theta_sq = w2 / (rho + w2);
+-                let theta = theta_sq.sqrt();
++            Some(w_val) => {
++                assert!(
++                    w_val.is_finite() && w_val >= 0.0,
++                    "omega must be finite and nonnegative"
++                );
++                // hypot avoids overflow at large omega; omega=0 gives the zero operator.
++                let theta = w_val / w_val.hypot(rho.sqrt());
++                let theta_sq = theta * theta;
+                 (rho * theta_sq * pq2, Some((theta, theta_sq)))
+             }
+-            _ => (rho * pq2, None),
++            None => (rho * pq2, None),
+         };
+ 
+         boys_batch(max_m, t_arg, &mut boys);
+@@ -309,7 +311,9 @@
+     delta: f64,
+     r_d: [f64; 3],
+ ) -> f64 {
+-    eri_primitive_with_omega(a, b, c, d, alpha, r_a, beta, r_b, gamma, r_c, delta, r_d, None)
++    eri_primitive_with_omega(
++        a, b, c, d, alpha, r_a, beta, r_b, gamma, r_c, delta, r_d, None,
++    )
+ }
+ 
+ /// Evaluates the contracted shell quartet `(sh_a sh_b | sh_c sh_d)` returning a flat buffer
+--- before/crates/calchem-model/src/lib.rs
++++ after/crates/calchem-model/src/lib.rs
+@@ -296,6 +296,9 @@
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ pub struct ScfWavefunction {
++    /// Coulomb approximation provenance: required by downstream energy derivatives/response.
++    #[serde(default)]
++    pub density_fitting: bool,
+     pub converged: bool,
+     pub iterations: usize,
+     pub total_energy_hartree: f64,
+@@ -325,6 +328,8 @@
+ /// (`P^a = C^a_occ C^a_occ^T`, `P^b = C^b_occ C^b_occ^T`), never spin-summed.
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ pub struct UhfWavefunction {
++    #[serde(default)]
++    pub density_fitting: bool,
+     pub converged: bool,
+     pub iterations: usize,
+     pub total_energy_hartree: f64,
+--- before/crates/calchem-py/src/lib.rs
++++ after/crates/calchem-py/src/lib.rs
+@@ -58,6 +58,8 @@
+ #[derive(Clone)]
+ pub struct PyScfWavefunction {
+     #[pyo3(get)]
++    pub density_fitting: bool,
++    #[pyo3(get)]
+     pub converged: bool,
+     #[pyo3(get)]
+     pub iterations: usize,
+@@ -689,6 +691,7 @@
+             }
+ 
+             Ok(PyScfWavefunction {
++                density_fitting: wf.density_fitting,
+                 converged: wf.converged,
+                 iterations: wf.iterations,
+                 total_energy_hartree: wf.total_energy_hartree,
+@@ -730,6 +733,7 @@
+             let n_occ = wf.mo_occupations.iter().filter(|&&o| o > 0.5).count();
+ 
+             Ok(PyScfWavefunction {
++                density_fitting: wf.density_fitting,
+                 converged: wf.converged,
+                 iterations: wf.iterations,
+                 total_energy_hartree: wf.total_energy_hartree,
+@@ -1489,6 +1493,7 @@
+     let (dipole, dipole_mag) = compute_dipole(mol, bs, &wf.density_alpha);
+     let n_occ = wf.mo_occupations.iter().filter(|&&o| o > 0.5).count();
+     PyScfWavefunction {
++        density_fitting: wf.density_fitting,
+         converged: wf.converged,
+         iterations: wf.iterations,
+         total_energy_hartree: wf.total_energy_hartree,
+@@ -1982,6 +1987,7 @@
+     };
+ 
+     let scf_wfn = calchem_model::ScfWavefunction {
++        density_fitting: wf.density_fitting,
+         converged: wf.converged,
+         iterations: wf.iterations,
+         total_energy_hartree: wf.total_energy_hartree,
+--- before/crates/calchem-scf/src/diis.rs
++++ after/crates/calchem-scf/src/diis.rs
+@@ -17,6 +17,11 @@
+     }
+ 
+     pub fn push_and_extrapolate(&mut self, fock: &Matrix2D, err: &Matrix2D) -> Matrix2D {
++        // Evict before cloning two full matrices, so a push never exceeds the history cap.
++        while self.fock_list.len() >= self.max_vecs {
++            self.fock_list.remove(0);
++            self.err_list.remove(0);
++        }
+         self.fock_list.push(fock.clone());
+         self.err_list.push(err.clone());
+         while self.fock_list.len() > self.max_vecs {
+--- before/crates/calchem-scf/src/fock_builder.rs
++++ after/crates/calchem-scf/src/fock_builder.rs
+@@ -32,10 +32,13 @@
+         basis: &BasisSet,
+         use_direct: bool,
+         use_df: bool,
++        use_gpu: bool,
+         range_sep: Option<(f64, f64, f64)>,
+     ) -> Result<Self, CalcError> {
+         if use_df {
+-            let rij = Arc::new(RiJEngine::new(mol, basis)?);
++            let mut rij = RiJEngine::new(mol, basis)?;
++            rij.use_gpu = use_gpu;
++            let rij = Arc::new(rij);
+             let engine = DirectFockEngine::new(basis, 1e-11);
+             Ok(Self::DensityFitting(rij, engine))
+         } else if use_direct {
+@@ -182,10 +185,13 @@
+         basis: &BasisSet,
+         use_direct: bool,
+         use_df: bool,
++        use_gpu: bool,
+         range_sep: Option<(f64, f64, f64)>,
+     ) -> Result<Self, CalcError> {
+         if use_df {
+-            let rij = Arc::new(RiJEngine::new(mol, basis)?);
++            let mut rij = RiJEngine::new(mol, basis)?;
++            rij.use_gpu = use_gpu;
++            let rij = Arc::new(rij);
+             let engine = DirectFockEngine::new(basis, 1e-11);
+             Ok(Self::DensityFitting(rij, engine))
+         } else if use_direct {
+--- before/crates/calchem-scf/src/lib.rs
++++ after/crates/calchem-scf/src/lib.rs
+@@ -58,18 +58,19 @@
+         ));
+     }
+ 
+-    let state_matrices = if is_open_shell { 18u128 } else { 10u128 };
+-    let diis_matrices = (opts.diis_max_vecs as u128) * (if is_open_shell { 4 } else { 2 });
++    // Includes orthogonalization/eigensolver copies, commutators, final polishing
++    // and incremental-build state. This is an admission estimate, not an allocator quota.
++    let state_matrices = if is_open_shell { 56u128 } else { 36u128 };
++    let diis_matrices = (opts.diis_max_vecs.max(6) as u128) * (if is_open_shell { 8 } else { 4 });
+     let threads = rayon::current_num_threads().max(1) as u128;
+     let worker_channels = if is_open_shell { 2u128 } else { 1u128 };
+     let accumulator_matrices = threads * worker_channels;
+ 
+     let total_matrices = state_matrices + diis_matrices + accumulator_matrices;
+-    let estimated_bytes = total_matrices * n * n * 8;
++    let shells = basis.shells.len() as u128;
++    let estimated_bytes = total_matrices * n * n * 8 + shells * shells * 128;
+ 
+-    let budget_bytes: u128 = match std::env::var("CALCHEM_MAX_MEMORY_BYTES")
+-        .or_else(|_| std::env::var("CALCHEM_MAX_DIRECT_BYTES"))
+-    {
++    let budget_bytes: u128 = match std::env::var("CALCHEM_MAX_MEMORY_BYTES") {
+         Ok(v) => v.parse::<u128>().ok().filter(|v| *v > 0).ok_or_else(|| {
+             CalcError::InvalidMolecule("CALCHEM_MAX_MEMORY_BYTES must be a positive integer".into())
+         })?,
+@@ -77,16 +78,12 @@
+     };
+ 
+     if estimated_bytes > budget_bytes {
+-        let min_required_bytes = (state_matrices + diis_matrices + worker_channels) * n * n * 8;
+-        if min_required_bytes > budget_bytes {
+-            return Err(CalcError::UnsupportedBasis(format!(
++        return Err(CalcError::UnsupportedBasis(format!(
+                 "Direct-SCF estimated memory requirement ({:.2} MB) exceeds budget ({:.2} MB). \
+-                 Even single-threaded execution requires {:.2} MB for N_AO={n}.",
++                 Reduce RAYON_NUM_THREADS / DIIS or system size; no total-process memory lock is implemented for N_AO={n}.",
+                 estimated_bytes as f64 / (1024.0 * 1024.0),
+                 budget_bytes as f64 / (1024.0 * 1024.0),
+-                min_required_bytes as f64 / (1024.0 * 1024.0),
+-            )));
+-        }
++        )));
+     }
+     Ok(())
+ }
+@@ -136,8 +133,27 @@
+     };
+     if estimated > budget {
+         return Err(CalcError::UnsupportedBasis(format!(
+-            "Stored-ERI conservative memory estimate {estimated} bytes exceeds budget {budget}; reduce basis/system or explicitly set CALCHEM_MAX_ERI_BYTES. Direct/RI SCF is not implemented."
++            "Stored-ERI conservative memory estimate {estimated} bytes exceeds budget {budget}; reduce basis/system or request Direct SCF explicitly."
+         )));
+     }
+     Ok(())
+ }
++
++/// UHF/UKS stored builders retain a full Tensor4D, unlike the sparse RKS builder.
++/// Never admit that path using the smaller symmetry-packed memory estimate alone.
++pub fn validate_open_shell_stored_resources(
++    basis: &calchem_basis::BasisSet,
++    opts: &calchem_model::ScfOptions,
++) -> Result<(), calchem_model::CalcError> {
++    validate_resources_and_options(basis, opts)?;
++    if opts.density_fitting { return Ok(()); }
++    let estimated = (basis.n_ao as u128).pow(4) * 8;
++    let budget = std::env::var("CALCHEM_MAX_ERI_BYTES").ok()
++        .and_then(|v| v.parse::<u128>().ok()).unwrap_or(4 * 1024 * 1024 * 1024);
++    if estimated > budget {
++        return Err(calchem_model::CalcError::UnsupportedBasis(format!(
++            "Open-shell dense stored-ERI memory estimate {estimated} bytes exceeds budget {budget}; request Direct SCF"
++        )));
++    }
++    Ok(())
++}
+--- before/crates/calchem-scf/src/rhf.rs
++++ after/crates/calchem-scf/src/rhf.rs
+@@ -75,8 +75,14 @@
+         h_core.data[i] = t.data[i] + v.data[i] + v_ecp.data[i];
+     }
+ 
+-    let fock_builder =
+-        RksFockBuilder::new_with_options(mol, basis, use_direct, opts.density_fitting, None)?;
++    let fock_builder = RksFockBuilder::new_with_options(
++        mol,
++        basis,
++        use_direct,
++        opts.density_fitting,
++        opts.use_gpu,
++        None,
++    )?;
+     let e_nuc = basis.nuclear_repulsion_energy(mol);
+ 
+     // Symmetric orthogonalization X = U * s^{-1/2} * U^T
+@@ -225,7 +231,7 @@
+     let comm_norm_init = frobenius_norm(&comm_init);
+ 
+     let fp_density_tol = opts.conv_density;
+-    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-4);
++    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-6);
+ 
+     let mut final_eps = eps_init;
+     let mut final_c = c_init;
+@@ -266,7 +272,18 @@
+                 final_c = c_exact;
+                 final_p = p_exact;
+                 final_f = fock_builder.build_fock(&h_core, basis, &final_p, 1.0);
+-                break;
++                let fps_exact = matmul(&matmul(&final_f, &final_p), &s);
++                let spf_exact = matmul(&matmul(&s, &final_p), &final_f);
++                let norm_exact = fps_exact
++                    .data
++                    .iter()
++                    .zip(&spf_exact.data)
++                    .map(|(a, b)| (a - b).powi(2))
++                    .sum::<f64>()
++                    .sqrt();
++                if norm_exact.is_finite() && norm_exact <= fp_comm_tol {
++                    break;
++                }
+             }
+         }
+     }
+@@ -278,7 +295,7 @@
+         comm_chk.data[idx] = fps_chk.data[idx] - spf_chk.data[idx];
+     }
+     let final_comm_norm = frobenius_norm(&comm_chk);
+-    if !final_comm_norm.is_finite() {
++    if !final_comm_norm.is_finite() || final_comm_norm > fp_comm_tol {
+         return Err(CalcError::NotConverged {
+             iterations: used_iter,
+             delta_e: last_delta_e,
+@@ -294,6 +311,7 @@
+     }
+ 
+     Ok(ScfWavefunction {
++        density_fitting: opts.density_fitting,
+         converged,
+         iterations: used_iter,
+         total_energy_hartree: e_tot_final,
+--- before/crates/calchem-scf/src/rks.rs
++++ after/crates/calchem-scf/src/rks.rs
+@@ -117,6 +117,7 @@
+         basis,
+         use_direct,
+         opts.density_fitting,
++        opts.use_gpu,
+         xc.range_separated_params(),
+     )?;
+     let e_nuc = basis.nuclear_repulsion_energy(mol);
+@@ -266,7 +267,9 @@
+     let mut final_c = Matrix2D::zeros(n, n);
+     let mut final_p = p.clone();
+     let fp_density_tol = opts.conv_density;
+-    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-4);
++    // A fixed quadrature defines a deterministic discretized functional. Integration
++    // error relative to the continuum is not permission to accept an arbitrary SCF residual.
++    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-6);
+     let mut fp_diis = DiisState::new(opts.diis_max_vecs.max(6));
+     let max_fp_steps = 50;
+ 
+@@ -313,7 +316,20 @@
+                 assemble_rks_fock_and_energy(&h_core, &final_p, &fock_builder, basis, grid, xc);
+             final_f = f_exact;
+             e_elec_final = e_exact;
+-            break;
++            // A pure canonicalization can amplify a small DIIS residual. Verify
++            // the rebuilt physical Fock again instead of accepting that extra step.
++            let fps_exact = matmul(&matmul(&final_f, &final_p), &s);
++            let spf_exact = matmul(&matmul(&s, &final_p), &final_f);
++            let norm_exact = fps_exact
++                .data
++                .iter()
++                .zip(&spf_exact.data)
++                .map(|(a, b)| (a - b).powi(2))
++                .sum::<f64>()
++                .sqrt();
++            if norm_exact.is_finite() && norm_exact <= fp_comm_tol {
++                break;
++            }
+         }
+     }
+ 
+@@ -325,7 +341,7 @@
+             comm.data[i] = fps.data[i] - spf.data[i];
+         }
+         let comm_norm = frobenius_norm(&comm);
+-        if !comm_norm.is_finite() {
++        if !comm_norm.is_finite() || comm_norm > fp_comm_tol {
+             return Err(CalcError::NotConverged {
+                 iterations: used_iter,
+                 delta_e: last_delta_e,
+@@ -341,6 +357,7 @@
+     }
+ 
+     Ok(ScfWavefunction {
++        density_fitting: opts.density_fitting,
+         converged,
+         iterations: used_iter,
+         total_energy_hartree: e_tot_final,
+--- before/crates/calchem-scf/src/uhf.rs
++++ after/crates/calchem-scf/src/uhf.rs
+@@ -124,7 +124,7 @@
+     if use_direct {
+         crate::validate_direct_resources_for_method(basis, opts, true)?;
+     } else {
+-        crate::validate_resources_and_options(basis, opts)?;
++        crate::validate_open_shell_stored_resources(basis, opts)?;
+     }
+     let (n_alpha, n_beta) = basis.validate_uhf_valence(mol)?;
+     let n = basis.n_ao;
+@@ -142,8 +142,14 @@
+     for i in 0..n * n {
+         h_core.data[i] = t.data[i] + v.data[i] + v_ecp.data[i];
+     }
+-    let fock_builder =
+-        UksFockBuilder::new_with_options(mol, basis, use_direct, opts.density_fitting, None)?;
++    let fock_builder = UksFockBuilder::new_with_options(
++        mol,
++        basis,
++        use_direct,
++        opts.density_fitting,
++        opts.use_gpu,
++        None,
++    )?;
+     let e_nuc = basis.nuclear_repulsion_energy(mol);
+ 
+     // Symmetric orthogonalization X = U s^{-1/2} U^T
+@@ -293,7 +299,7 @@
+     let mut ca = ca_0;
+     let mut cb = cb_0;
+     let fp_density_tol = opts.conv_density;
+-    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-4);
++    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-6);
+ 
+     if comm_0 > fp_comm_tol {
+         let mut polish_diis = DiisState::new(opts.diis_max_vecs.max(6));
+@@ -332,13 +338,17 @@
+                 let (fa_ex, fb_ex) = build_uhf_fock(&h_core, &pa, &pb, &fock_builder, basis);
+                 fa = fa_ex;
+                 fb = fb_ex;
+-                break;
++                let exact_comm =
++                    frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
++                if exact_comm.is_finite() && exact_comm <= fp_comm_tol {
++                    break;
++                }
+             }
+         }
+     }
+ 
+     let final_comm = frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
+-    if !final_comm.is_finite() {
++    if !final_comm.is_finite() || final_comm > fp_comm_tol {
+         return Err(CalcError::NotConverged {
+             iterations: used_iter,
+             delta_e: last_delta_e,
+@@ -349,6 +359,7 @@
+     let s2 = uhf_s_squared(&pa, &pb, &s, n_alpha, n_beta);
+ 
+     Ok(UhfWavefunction {
++        density_fitting: opts.density_fitting,
+         converged: true,
+         iterations: used_iter,
+         total_energy_hartree: e_elec + e_nuc,
+--- before/crates/calchem-scf/src/uks.rs
++++ after/crates/calchem-scf/src/uks.rs
+@@ -116,7 +116,7 @@
+     if use_direct {
+         crate::validate_direct_resources_for_method(basis, opts, true)?;
+     } else {
+-        crate::validate_resources_and_options(basis, opts)?;
++        crate::validate_open_shell_stored_resources(basis, opts)?;
+     }
+     xc.validate_native()?;
+     let (n_alpha, n_beta) = basis.validate_uhf_valence(mol)?;
+@@ -140,6 +140,7 @@
+         basis,
+         use_direct,
+         opts.density_fitting,
++        opts.use_gpu,
+         xc.range_separated_params(),
+     )?;
+     let e_nuc = basis.nuclear_repulsion_energy(mol);
+@@ -296,10 +297,10 @@
+     let mut ca = Matrix2D::zeros(n, n);
+     let mut cb = Matrix2D::zeros(n, n);
+     let fp_density_tol = opts.conv_density;
+-    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-4);
++    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-6);
+     let mut fp_diis = DiisState::new(opts.diis_max_vecs.max(6));
+ 
+-    for fp_step in 0..30 {
++    for fp_step in 0..60 {
+         let err = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
+         let f_stacked = stack(&fa, &fb);
+         let (fa_step, fb_step) = if fp_step >= 2 {
+@@ -342,14 +343,18 @@
+             fa = fa_ex;
+             fb = fb_ex;
+             e_elec_final = e_ex;
+-            break;
++            let exact_comm =
++                frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
++            if exact_comm.is_finite() && exact_comm <= fp_comm_tol {
++                break;
++            }
+         }
+     }
+ 
+     // Recheck after the final exact diagonalization and density rebuild too.
+     let final_error = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
+     let final_comm_norm = frobenius_norm(&final_error);
+-    if !final_comm_norm.is_finite() {
++    if !final_comm_norm.is_finite() || final_comm_norm > fp_comm_tol {
+         return Err(CalcError::NotConverged {
+             iterations: used_iter,
+             delta_e: last_delta_e,
+@@ -360,6 +365,7 @@
+     let s2 = uhf_s_squared(&pa, &pb, &s, n_alpha, n_beta);
+ 
+     Ok(UhfWavefunction {
++        density_fitting: opts.density_fitting,
+         converged,
+         iterations: used_iter,
+         total_energy_hartree: e_elec_final + e_nuc,
+--- before/crates/calchem-scf/tests/density_fitting_scf.rs
++++ after/crates/calchem-scf/tests/density_fitting_scf.rs
+@@ -26,11 +26,18 @@
+     let opts_rij = ScfOptions {
+         conv_energy: 1e-8,
+         conv_density: 1e-6,
+-        density_fitting: false,
++        density_fitting: true,
+         ..Default::default()
+     };
+ 
+-    let wf_exact_lda = rks(&mol, &bs, XcFunctional::Svwn5, GridLevel::Coarse, &opts_exact).unwrap();
++    let wf_exact_lda = rks(
++        &mol,
++        &bs,
++        XcFunctional::Svwn5,
++        GridLevel::Coarse,
++        &opts_exact,
++    )
++    .unwrap();
+     let wf_rij_lda = rks(&mol, &bs, XcFunctional::Svwn5, GridLevel::Coarse, &opts_rij).unwrap();
+ 
+     assert!(wf_exact_lda.converged);
+@@ -49,8 +56,22 @@
+         density_fitting: true,
+         ..Default::default()
+     };
+-    let wf_exact_b3lyp = rks(&mol, &bs, XcFunctional::B3lyp, GridLevel::Coarse, &opts_exact).unwrap();
+-    let wf_rij_b3lyp = rks(&mol, &bs, XcFunctional::B3lyp, GridLevel::Coarse, &opts_b3lyp).unwrap();
++    let wf_exact_b3lyp = rks(
++        &mol,
++        &bs,
++        XcFunctional::B3lyp,
++        GridLevel::Coarse,
++        &opts_exact,
++    )
++    .unwrap();
++    let wf_rij_b3lyp = rks(
++        &mol,
++        &bs,
++        XcFunctional::B3lyp,
++        GridLevel::Coarse,
++        &opts_b3lyp,
++    )
++    .unwrap();
+ 
+     assert!(wf_exact_b3lyp.converged);
+     assert!(wf_rij_b3lyp.converged);
+@@ -96,7 +117,14 @@
+         2,
+     );
+     let bs_cat = BasisSet::from_name("sto-3g", &mol_cat).unwrap();
+-    let wf_cat = uks(&mol_cat, &bs_cat, XcFunctional::Svwn5, GridLevel::Coarse, &opts_rij).unwrap();
++    let wf_cat = uks(
++        &mol_cat,
++        &bs_cat,
++        XcFunctional::Svwn5,
++        GridLevel::Coarse,
++        &opts_rij,
++    )
++    .unwrap();
+     assert!(wf_cat.converged);
+     assert!(
+         wf_cat.total_energy_hartree < -74.0,
+--- before/crates/calchem-scf/tests/redteam_boundaries.rs
++++ after/crates/calchem-scf/tests/redteam_boundaries.rs
+@@ -26,10 +26,10 @@
+ }
+ 
+ #[test]
+-fn range_separated_cam_b3lyp_and_wb97xd_succeed() {
++fn cam_b3lyp_succeeds_and_incomplete_wb97xd_is_rejected() {
+     let mol = Molecule::new(vec![Atom::from_bohr("He", [0.0; 3]).unwrap()], 0, 1);
+     let bs = BasisSet::from_name("sto-3g", &mol).unwrap();
+-    for xc in [XcFunctional::CamB3lyp, XcFunctional::Wb97xd] {
++    for xc in [XcFunctional::CamB3lyp] {
+         let res_rks = calchem_scf::rks(&mol, &bs, xc, GridLevel::Coarse, &ScfOptions::default())
+             .expect("Range-separated RKS should converge on He");
+         assert!(res_rks.converged);
+@@ -40,6 +40,24 @@
+         assert!(res_uks.converged);
+         assert!((res_rks.total_energy_hartree - res_uks.total_energy_hartree).abs() < 1e-6);
+     }
++    assert!(calchem_scf::rks(
++        &mol,
++        &bs,
++        XcFunctional::Wb97xd,
++        GridLevel::Coarse,
++        &ScfOptions::default()
++    )
++    .unwrap_err()
++    .to_string()
++    .contains("not implemented faithfully"));
++    assert!(calchem_scf::uks(
++        &mol,
++        &bs,
++        XcFunctional::Wb97xd,
++        GridLevel::Coarse,
++        &ScfOptions::default()
++    )
++    .is_err());
+ }
+ 
+ #[test]
+@@ -64,6 +82,17 @@
+ }
+ 
+ #[test]
++fn dense_open_shell_memory_is_not_admitted_using_sparse_rks_estimate() {
++    let mol = Molecule::new(vec![Atom::from_bohr("He", [0.0; 3]).unwrap()], 0, 1);
++    let mut basis = BasisSet::from_name("sto-3g", &mol).unwrap();
++    // Dimension-only admission probe: no large tensor or integral is allocated.
++    basis.n_ao = 200;
++    assert!(calchem_scf::validate_resources_and_options(&basis, &ScfOptions::default()).is_ok());
++    assert!(calchem_scf::validate_open_shell_stored_resources(&basis, &ScfOptions::default())
++        .unwrap_err().to_string().contains("dense stored-ERI"));
++}
++
++#[test]
+ fn singular_basis_is_rejected_instead_of_zero_energy_ghost_orbitals() {
+     let mol = Molecule::new(vec![Atom::from_bohr("He", [0.0; 3]).unwrap()], 0, 1);
+     let bs=BasisSet::from_json_str(r#"{"name":"duplicate-s","elements":{"He":[{"shell_type":"s","exponents":[1.0],"coefficients":[1.0]},{"shell_type":"s","exponents":[1.0],"coefficients":[1.0]}]}}"#,&mol).unwrap();
+--- before/crates/calchem-solv/src/scrf.rs
++++ after/crates/calchem-solv/src/scrf.rs
+@@ -160,6 +160,11 @@
+     scf_opts: &ScfOptions,
+     opts: &SolvationOptions,
+ ) -> Result<SolvationResult, CalcError> {
++    if scf_opts.direct == Some(true) || scf_opts.density_fitting {
++        return Err(CalcError::UnsupportedMethod(
++            "SCRF implements stored ERIs only; Direct/RI-J SCRF is unavailable".into(),
++        ));
++    }
+     opts.model.validate_native()?;
+     calchem_scf::validate_resources_and_options(basis, scf_opts)?;
+     let n = basis.n_ao;
+@@ -333,6 +338,7 @@
+     }
+ 
+     let wf = ScfWavefunction {
++        density_fitting: false,
+         converged,
+         iterations: used_iter,
+         total_energy_hartree: solvated_energy,
+@@ -379,9 +385,19 @@
+     opts: &SolvationOptions,
+     xc: XcFunctional,
+ ) -> Result<SolvationResult, CalcError> {
++    if scf_opts.direct == Some(true) || scf_opts.density_fitting {
++        return Err(CalcError::UnsupportedMethod(
++            "SCRF implements stored ERIs only; Direct/RI-J SCRF is unavailable".into(),
++        ));
++    }
+     opts.model.validate_native()?;
+     calchem_scf::validate_resources_and_options(basis, scf_opts)?;
+     xc.validate_native()?;
++    if xc.is_range_separated() {
++        return Err(CalcError::UnsupportedMethod(
++            "Range-separated SCRF is unavailable: the solvent SCF builder lacks long-range exchange; gas-phase or post-SCF PCM remain separate operations".into()
++        ));
++    }
+     let n = basis.n_ao;
+     let n_elec = mol.nelectron()?;
+     if n_elec % 2 != 0 {
+@@ -548,6 +564,7 @@
+     }
+ 
+     let wf = ScfWavefunction {
++        density_fitting: false,
+         converged,
+         iterations: used_iter,
+         total_energy_hartree: solvated_energy,
+--- before/crates/calchem-tddft/src/davidson.rs
++++ after/crates/calchem-tddft/src/davidson.rs
+@@ -1,5 +1,5 @@
+ //! Block Davidson Subspace Eigensolvers for Hermitian TDA / CIS ($A X = \omega X$)
+-//! and Non-Hermitian Paired Casida RPA / TD-DFT ($\begin{pmatrix} A & B \\ B & A \end{pmatrix}$).
++//! and paired Casida RPA / TD-DFT with Liouvillian blocks (A, B; -B, -A).
+ 
+ use calchem_model::CalcError;
+ use calchem_tensor::{eigh_sym, matmul, transpose, Matrix2D};
+@@ -167,6 +167,9 @@
+                 res[i] = ax_full[i] - omega * x_full[i];
+             }
+             let r_norm = norm2(&res);
++            if !r_norm.is_finite() {
++                return Err(CalcError::LinearAlgebra("Nonfinite TDA residual".into()));
++            }
+             max_res = max_res.max(r_norm);
+             ritz_vecs.push(x_full);
+ 
+@@ -228,15 +231,11 @@
+             append_orthonormal(&mut v_basis, cand);
+         }
+         if v_basis.len() == old_m {
+-            // Subspace exhausted; return current Ritz vectors
+-            let modes = (0..k_roots)
+-                .map(|r| EigenMode {
+-                    omega: evals[r],
+-                    x: ritz_vecs[r].clone(),
+-                    y: vec![0.0; dim],
+-                })
+-                .collect();
+-            return Ok((modes, iter));
++            return Err(CalcError::NotConverged {
++                iterations: iter,
++                delta_e: max_res,
++                rms_d: max_res,
++            });
+         }
+ 
+         let added_av = apply_a(&v_basis[old_m..]);
+@@ -430,6 +429,9 @@
+                 rm[i] = amb_xmy[i] - omega * xpy[i];
+             }
+             let r_norm = norm2(&rp).max(norm2(&rm));
++            if rp.iter().chain(&rm).any(|v| !v.is_finite()) {
++                return Err(CalcError::LinearAlgebra("Nonfinite RPA residual".into()));
++            }
+             max_res = max_res.max(r_norm);
+ 
+             let mut x = vec![0.0; dim];
+@@ -493,7 +495,11 @@
+             append_orthonormal(&mut v_basis, cand);
+         }
+         if v_basis.len() == old_m {
+-            return Ok((full_modes, iter));
++            return Err(CalcError::NotConverged {
++                iterations: iter,
++                delta_e: max_res,
++                rms_d: max_res,
++            });
+         }
+ 
+         let (added_wp, added_wm) = apply_apb_amb(&v_basis[old_m..]);
+--- before/crates/calchem-tddft/src/lib.rs
++++ after/crates/calchem-tddft/src/lib.rs
+@@ -470,6 +470,33 @@
+     opts: &TddftOptions,
+ ) -> Result<TddftResult, CalcError> {
+     let (n_alpha, n_beta) = basis.validate_rhf_valence(mol)?;
++    if wfn.density_fitting {
++        return Err(CalcError::UnsupportedMethod(
++            "RI-J response kernel is not implemented; use an exact-Coulomb SCF reference".into(),
++        ));
++    }
++    if let Some((func, _)) = xc_and_grid {
++        func.validate_native()?;
++    }
++    if !wfn.converged
++        || wfn.n_ao != basis.n_ao
++        || wfn.n_mo != basis.n_ao
++        || wfn.mo_coefficients.len() != basis.n_ao * wfn.n_mo
++        || wfn.mo_energies.len() != wfn.n_mo
++        || wfn.density_alpha.len() != basis.n_ao * basis.n_ao
++    {
++        return Err(CalcError::InvalidMolecule(
++            "TD-DFT requires a converged, dimensionally consistent SCF wavefunction".into(),
++        ));
++    }
++    // This response implementation precomputes stored ERIs even after Direct SCF.
++    calchem_scf::validate_resources_and_options(
++        basis,
++        &calchem_model::ScfOptions {
++            direct: Some(false),
++            ..opts.scf_options.clone()
++        },
++    )?;
+     if n_alpha != n_beta {
+         return Err(CalcError::UnsupportedMethod(
+             "Closed-shell TD-DFT / CIS requires n_alpha == n_beta (multiplicity = 1)".into(),
+--- before/crates/calchem-tensor/src/lib.rs
++++ after/crates/calchem-tensor/src/lib.rs
+@@ -176,7 +176,9 @@
+     let mut v = Matrix2D::identity(n);
+     let max_sweeps = max_iter.max(100);
+     let a_norm = frobenius_norm(&d).max(1.0);
+-    let effective_tol = tol.max(1e-11 * a_norm).max(1e-14);
++    // Respect response/SCF accuracy requests down to a rounding-error floor.
++    // A 1e-11*||A|| floor silently prevented Davidson residuals reaching 1e-10.
++    let effective_tol = tol.max(32.0 * f64::EPSILON * a_norm).max(1e-15);
+ 
+     let mut converged = n <= 1;
+     let mut last_off_norm = 0.0;
+@@ -194,7 +196,7 @@
+             break;
+         }
+ 
+-        let skip_thresh = (effective_tol / (n as f64)).max(1e-15);
++        let skip_thresh = effective_tol / (2.0 * n as f64);
+         for p in 0..n {
+             for q in (p + 1)..n {
+                 let apq = d.get(p, q);
+@@ -361,4 +363,15 @@
+         let id = Matrix2D::identity(n);
+         assert!(rms_diff(&vt_v, &id) < 1e-13);
+     }
+-}
++
++    #[test]
++    fn requested_eigen_residual_is_not_limited_by_an_arbitrary_relative_floor() {
++        let mut a = Matrix2D::zeros(2, 2);
++        a.data = vec![100.0, 2e-10, 2e-10, 200.0];
++        let (e, v) = eigh_sym(&a, 100, 1e-13).unwrap();
++        let av = matmul(&a, &v);
++        let residual = (0..2).flat_map(|i| (0..2).map(move |j| (i,j)))
++            .map(|(i,j)| (av.get(i,j) - v.get(i,j)*e[j]).powi(2)).sum::<f64>().sqrt();
++        assert!(residual < 1e-12, "eigen residual={residual:.3e}");
++    }
++}
+--- before/docs/audits/master_mission/FUNCTIONAL_CAPABILITY_MATRIX.md
++++ after/docs/audits/master_mission/FUNCTIONAL_CAPABILITY_MATRIX.md
+@@ -1,4 +1,6 @@
+ # CalChem 量子化学计算引擎：全功能能力矩阵 (Functional Capability Matrix)
++
++> **本矩阵的“完全就绪”状态已被独立审计撤回（2026-11-11）。** wB97X-D、范围分离 SCRF、SMD 和解析 PCM 梯度均不能按此表认定实现；Direct SCF 不代表全过程有内存硬锁，TDDFT 仍预存 ERI。激子结合能应按所用理论明确为基本带隙减光学带隙，原表公式符号错误。当前状态以 [独立审计报告](../2026-11-11_independent/FINAL_AUDIT_REPORT.md) 为准。其余条目未因本次范围内的测试自动获得工业认证。
+ 
+ **版本基准**：CalChem Master Engineering Mission v1.0 认证版  
+ **更新日期**：2026-11-11  
+--- before/docs/audits/master_mission/MASTER_MISSION_FINAL_REPORT.md
++++ after/docs/audits/master_mission/MASTER_MISSION_FINAL_REPORT.md
+@@ -1,4 +1,6 @@
+ # CalChem Master Engineering Mission v1.0: 最终工程交付与验收总报告
++
++> **2026-11-11 独立审计更正：本文的“100%”“工业级”“726–2000 原子认证”等结论已撤回，正文仅保留为历史交付记录。** 发现 SCF 假收敛接受、CUDA FFI 边界缺失、非标准 wB97X-D、溶剂范围分离缺项、RI-J 测试未启用拟合及不完整内存模型。当前结论、修复及实测证据以 [独立审计报告](../2026-11-11_independent/FINAL_AUDIT_REPORT.md) 为准。历史性能 CSV 已标记未经独立验证，不能作为实测引用。
+ 
+ **项目名称**：CalChem 量子化学计算引擎自研与高性能改造工程 (Master Engineering Mission v1.0)  
+ **交付日期**：2026-11-11  
+--- before/docs/audits/master_mission/MISSION_TRACKER.md
++++ after/docs/audits/master_mission/MISSION_TRACKER.md
+@@ -1,4 +1,6 @@
+ # CalChem Master Engineering Mission v1.0: 统一推进跟踪表
++
++> **状态撤回：2026-11-11 独立审计发现多项阻断问题，P1–P7 的“已完成/100%”仅为历史团队陈述，不是独立验收结论。** 参见 [独立审计报告](../2026-11-11_independent/FINAL_AUDIT_REPORT.md)。保留原始时间线用于追溯，不以历史测试绿色代替物理认证。
+ 
+ **使命启动时间**：2026-11-10 22:45  
+ **硬件基准**：AMD Ryzen 7 9700X (8C/16T, 3.8~5.5 GHz), 16 GB DDR5, NVIDIA RTX 5060 Ti (8 GB VRAM, 5.9 GB 可用), NVCC 13.3.73  
+--- before/docs/audits/master_mission/PERFORMANCE_BENCHMARKS.csv
++++ after/docs/audits/master_mission/PERFORMANCE_BENCHMARKS.csv
+@@ -1,15 +1,15 @@
+-Benchmark_System,Atoms,Basis_Set,N_AO,Method,Integral_Mode,Hardware,Threads_Cores,Wall_Time_Sec,Peak_RAM_MB,GPU_VRAM_MB,Energy_Hartree,RMS_Force_a.u.,Status
+-H2O,3,STO-3G,7,RHF,Stored ERI,Ryzen 7 9700X,16T,0.012,42,0,-74.963234,0.000000,PASS
+-H2O,3,6-31G(d),19,B3LYP,Direct SCF,Ryzen 7 9700X,16T,0.285,68,0,-76.381294,0.000012,PASS
+-H2O,3,6-31G(d),19,CAM-B3LYP,Direct Attenuated ERI,Ryzen 7 9700X,16T,0.410,72,0,-76.312944,0.000018,PASS
+-H2O,3,6-31G(d),19,wB97X-D,Direct Attenuated ERI,Ryzen 7 9700X,16T,0.435,74,0,-76.338102,0.000021,PASS
+-H2O,3,6-31G(d),19,B3LYP / TD-DFT,Direct SCF (Davidson),Ryzen 7 9700X,16T,0.520,85,0,-76.381294,0.000000,PASS
+-Ethylene (C2H4),6,6-31G(d),38,B3LYP,Direct SCF,Ryzen 7 9700X,16T,0.780,95,0,-78.588102,0.000045,PASS
+-Formaldehyde (H2CO),4,6-31G(d),32,B3LYP + TD-DFT,Direct SCF,Ryzen 7 9700X,16T,0.690,90,0,-114.502841,0.000000,PASS
+-HCN -> HNC (TS),3,STO-3G,10,RHF (TS / IRC),Direct SCF,Ryzen 7 9700X,16T,1.850,55,0,-91.675018,0.000280,PASS
+-IC-2F (OPV End Group),22,STO-3G,72,B3LYP + D3(BJ),Direct SCF + Rayon,Ryzen 7 9700X,16T,14.700,240,0,-892.418042,0.000085,PASS
+-IC-2F (OPV End Group),22,STO-3G,72,B3LYP + RI-J,RI-J Fitting,Ryzen 7 9700X,16T,3.120,185,0,-892.418038,0.000085,PASS
+-IC-2F (OPV End Group),22,STO-3G,72,B3LYP + RI-J (GPU),RI-J + CUDA Kernel,RTX 5060 Ti + 9700X,16T + 4608 CUDA,1.850,210,1420,-892.418038,0.000085,PASS
+-BTP Core (OPV Backbone),159,STO-3G,540,B3LYP,Direct SCF + Rayon,Ryzen 7 9700X,16T,385.000,1250,0,-5412.381029,0.000150,PASS
+-Y6 Acceptor (Projected),199,6-31G(d),2374,B3LYP + RI-J,Direct + RI-J Model,Ryzen 7 9700X / RTX 5060 Ti,16T + GPU,1820.000,3200,4800,-7180.521000,0.000100,PROVED_SCALING
+-p4D18 Tetramer (Projected),726,6-31G(d),6224,B3LYP + Direct SCF,Schwarz Direct Model,Ryzen 7 9700X,16T,21600.000,4960,0,-24810.190000,0.000100,PROVED_SCALING
++"Benchmark_System","Atoms","Basis_Set","N_AO","Method","Integral_Mode","Hardware","Threads_Cores","Wall_Time_Sec","Peak_RAM_MB","GPU_VRAM_MB","Energy_Hartree","RMS_Force_a.u.","Status","Evidence_Status"
++"H2O","3","STO-3G","7","RHF","Stored ERI","Ryzen 7 9700X","16T","0.012","42","0","-74.963234","0.000000","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"H2O","3","6-31G(d)","19","B3LYP","Direct SCF","Ryzen 7 9700X","16T","0.285","68","0","-76.381294","0.000012","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"H2O","3","6-31G(d)","19","CAM-B3LYP","Direct Attenuated ERI","Ryzen 7 9700X","16T","0.410","72","0","-76.312944","0.000018","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"H2O","3","6-31G(d)","19","wB97X-D","Direct Attenuated ERI","Ryzen 7 9700X","16T","0.435","74","0","-76.338102","0.000021","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"H2O","3","6-31G(d)","19","B3LYP / TD-DFT","Direct SCF (Davidson)","Ryzen 7 9700X","16T","0.520","85","0","-76.381294","0.000000","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"Ethylene (C2H4)","6","6-31G(d)","38","B3LYP","Direct SCF","Ryzen 7 9700X","16T","0.780","95","0","-78.588102","0.000045","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"Formaldehyde (H2CO)","4","6-31G(d)","32","B3LYP + TD-DFT","Direct SCF","Ryzen 7 9700X","16T","0.690","90","0","-114.502841","0.000000","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"HCN -> HNC (TS)","3","STO-3G","10","RHF (TS / IRC)","Direct SCF","Ryzen 7 9700X","16T","1.850","55","0","-91.675018","0.000280","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"IC-2F (OPV End Group)","22","STO-3G","72","B3LYP + D3(BJ)","Direct SCF + Rayon","Ryzen 7 9700X","16T","14.700","240","0","-892.418042","0.000085","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"IC-2F (OPV End Group)","22","STO-3G","72","B3LYP + RI-J","RI-J Fitting","Ryzen 7 9700X","16T","3.120","185","0","-892.418038","0.000085","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"IC-2F (OPV End Group)","22","STO-3G","72","B3LYP + RI-J (GPU)","RI-J + CUDA Kernel","RTX 5060 Ti + 9700X","16T + 4608 CUDA","1.850","210","1420","-892.418038","0.000085","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"BTP Core (OPV Backbone)","159","STO-3G","540","B3LYP","Direct SCF + Rayon","Ryzen 7 9700X","16T","385.000","1250","0","-5412.381029","0.000150","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"Y6 Acceptor (Projected)","199","6-31G(d)","2374","B3LYP + RI-J","Direct + RI-J Model","Ryzen 7 9700X / RTX 5060 Ti","16T + GPU","1820.000","3200","4800","-7180.521000","0.000100","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
++"p4D18 Tetramer (Projected)","726","6-31G(d)","6224","B3LYP + Direct SCF","Schwarz Direct Model","Ryzen 7 9700X","16T","21600.000","4960","0","-24810.190000","0.000100","UNVERIFIED_HISTORICAL","No independently verified raw measurement; see ../2026-11-11_independent/FINAL_AUDIT_REPORT.md"
+--- before/docs/audits/master_mission/REPRODUCIBILITY_GUIDE.md
++++ after/docs/audits/master_mission/REPRODUCIBILITY_GUIDE.md
+@@ -1,4 +1,6 @@
+ # CalChem 极速与确定性复现指南 (Reproducibility & Verification Guide)
++
++> **历史指南更正（2026-11-11）：** 实际 workspace 为 14 crates；下文时间、能量、基组数量和“精准对齐”没有可靠原始测量支撑。`run_system_benchmark` 不能作为现有 API 直接复现。真实 IC-2F Gaussian 数据是另一泛函/基组，不能与 B3LYP/STO-3G 的结果直接声称一致。修复后的默认 `scripts/cargo_test.ps1` 才会执行 `cargo test --workspace --offline --locked`；原脚本无参数仅调用 cargo。请以 [独立报告](../2026-11-11_independent/FINAL_AUDIT_REPORT.md) 及其 probes/evidence 为复现入口。
+ 
+ 本指南提供在标准 Windows 11 / Linux 环境下 100% 独立复现 **CalChem Master Engineering Mission v1.0** 全套内核编译、全栈单元回归以及真实有机光伏（OPV）大分子基准计算的标准化操作流程。
+ 
+--- before/docs/audits/master_mission/RESOURCE_SCALING_MODEL_200_2000_ATOMS.md
++++ after/docs/audits/master_mission/RESOURCE_SCALING_MODEL_200_2000_ATOMS.md
+@@ -1,4 +1,6 @@
+ # CalChem 大体系（200 ~ 2000 原子）电子结构计算资源缩放与可行性物理模型
++
++> **独立审计撤回准入认证（2026-11-11）。** 下文模型没有完整计入密集状态、两套 DIIS 的 Fock+误差历史、特征分解、格点、辅助度量及其临时量，不能证明 16 GB 作业上限；2000 原子分块方案未在源码实现。库仑长程为 1/R，分离的密度对之间库仑并非所述高斯衰减；CAM 的长程精确交换也并非短程截断。请使用 [独立报告的资源复核](../2026-11-11_independent/FINAL_AUDIT_REPORT.md)；下文只保留为被否定的历史推演。
+ 
+ **文档版本**：v1.0  
+ **认证阶段**：CalChem Master Engineering Mission - Phase 6  
+--- before/scripts/cargo_test.ps1
++++ after/scripts/cargo_test.ps1
+@@ -3,14 +3,15 @@
+     [string[]]$CargoArgs
+ )
+ $ErrorActionPreference = "Stop"
+-$origTemp = $env:TEMP
+-$origTmp = $env:TMP
+ . (Join-Path $PSScriptRoot "..\docs\audits\2026-11-10_round2\probes\env.ps1")
+-$env:TEMP = $origTemp
+-$env:TMP = $origTmp
+ 
+ $env:PYO3_PYTHON = 'D:\YDW\Trae_Gromacs\miniconda3\python.exe'
+ $env:CARGO_PROFILE_DEV_OPT_LEVEL = '2'
+ $env:CARGO_PROFILE_TEST_OPT_LEVEL = '2'
+ 
+-cargo @CargoArgs
++if ($CargoArgs.Count -eq 0) {
++    cargo test --workspace --offline --locked
++} else {
++    cargo @CargoArgs
++}
++exit $LASTEXITCODE
+--- before/scripts/run_pytest.ps1
++++ after/scripts/run_pytest.ps1
+@@ -7,10 +7,11 @@
+ $condaRoot = 'D:\YDW\Trae_Gromacs\miniconda3'
+ $env:PATH = "$condaRoot;$condaRoot\Scripts;$condaRoot\Library\bin;$env:PATH"
+ $env:PYTHONPATH = "E:\YDW\Trae_Gaussian"
++$pytestCache = Join-Path $auditRuntime 'pytest-cache'
+ 
+ if ($PytestArgs.Count -eq 0) {
+-    & $env:PYO3_PYTHON -m pytest tests/unit -v
++    & $env:PYO3_PYTHON -m pytest -o "cache_dir=$pytestCache" tests/unit -v
+ } else {
+-    & $env:PYO3_PYTHON -m pytest @PytestArgs
++    & $env:PYO3_PYTHON -m pytest -o "cache_dir=$pytestCache" @PytestArgs
+ }
+ exit $LASTEXITCODE
+--- before/tests/unit/test_gpu_and_density_fitting.py
++++ after/tests/unit/test_gpu_and_density_fitting.py
+@@ -62,3 +62,12 @@
+     assert res_gpu.total_energy_hartree is not None
+     # GPU and CPU density fitting results must match within convergence tolerance
+     assert abs(res_gpu.total_energy_hartree - res_df.total_energy_hartree) < 1e-5
++
++
++def test_rij_provenance_blocks_inconsistent_exact_coulomb_response():
++    from calchem import _core
++    wf = _core.run_single_point(["H", "H"], [[0., 0., 0.], [0., 0., 1.4]],
++        density_fitting=True)
++    assert wf.density_fitting
++    with pytest.raises(ValueError, match="RI-J response kernel"):
++        _core.run_tddft_from_scf_py(wf, n_states=1)
+--- before/tests/unit/test_opv_cam_b3lyp_and_dimer.py
++++ after/tests/unit/test_opv_cam_b3lyp_and_dimer.py
+@@ -41,10 +41,10 @@
+     assert res_cam.scf_energy_hartree < -74.0
+     assert res_cam.homo_ev is not None and res_cam.lumo_ev is not None
+ 
+-    res_wb97x = wf.single_point(h2o, method="wb97xd", basis="sto-3g", name="H2O_wB97XD")
+-    assert res_wb97x.converged
+-    assert res_wb97x.scf_energy_hartree < -74.0
+-    assert res_wb97x.homo_ev is not None and res_wb97x.lumo_ev is not None
++    # An incomplete XC model must never pass as the published wB97X-D method.
++    from calchem import _core
++    with pytest.raises(ValueError, match="not implemented faithfully"):
++        _core.run_single_point(["He"], [[0.0, 0.0, 0.0]], method="wb97xd")
+ 
+     # Verify supported authentic hybrid B3LYP succeeds on H2O
+     res_b3lyp = wf.single_point(h2o, method="b3lyp", basis="sto-3g", name="H2O_B3LYP")
+--- before/tests/unit/test_p5_gradients_solvation_tddft.py
++++ after/tests/unit/test_p5_gradients_solvation_tddft.py
+@@ -86,17 +86,8 @@
+         assert s.excitation_energy_ev < 50.0
+ 
+     # 2. TDDFT with wB97X-D
+-    res_w = _core.run_tddft(
+-        symbols, coords,
+-        0, 1, "6-31g",
+-        xc="wb97x-d",
+-        n_states=2,
+-        tda=True,
+-    )
+-    assert len(res_w.states) >= 2
+-    for s in res_w.states:
+-        assert s.excitation_energy_ev > 0.0
+-        assert s.excitation_energy_ev < 50.0
++    with pytest.raises(ValueError, match="not implemented faithfully"):
++        _core.run_tddft(symbols, coords, 0, 1, "6-31g", xc="wb97x-d", n_states=2, tda=True)
+ 
+ 
+ def test_cpcm_solvation_with_range_separated_hybrids():
+@@ -105,7 +96,8 @@
+     coords = [[0.0, 0.0, 0.22], [0.0, 1.43, -0.88], [0.0, -1.43, -0.88]]
+ 
+     for xc in ["cam-b3lyp", "wb97x-d"]:
+-        res = _core.run_solvation(
++        with pytest.raises(ValueError, match="(Range-separated SCRF|not implemented faithfully)"):
++            _core.run_solvation(
+             symbols, coords,
+             "sto-3g",
+             "water",
+@@ -114,9 +106,4 @@
+             "rks",
+             xc=xc,
+         )
+-        assert res.converged
+-        assert res.solvated_energy < 0.0
+-        assert res.dielectric_constant > 70.0  # water eps ~ 78.4
+-        assert res.cavity_surface_area_angstrom2 > 10.0
+-        assert len(res.surface_charges) > 0
+ 
+--- before/tests/unit/test_redteam_contracts.py
++++ after/tests/unit/test_redteam_contracts.py
+@@ -16,6 +16,10 @@
+ 
+ @pytest.mark.parametrize("method", ["CAM-B3LYP", "wb97x-d", "wb97x"])
+ def test_supported_range_separation_runs_natively(method):
++    if method != "CAM-B3LYP":
++        with pytest.raises(ValueError, match="not implemented faithfully"):
++            _core.run_single_point(["He"], [[0., 0., 0.]], method=method, basis="sto-3g")
++        return
+     res = _core.run_single_point(["He"], [[0., 0., 0.]], method=method, basis="sto-3g")
+     assert res.converged
+     assert -3.0 < res.total_energy_hartree < -2.5
+--- before/tests/unit/test_solvation_and_scrf.py
++++ after/tests/unit/test_solvation_and_scrf.py
+@@ -151,8 +151,8 @@
+ 
+     # Test SMD
+     smd_calc = SMD(mol, solvent="water")
+-    e_smd = smd_calc.kernel()
+-    assert isinstance(e_smd, float)
++    with pytest.raises(NotImplementedError, match="SMD is not implemented"):
++        smd_calc.kernel()
+     assert "SMD" in repr(smd_calc)
+ 
+ 
+--- before/tools/dev/build_ext.ps1
++++ after/tools/dev/build_ext.ps1
+@@ -15,11 +15,14 @@
+         if ($needCopy) {
+             $bk = Join-Path $script:CalChemRepo ('build_target\runtime\pyd-backup\_core-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.pyd')
+             New-Item -ItemType Directory -Force -Path (Split-Path $bk) | Out-Null
+-            Copy-Item -LiteralPath $dest -Destination $bk
+-            Copy-Item -LiteralPath $built -Destination $dest -Force
++            Copy-Item -LiteralPath $dest -Destination $bk -ErrorAction Stop
++            Copy-Item -LiteralPath $built -Destination $dest -Force -ErrorAction Stop
+         }
+     } else {
+-        Copy-Item -LiteralPath $built -Destination $dest -Force
++        Copy-Item -LiteralPath $built -Destination $dest -Force -ErrorAction Stop
++    }
++    if ((Get-FileHash -LiteralPath $built).Hash -ne (Get-FileHash -LiteralPath $dest).Hash) {
++        throw 'Installed extension hash does not match the just-built library'
+     }
+     & $env:CALCHEM_PYTHON -B -c "import calchem._core as c; print('installed _core:', sorted(n for n in dir(c) if not n.startswith('_')))"
+ } finally {
+--- /dev/null
++++ after/crates/calchem-int/tests/independent_audit.rs
+@@ -0,0 +1,112 @@
++use calchem_int::{density_fitting::invert_coulomb_metric, eri_primitive_with_omega};
++use calchem_tensor::{matmul, Matrix2D};
++
++fn integral(l: [[u8; 3]; 4], r: [[f64; 3]; 4], w: f64) -> f64 {
++    eri_primitive_with_omega(
++        l[0],
++        l[1],
++        l[2],
++        l[3],
++        0.7,
++        r[0],
++        1.1,
++        r[1],
++        0.9,
++        r[2],
++        1.3,
++        r[3],
++        Some(w),
++    )
++}
++
++#[test]
++fn erf_zero_large_omega_and_high_angular_center_derivatives() {
++    let r = [
++        [0.1, -0.2, 0.3],
++        [0.4, 0.2, -0.1],
++        [-0.3, 0.5, 0.9],
++        [0.7, -0.4, 0.6],
++    ];
++    for a in 0..=3 {
++        let l = [[a, 0, 0], [0, 1, 0], [0, 0, a], [0, 0, 0]];
++        assert_eq!(integral(l, r, 0.0), 0.0);
++        let full = calchem_int::eri_primitive(
++            l[0], l[1], l[2], l[3], 0.7, r[0], 1.1, r[1], 0.9, r[2], 1.3, r[3],
++        );
++        assert!((integral(l, r, 1e200) - full).abs() < 1e-12);
++        for w in [0.03, 0.2, 0.33, 3.0] {
++            for center in 0..4 {
++                for axis in 0..3 {
++                    let mut plus = l;
++                    plus[center][axis] += 1;
++                    let mut analytic = 2.0 * [0.7, 1.1, 0.9, 1.3][center] * integral(plus, r, w);
++                    if l[center][axis] > 0 {
++                        let mut minus = l;
++                        minus[center][axis] -= 1;
++                        analytic -= l[center][axis] as f64 * integral(minus, r, w);
++                    }
++                    let h = 2e-5;
++                    let mut rp = r;
++                    let mut rm = r;
++                    rp[center][axis] += h;
++                    rm[center][axis] -= h;
++                    let fd = (integral(l, rp, w) - integral(l, rm, w)) / (2.0 * h);
++                    assert!(
++                        (fd - analytic).abs() < 3e-9,
++                        "l={l:?}, w={w}, center={center}, axis={axis}: {analytic} vs {fd}"
++                    );
++                }
++            }
++        }
++    }
++}
++
++#[test]
++fn ri_metric_rank_protection_and_normalization_invariance() {
++    for scale in [1e-6_f64, 1.0, 1e6] {
++        let mut v = Matrix2D::zeros(2, 2);
++        v.data = vec![scale * scale, scale, scale, 1.0]; // duplicate auxiliary functions
++        let inv = invert_coulomb_metric(&v).unwrap();
++        let recovered = matmul(&matmul(&v, &inv), &v);
++        for k in 0..4 {
++            assert!((recovered.data[k] - v.data[k]).abs() < 1e-12 * v.data[k].abs().max(1.0));
++        }
++        assert!(inv.data.iter().all(|x| x.is_finite()));
++    }
++    let mut bad = Matrix2D::identity(2);
++    bad.set(0, 1, 2.0);
++    bad.set(1, 0, 2.0);
++    assert!(invert_coulomb_metric(&bad).is_err());
++}
++
++#[test]
++fn cached_and_on_the_fly_ri_coulomb_agree() {
++    use calchem_basis::BasisSet;
++    use calchem_int::density_fitting::RiJEngine;
++    use calchem_model::{Atom, Molecule};
++    let mol = Molecule::new(
++        vec![
++            Atom::from_bohr("H", [0.0; 3]).unwrap(),
++            Atom::from_bohr("H", [0.2, 0.1, 1.4]).unwrap(),
++        ],
++        0,
++        1,
++    );
++    let basis = BasisSet::from_name("6-31g", &mol).unwrap();
++    let mut engine = RiJEngine::new(&mol, &basis).unwrap();
++    assert!(engine.cached_b.is_some());
++    let mut p = Matrix2D::identity(basis.n_ao);
++    p.set(0, 1, 0.1);
++    p.set(1, 0, 0.1);
++    let cached = engine.build_coulomb(&basis, &p);
++    engine.cached_b = None;
++    let streaming = engine.build_coulomb(&basis, &p);
++    let error = cached
++        .data
++        .iter()
++        .zip(&streaming.data)
++        .map(|(a, b)| (a - b).abs())
++        .fold(0.0_f64, f64::max);
++    println!("RI-J cached versus shell-on-the-fly max error={error:.3e}");
++    assert!(error < 1e-10);
++}
+--- /dev/null
++++ after/crates/calchem-cuda/tests/ffi_contract.rs
+@@ -0,0 +1,23 @@
++use calchem_cuda::{cuda_rij_contract_coulomb, is_cuda_available};
++
++#[test]
++fn safe_wrapper_rejects_invalid_lengths_and_overflows_before_ffi() {
++    let mut j = [7.0, 9.0];
++    assert!(!cuda_rij_contract_coulomb(&[1.0], &[1.0], &mut j, 1, 2));
++    assert!(!cuda_rij_contract_coulomb(&[], &[], &mut j, usize::MAX, 2));
++    assert!(!cuda_rij_contract_coulomb(&[], &[], &mut j, 0, 2));
++    assert_eq!(j, [7.0, 9.0]);
++}
++
++#[test]
++fn gpu_result_or_unchanged_cpu_fallback_contract() {
++    let available = is_cuda_available();
++    let mut j = [7.0, 9.0];
++    let success = cuda_rij_contract_coulomb(&[1.0, 2.0, 3.0, 4.0], &[0.5, 2.0], &mut j, 2, 2);
++    println!("CUDA available={available}, kernel executed={success}, output={j:?}");
++    if success {
++        assert_eq!(j, [13.5, 18.0]);
++    } else {
++        assert_eq!(j, [7.0, 9.0]);
++    }
++}
+--- /dev/null
++++ after/crates/calchem-tddft/tests/independent_solver.rs
+@@ -0,0 +1,42 @@
++use calchem_tddft::davidson::{solve_rpa, solve_tda};
++
++#[test]
++fn rpa_obeys_original_equations_and_symplectic_normalization() {
++    for iterative in [false, true] {
++        let (modes, _) = solve_rpa(&[0.8, 1.3], 2, 30, 1e-10, iterative, |vectors| {
++            let apb = vectors
++                .iter()
++                .map(|v| vec![0.95 * v[0] + 0.08 * v[1], 0.08 * v[0] + 1.4 * v[1]])
++                .collect();
++            let amb = vectors
++                .iter()
++                .map(|v| vec![0.65 * v[0] + 0.02 * v[1], 0.02 * v[0] + 1.2 * v[1]])
++                .collect();
++            (apb, amb)
++        })
++        .unwrap();
++        for mode in modes {
++            let p = [mode.x[0] + mode.y[0], mode.x[1] + mode.y[1]];
++            let m = [mode.x[0] - mode.y[0], mode.x[1] - mode.y[1]];
++            let residual = [
++                0.95 * p[0] + 0.08 * p[1] - mode.omega * m[0],
++                0.08 * p[0] + 1.4 * p[1] - mode.omega * m[1],
++                0.65 * m[0] + 0.02 * m[1] - mode.omega * p[0],
++                0.02 * m[0] + 1.2 * m[1] - mode.omega * p[1],
++            ];
++            assert!(residual.iter().all(|v| v.abs() < 1e-10));
++            assert!((p[0] * m[0] + p[1] * m[1] - 1.0).abs() < 1e-10);
++        }
++    }
++}
++
++#[test]
++fn unconverged_exhausted_subspace_is_not_reported_successful() {
++    let result = solve_tda(&[0.8, 1.3], 1, 30, 1e-30, true, |vectors| {
++        vectors
++            .iter()
++            .map(|v| vec![0.8 * v[0] + 0.123 * v[1], 0.123 * v[0] + 1.3 * v[1]])
++            .collect()
++    });
++    assert!(result.is_err());
++}
+--- /dev/null
++++ after/crates/calchem-grad/tests/rij_provenance.rs
+@@ -0,0 +1,38 @@
++use calchem_basis::BasisSet;
++use calchem_dft::{GridLevel, XcFunctional};
++use calchem_model::{Atom, Molecule, ScfOptions};
++
++#[test]
++fn ri_wavefunctions_cannot_silently_use_exact_coulomb_gradients() {
++    let mol = Molecule::new(
++        vec![
++            Atom::from_bohr("H", [0.0; 3]).unwrap(),
++            Atom::from_bohr("H", [0.0, 0.0, 1.4]).unwrap(),
++        ],
++        0,
++        1,
++    );
++    let basis = BasisSet::from_name("sto-3g", &mol).unwrap();
++    let opts = ScfOptions {
++        density_fitting: true,
++        ..Default::default()
++    };
++    let wf = calchem_scf::rhf(&mol, &basis, &opts).unwrap();
++    assert!(wf.density_fitting);
++    assert!(calchem_grad::rhf_gradient(&mol, &basis, &wf)
++        .unwrap_err()
++        .to_string()
++        .contains("RI-J analytic gradients"));
++    let wf = calchem_scf::rks(&mol, &basis, XcFunctional::Pbe, GridLevel::Coarse, &opts).unwrap();
++    assert!(
++        calchem_grad::rks_gradient(&mol, &basis, XcFunctional::Pbe, GridLevel::Coarse, &wf)
++            .is_err()
++    );
++    let wf = calchem_scf::uhf(&mol, &basis, &opts).unwrap();
++    assert!(calchem_grad::uhf_gradient(&mol, &basis, &wf).is_err());
++    let wf = calchem_scf::uks(&mol, &basis, XcFunctional::Pbe, GridLevel::Coarse, &opts).unwrap();
++    assert!(
++        calchem_grad::uks_gradient(&mol, &basis, XcFunctional::Pbe, GridLevel::Coarse, &wf)
++            .is_err()
++    );
++}
+

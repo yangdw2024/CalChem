@@ -151,8 +151,9 @@ def test_pcm_and_smd_class_facades():
 
     # Test SMD
     smd_calc = SMD(mol, solvent="water")
-    e_smd = smd_calc.kernel()
-    assert isinstance(e_smd, float)
+    dg_smd = smd_calc.kernel()
+    assert isinstance(dg_smd, float)
+    assert smd_calc.pcm.solver.delta_g_elec_kcal_mol < 0.0
     assert "SMD" in repr(smd_calc)
 
 

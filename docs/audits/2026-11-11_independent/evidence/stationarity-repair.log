@@ -1,0 +1,18 @@
+   Compiling calchem-model v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-model)
+   Compiling calchem-cuda v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-cuda)
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+   Compiling calchem-basis v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-basis)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+   Compiling calchem-grad v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-grad)
+    Finished `test` profile [optimized + debuginfo] target(s) in 13.85s
+     Running tests\kohn_sham_dft.rs (build_target\runtime\round2_20261110\target\debug\deps\kohn_sham_dft-f4d02900120ebe76.exe)
+
+running 3 tests
+test test_halogen_ecp_hbr_lanl2dz_b3lyp_rks_and_uks ... ok
+test test_ethylene_dft_frontier_gap_and_vertical_ionization_potential ... ok
+test test_closed_shell_uks_matches_rks_across_all_functionals_and_water_b3lyp_benchmark ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.73s
+

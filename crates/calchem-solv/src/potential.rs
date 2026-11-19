@@ -26,7 +26,11 @@ pub struct CavityPotentialEngine {
 
 impl CavityPotentialEngine {
     /// Builds the potential engine for a given molecule, basis set, and cavity.
-    pub fn build(mol: &Molecule, basis: &BasisSet, cavity: &MolecularCavity) -> Result<Self, CalcError> {
+    pub fn build(
+        mol: &Molecule,
+        basis: &BasisSet,
+        cavity: &MolecularCavity,
+    ) -> Result<Self, CalcError> {
         let n_tesserae = cavity.n_tesserae();
         let n_ao = basis.n_ao;
 
@@ -110,14 +114,7 @@ impl CavityPotentialEngine {
                                         let norm_b = sh_b.primitive_norm_for(pb_idx, cb);
                                         let weight = pa.coeff * pb.coeff * norm_a * norm_b;
 
-                                        let val = nuclear_vrr(
-                                            ca,
-                                            cb,
-                                            0,
-                                            &pair,
-                                            s_k,
-                                            &boys_buf,
-                                        );
+                                        let val = nuclear_vrr(ca, cb, 0, &pair, s_k, &boys_buf);
 
                                         let term = weight * val;
                                         blk[mu * n_ao + nu] += term;

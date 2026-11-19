@@ -22,6 +22,7 @@ _NATIVE_METHODS = [
     "rhf", "hf", "uhf",
     "rks", "uks", "roks", "dft",
     "svwn", "svwn5", "lda", "blyp", "pbe", "b3lyp", "b3lyp5", "pbe0",
+    "camb3lyp", "cam-b3lyp",
     "mp2", "mp4", "ccsd", "ccsd(t)", "ccsdt", "ccd", "casscf",
     "cis", "tdhf", "tddft", "tda", "tda-dft",
 ]
@@ -57,12 +58,6 @@ def _resolve_rust_scf_spec(
     m = method.strip().lower()
     m_norm = _normalize_xc_token(m)
     opts = options or {}
-    if any(_normalize_xc_token(str(v)) in {"camb3lyp", "wb97x", "wb97xd"}
-           for v in (method, xc or "", opts.get("xc", ""))):
-        raise UnsupportedMethodError(
-            "Native CAM-B3LYP/wB97X(-D) is unavailable: range-separated ERIs are missing. "
-            "Choose the Gaussian/ORCA backend explicitly."
-        )
 
     if m in ("rhf", "hf", "uhf"):
         if m == "rhf" and multiplicity != 1:
@@ -130,7 +125,7 @@ def _spec_to_molecule(spec: MoleculeSpec) -> Molecule:
 def _build_calculator(mol: Molecule, method: str, basis: str, xc: str | None, options: dict):
     """根据 method 实例化对应的计算类。"""
     m = method.lower()
-    kwargs = dict(options)
+    kwargs = {k: v for k, v in options.items() if k not in ("density_fitting", "use_gpu", "gpu", "ri_j", "df")}
 
     if m in ("hf", "rhf"):
         from ..scf.hf import RHF
@@ -277,11 +272,17 @@ class NativeCalchem(Calculator):
 
         # 显式转发用户请求选项
         max_iter = int(opts.get("max_iter", opts.get("max_cycles", 100)))
-        conv_energy = float(opts.get("conv_energy", opts.get("energy_tol", 1e-10)))
-        conv_density = float(opts.get("conv_density", opts.get("density_tol", 1e-8)))
+        default_conv_e = 1e-7 if xc_canon is not None else 1e-10
+        default_conv_d = 1e-6 if xc_canon is not None else 1e-8
+        conv_energy = float(opts.get("conv_energy", opts.get("energy_tol", default_conv_e)))
+        conv_density = float(opts.get("conv_density", opts.get("density_tol", default_conv_d)))
         use_diis = bool(opts.get("use_diis", opts.get("diis", True)))
         damping = float(opts.get("damping", 0.0))
         grid_level = str(opts.get("grid_level", opts.get("grid", "medium")))
+        direct_opt = opts.get("direct", None)
+        direct = bool(direct_opt) if direct_opt is not None else None
+        density_fitting = bool(opts.get("density_fitting", opts.get("ri_j", opts.get("df", False))))
+        use_gpu = bool(opts.get("use_gpu", opts.get("gpu", False)))
 
         if xc_canon is None:
             actual_tag = f"UHF-Rust({basis_arg})" if use_unrestricted else f"RHF-Rust({basis_arg})"
@@ -302,6 +303,9 @@ class NativeCalchem(Calculator):
                 damping=damping,
                 xc=xc_canon,
                 grid_level=grid_level,
+                direct=direct,
+                density_fitting=density_fitting,
+                use_gpu=use_gpu,
             )
             walltime = time.time() - t0
 
@@ -337,13 +341,19 @@ class NativeCalchem(Calculator):
             if d3_energy is not None:
                 tot_energy += d3_energy
 
-            res_extra = {}
+            res_extra = {
+                "density_fitting": bool(getattr(wf, "density_fitting", False)),
+                "gpu_kernel_invocations": int(getattr(wf, "gpu_kernel_invocations", 0)),
+                "gpu_fallback_invocations": int(getattr(wf, "gpu_fallback_invocations", 0)),
+                "diis_disk_backed": bool(getattr(wf, "diis_disk_backed", False)),
+                "rij_metric_truncated_modes": int(getattr(wf, "rij_metric_truncated_modes", 0)),
+            }
             if d3_energy is not None:
                 res_extra["d3_dispersion_hartree"] = d3_energy
-            if xc_canon in ("cam-b3lyp", "wb97x", "wb97x-d"):
+            if xc_canon == "cam-b3lyp":
                 res_extra["method_theory_note"] = (
-                    "Native global-hybrid approximation (static c_HF). "
-                    "Range-separated attenuated ERI (erf(mu*r12)/r12) requires external adapter (Gaussian/ORCA)."
+                    "Native CAM exchange: 0.19 K_full + 0.46 K_erf(omega=0.33), "
+                    "with ITYH short-range B88 and VWN5/LYP correlation; external molecular certification pending."
                 )
 
             return Result(
@@ -556,6 +566,8 @@ class NativeCalchem(Calculator):
                 if isinstance(dispersion, bool):
                     dispersion = "d3bj" if dispersion else None
                 solvent = request.solvent or opts.get("solvent", None)
+                density_fitting = bool(opts.get("density_fitting", opts.get("ri_j", False)))
+                use_gpu = bool(opts.get("use_gpu", False))
                 opt_res = rust_core.run_optimize(
                     request.molecule.symbols,
                     coords_bohr,
@@ -568,6 +580,8 @@ class NativeCalchem(Calculator):
                     grid_level=grid_level,
                     dispersion=dispersion,
                     solvent=solvent,
+                    density_fitting=density_fitting,
+                    use_gpu=use_gpu,
                 )
                 if opt_res.converged:
                     final_coords_bohr = [
@@ -1111,6 +1125,9 @@ class NativeCalchem(Calculator):
                 xc=request.xc or opts.get("xc"),
                 max_steps=5,
             )
+            if not ts_res.converged:
+                raise UnsupportedMethodError("IRC requires a certified first-order saddle point")
+            coords_bohr = [list(row) for row in ts_res.geometry_bohr]
             transition_vector = ts_res.transition_vector
 
         step_size_bohr = float(opts.get("step_size_bohr", opts.get("step_size", 0.1)))
@@ -1258,7 +1275,7 @@ class NativeCalchem(Calculator):
         )
 
     def solvation(self, request: CalculationRequest) -> Result:
-        """纯 Rust 连续介质溶剂化能与自洽反应场计算 (PCM / COSMO / SMD / SCRF)。"""
+        """Rust C-PCM/COSMO SCRF；面积乘表面张力修正并非 SMD。"""
         from .. import _core as rust_core
         started = datetime.now()
         t0 = time.time()

@@ -1,4 +1,6 @@
 pub mod boys;
+pub mod density_fitting;
+pub mod direct_fock;
 pub mod ecp;
 pub mod eri;
 pub mod one_electron;
@@ -11,11 +13,23 @@ use calchem_tensor::Tensor4D;
 use rayon::prelude::*;
 
 pub use boys::{boys, boys_batch, erf_approx};
+pub use density_fitting::{
+    compute_2center_coulomb_metric, eri_2center_primitive, eri_3center_primitive,
+    invert_coulomb_metric, shell_2center_block, shell_3center_block, AuxiliaryBasisSet,
+    AuxiliaryShell, RiJEngine,
+};
+pub use direct_fock::{
+    compute_shell_pair_l1_density, compute_shell_pair_max_density, contract_quartet_k,
+    find_significant_shell_pairs, DirectFockEngine, DirectFockStats, ShellPair,
+};
 pub use ecp::{
     compute_ecp, ecp_atom_primitive, ecp_local_primitive, ecp_semilocal_primitive,
     scaled_mod_sph_bessel_batch, shell_ecp_block,
 };
-pub use eri::{eri_primitive, eri_shell_quartet, EriPairData};
+pub use eri::{
+    eri_primitive, eri_primitive_with_omega, eri_shell_quartet, eri_shell_quartet_with_omega,
+    EriPairData,
+};
 pub use one_electron::{
     compute_kinetic, compute_nuclear, compute_overlap, shell_kinetic_block, shell_nuclear_block,
     shell_nuclear_block_with_charges, shell_overlap_block,
@@ -117,8 +131,12 @@ pub fn screened_shell_quartets(basis: &BasisSet, opts: &IntegralOptions) -> Vec<
 }
 
 /// Evaluates the full 4-index AO electron repulsion integral tensor `(mu nu | lam sig)`
-/// with options for Schwarz screening and Rayon multithreading.
-pub fn compute_eri_with_options(basis: &BasisSet, opts: &IntegralOptions) -> Tensor4D {
+/// with options for Schwarz screening, Rayon multithreading, and optional range-separation `omega`.
+pub fn compute_eri_with_omega(
+    basis: &BasisSet,
+    opts: &IntegralOptions,
+    omega: Option<f64>,
+) -> Tensor4D {
     let n = basis.n_ao;
     let mut eri = Tensor4D::zeros(n);
     let quartets = screened_shell_quartets(basis, opts);
@@ -127,11 +145,12 @@ pub fn compute_eri_with_options(basis: &BasisSet, opts: &IntegralOptions) -> Ten
         let blocks: Vec<([usize; 4], Vec<f64>)> = quartets
             .into_par_iter()
             .map(|[i, j, k, l]| {
-                let block = eri_shell_quartet(
+                let block = eri_shell_quartet_with_omega(
                     &basis.shells[i],
                     &basis.shells[j],
                     &basis.shells[k],
                     &basis.shells[l],
+                    omega,
                 );
                 ([i, j, k, l], block)
             })
@@ -149,11 +168,12 @@ pub fn compute_eri_with_options(basis: &BasisSet, opts: &IntegralOptions) -> Ten
         }
     } else {
         for [i, j, k, l] in quartets {
-            let block = eri_shell_quartet(
+            let block = eri_shell_quartet_with_omega(
                 &basis.shells[i],
                 &basis.shells[j],
                 &basis.shells[k],
                 &basis.shells[l],
+                omega,
             );
             scatter_quartet_block(
                 &basis.shells[i],
@@ -167,6 +187,10 @@ pub fn compute_eri_with_options(basis: &BasisSet, opts: &IntegralOptions) -> Ten
     }
 
     eri
+}
+
+pub fn compute_eri_with_options(basis: &BasisSet, opts: &IntegralOptions) -> Tensor4D {
+    compute_eri_with_omega(basis, opts, None)
 }
 
 /// Evaluates the full 4-index AO electron repulsion integral tensor `(mu nu | lam sig)`
@@ -341,7 +365,11 @@ fn extract_canonical_quartets(
                 let lam0 = sh_c.ao_offset + ic;
                 for id in 0..id_end {
                     let sig0 = sh_d.ao_offset + id;
-                    let (lam, sig) = if lam0 <= sig0 { (lam0, sig0) } else { (sig0, lam0) };
+                    let (lam, sig) = if lam0 <= sig0 {
+                        (lam0, sig0)
+                    } else {
+                        (sig0, lam0)
+                    };
                     if i == k && j == l && (ia, ib) < (ic, id) {
                         continue;
                     }
@@ -365,16 +393,18 @@ fn extract_canonical_quartets(
 }
 
 /// Evaluates the symmetry-compressed sparse ERI list without allocating a dense `O(N^4)` tensor
-/// for large molecules (`n_ao > 64`), while using contiguous row-major `Tensor4D` for `n_ao <= 64`.
-pub fn compute_sparse_eri_with_options(
+/// for large molecules (`n_ao > 64`), while using contiguous row-major `Tensor4D` for `n_ao <= 64`,
+/// with optional range-separation parameter `omega`.
+pub fn compute_sparse_eri_with_omega(
     basis: &BasisSet,
     opts: &IntegralOptions,
+    omega: Option<f64>,
 ) -> SparseSymmetricEri {
     let n = basis.n_ao;
     if n <= 64 {
         return SparseSymmetricEri {
             n_ao: n,
-            dense: Some(compute_eri_with_options(basis, opts)),
+            dense: Some(compute_eri_with_omega(basis, opts, omega)),
             entries: Vec::new(),
         };
     }
@@ -383,30 +413,28 @@ pub fn compute_sparse_eri_with_options(
     let entries = if opts.use_parallel && basis.shells.len() >= opts.parallel_threshold {
         quartets
             .into_par_iter()
-            .fold(
-                Vec::new,
-                |mut local_vec, [i, j, k, l]| {
-                    let block = eri_shell_quartet(
-                        &basis.shells[i],
-                        &basis.shells[j],
-                        &basis.shells[k],
-                        &basis.shells[l],
-                    );
-                    extract_canonical_quartets(
-                        i,
-                        j,
-                        k,
-                        l,
-                        &basis.shells[i],
-                        &basis.shells[j],
-                        &basis.shells[k],
-                        &basis.shells[l],
-                        &block,
-                        &mut local_vec,
-                    );
-                    local_vec
-                },
-            )
+            .fold(Vec::new, |mut local_vec, [i, j, k, l]| {
+                let block = eri_shell_quartet_with_omega(
+                    &basis.shells[i],
+                    &basis.shells[j],
+                    &basis.shells[k],
+                    &basis.shells[l],
+                    omega,
+                );
+                extract_canonical_quartets(
+                    i,
+                    j,
+                    k,
+                    l,
+                    &basis.shells[i],
+                    &basis.shells[j],
+                    &basis.shells[k],
+                    &basis.shells[l],
+                    &block,
+                    &mut local_vec,
+                );
+                local_vec
+            })
             .reduce(Vec::new, |mut a, mut b| {
                 a.append(&mut b);
                 a
@@ -414,11 +442,12 @@ pub fn compute_sparse_eri_with_options(
     } else {
         let mut out = Vec::new();
         for [i, j, k, l] in quartets {
-            let block = eri_shell_quartet(
+            let block = eri_shell_quartet_with_omega(
                 &basis.shells[i],
                 &basis.shells[j],
                 &basis.shells[k],
                 &basis.shells[l],
+                omega,
             );
             extract_canonical_quartets(
                 i,
@@ -441,6 +470,13 @@ pub fn compute_sparse_eri_with_options(
         dense: None,
         entries,
     }
+}
+
+pub fn compute_sparse_eri_with_options(
+    basis: &BasisSet,
+    opts: &IntegralOptions,
+) -> SparseSymmetricEri {
+    compute_sparse_eri_with_omega(basis, opts, None)
 }
 
 /// Evaluates the symmetry-compressed sparse ERI list using default screening and parallel settings.

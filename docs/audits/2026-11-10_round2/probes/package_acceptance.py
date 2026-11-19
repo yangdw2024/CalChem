@@ -2,7 +2,7 @@ import json,os,subprocess,sys,tarfile,tempfile,zipfile
 from pathlib import Path
 tempfile.tempdir=os.environ['TEMP']
 BASE=Path(os.environ['TEMP']).parent
-OUT=BASE/'package_acceptance';OUT.mkdir(exist_ok=True)
+OUT=BASE/os.environ.get('CALCHEM_PACKAGE_ACCEPTANCE_DIR','package_acceptance');OUT.mkdir(exist_ok=True)
 def inspect(wheel):
     with zipfile.ZipFile(wheel) as z:
         names=z.namelist();meta=z.read(next(n for n in names if n.endswith('.dist-info/WHEEL'))).decode()
@@ -15,11 +15,18 @@ def inspect(wheel):
 w=c.run_single_point(['He'],[[0.,0.,0.]],method='rhf',basis='sto-3g')
 print(json.dumps({'package':calchem.__file__,'extension':c.__file__,'energy':w.total_energy_hartree,'converged':w.converged}))
 assert w.converged and abs(w.total_energy_hartree+2.8077839575)<1e-8
+assert hasattr(c.IrcBranch,'converged_to_minimum')
+assert hasattr(c.IrcResult,'barrier_forward_kcal_mol')
+d=c.run_d3_dispersion(['O','H','H'],[[0.,0.,.1173/.529177210903],[0.,.757/.529177210903,-.4692/.529177210903],[0.,-.757/.529177210903,-.4692/.529177210903]],'b3lyp','bj')
+assert abs(d.energy_hartree+.000573876613451887)<1e-12
+try:c.run_single_point(['He'],[[0.,0.,0.]],method='cam-b3lyp')
+except ValueError:pass
+else:raise AssertionError('wheel incorrectly advertises native LRC')
 '''
     env=os.environ.copy();env['PYTHONPATH']=str(dest)
     r=subprocess.run([sys.executable,'-B','-c',smoke],cwd=OUT,env=env,capture_output=True,text=True,check=True)
     print(json.dumps({'probe':'wheel', 'file':str(wheel),'metadata':meta,'binary':binaries,'smoke':json.loads(r.stdout)}),flush=True)
-source=BASE/'package_stage/dist'
+source=BASE/os.environ.get('CALCHEM_PACKAGE_STAGE','package_stage')/'dist'
 inspect(next(source.glob('*.whl')))
 sdist=next(source.glob('*.tar.gz'))
 with tarfile.open(sdist) as t:

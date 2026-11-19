@@ -1,24 +1,9 @@
-﻿use crate::diis::DiisState;
+use crate::diis::DiisState;
+use crate::fock_builder::RksFockBuilder;
 use calchem_basis::BasisSet;
-use calchem_int::{
-    SparseSymmetricEri, compute_ecp, compute_kinetic, compute_nuclear, compute_overlap,
-    compute_sparse_eri,
-};
+use calchem_int::{compute_ecp, compute_kinetic, compute_nuclear, compute_overlap};
 use calchem_model::{CalcError, Molecule, ScfDiagnostics, ScfOptions, ScfWavefunction};
-use calchem_tensor::{Matrix2D, eigh_sym, frobenius_norm, matmul, rms_diff, transpose};
-
-fn build_fock_matrix(h_core: &Matrix2D, p: &Matrix2D, eri: &SparseSymmetricEri) -> Matrix2D {
-    let n = h_core.rows;
-    let mut f = eri.contract_rks(&p.data, 1.0);
-    for i in 0..n * n {
-        f[i] += h_core.data[i];
-    }
-    Matrix2D {
-        rows: n,
-        cols: n,
-        data: f,
-    }
-}
+use calchem_tensor::{eigh_sym, frobenius_norm, matmul, rms_diff, transpose, Matrix2D};
 
 fn compute_electronic_energy(p: &Matrix2D, h_core: &Matrix2D, fock: &Matrix2D) -> f64 {
     let n = h_core.rows;
@@ -60,7 +45,12 @@ pub fn rhf(
     basis: &BasisSet,
     opts: &ScfOptions,
 ) -> Result<ScfWavefunction, CalcError> {
-    crate::validate_resources_and_options(basis, opts)?;
+    let use_direct = crate::should_use_direct(basis, opts);
+    if use_direct {
+        crate::validate_direct_resources_and_options(basis, opts)?;
+    } else {
+        crate::validate_resources_and_options(basis, opts)?;
+    }
     let (n_alpha, n_beta) = basis.validate_rhf_valence(mol)?;
     if n_alpha != n_beta {
         return Err(CalcError::UnsupportedMethod(
@@ -85,7 +75,14 @@ pub fn rhf(
         h_core.data[i] = t.data[i] + v.data[i] + v_ecp.data[i];
     }
 
-    let eri = compute_sparse_eri(basis);
+    let fock_builder = RksFockBuilder::new_with_options(
+        mol,
+        basis,
+        use_direct,
+        opts.density_fitting,
+        opts.use_gpu,
+        None,
+    )?;
     let e_nuc = basis.nuclear_repulsion_energy(mol);
 
     // Symmetric orthogonalization X = U * s^{-1/2} * U^T
@@ -105,11 +102,14 @@ pub fn rhf(
     let x = matmul(&matmul(&s_vecs, &s_inv_sqrt), &transpose(&s_vecs));
     let xt = transpose(&x);
 
-    // Core Hamiltonian initial guess
-    let (_, _, mut p) = diagonalize_fock(&h_core, &x, &xt, n_occ)?;
+    // SAD initial guess
+    let mut p = match crate::guess::sad_guess(mol, basis, &s, n_occ) {
+        Ok(p_sad) => p_sad,
+        Err(_) => diagonalize_fock(&h_core, &x, &xt, n_occ)?.2,
+    };
     let mut f;
 
-    let mut diis = DiisState::new(opts.diis_max_vecs);
+    let mut diis = DiisState::from_scf_options(opts);
     let mut energy_history = Vec::new();
     let mut rms_history = Vec::new();
     let mut diis_err_history = Vec::new();
@@ -119,11 +119,33 @@ pub fn rhf(
     let mut used_iter = 0;
     let mut last_delta_e = f64::INFINITY;
     let mut last_rms_d = f64::INFINITY;
+    let mut prev_diis_err = f64::INFINITY;
+
+    let mut g_2e = Matrix2D::zeros(n, n);
+    let mut p_prev = p.clone();
 
     for iter in 1..=opts.max_iter {
         used_iter = iter;
 
-        f = build_fock_matrix(&h_core, &p, &eri);
+        if iter == 1 || iter % 8 == 0 || !use_direct || opts.density_fitting {
+            g_2e = fock_builder.build_2e(basis, &p, 1.0, None);
+        } else {
+            let mut delta_p = Matrix2D::zeros(n, n);
+            for idx in 0..n * n {
+                delta_p.data[idx] = p.data[idx] - p_prev.data[idx];
+            }
+            let delta_g = fock_builder.build_2e(basis, &delta_p, 1.0, None);
+            for idx in 0..n * n {
+                g_2e.data[idx] += delta_g.data[idx];
+            }
+        }
+        p_prev = p.clone();
+
+        f = Matrix2D::zeros(n, n);
+        for idx in 0..n * n {
+            f.data[idx] = h_core.data[idx] + g_2e.data[idx];
+        }
+
         let e_elec = compute_electronic_energy(&p, &h_core, &f);
         let e_tot = e_elec + e_nuc;
         energy_history.push(e_tot);
@@ -139,10 +161,12 @@ pub fn rhf(
         diis_err_history.push(diis_err);
 
         let f_extrap = if opts.use_diis && iter >= 2 {
-            diis.push_and_extrapolate(&f, &err)
+            diis.try_push_and_extrapolate(&f, &err)
+                .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?
         } else {
             if opts.use_diis {
-                let _ = diis.push_and_extrapolate(&f, &err);
+                diis.try_push_and_extrapolate(&f, &err)
+                    .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
             }
             f.clone()
         };
@@ -151,11 +175,12 @@ pub fn rhf(
 
         let effective_damping = if opts.damping > 0.0 && opts.damping < 1.0 {
             opts.damping
-        } else if n >= 40 {
-            0.3
+        } else if diis_err > 0.1 && diis_err > prev_diis_err * 1.15 {
+            0.3 // damp only if DIIS oscillates or diverges
         } else {
-            0.0
+            0.0 // full DIIS speed
         };
+        prev_diis_err = diis_err;
         if effective_damping > 0.0 {
             for idx in 0..p_new.data.len() {
                 p_new.data[idx] =
@@ -201,9 +226,9 @@ pub fn rhf(
     // Tighten the final fixed-point step to ensure gradient-grade stationarity:
     // canonical (C, epsilon, P, F) with F = F[P], P = 2 C_occ C_occ^T,
     // and ||FPS - SPF|| below gradient tolerance.
-    let mut final_f = build_fock_matrix(&h_core, &p, &eri);
+    let mut final_f = fock_builder.build_fock(&h_core, basis, &p, 1.0);
     let (eps_init, c_init, p_init) = diagonalize_fock(&final_f, &x, &xt, n_occ)?;
-    let f_init = build_fock_matrix(&h_core, &p_init, &eri);
+    let f_init = fock_builder.build_fock(&h_core, basis, &p_init, 1.0);
     let fps_init = matmul(&matmul(&f_init, &p_init), &s);
     let spf_init = matmul(&matmul(&s, &p_init), &f_init);
     let mut comm_init = Matrix2D::zeros(n, n);
@@ -212,8 +237,8 @@ pub fn rhf(
     }
     let comm_norm_init = frobenius_norm(&comm_init);
 
-    let fp_density_tol = opts.conv_density.min(1e-10);
-    let fp_comm_tol = (opts.conv_density * 10.0).clamp(1e-13, 1e-8);
+    let fp_density_tol = opts.conv_density;
+    let fp_comm_tol = (opts.conv_density * 100.0).max(1e-6);
 
     let mut final_eps = eps_init;
     let mut final_c = c_init;
@@ -230,9 +255,13 @@ pub fn rhf(
                 comm.data[idx] = fps.data[idx] - spf.data[idx];
             }
             let f_step = if fp_step >= 2 {
-                fp_diis.push_and_extrapolate(&final_f, &comm)
+                fp_diis
+                    .try_push_and_extrapolate(&final_f, &comm)
+                    .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?
             } else {
-                let _ = fp_diis.push_and_extrapolate(&final_f, &comm);
+                fp_diis
+                    .try_push_and_extrapolate(&final_f, &comm)
+                    .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
                 final_f.clone()
             };
             let (eps_new, c_new, p_new) = diagonalize_fock(&f_step, &x, &xt, n_occ)?;
@@ -240,7 +269,7 @@ pub fn rhf(
             final_p = p_new;
             final_eps = eps_new;
             final_c = c_new;
-            final_f = build_fock_matrix(&h_core, &final_p, &eri);
+            final_f = fock_builder.build_fock(&h_core, basis, &final_p, 1.0);
             let fps2 = matmul(&matmul(&final_f, &final_p), &s);
             let spf2 = matmul(&matmul(&s, &final_p), &final_f);
             let mut comm2 = Matrix2D::zeros(n, n);
@@ -253,8 +282,19 @@ pub fn rhf(
                 final_eps = eps_exact;
                 final_c = c_exact;
                 final_p = p_exact;
-                final_f = build_fock_matrix(&h_core, &final_p, &eri);
-                break;
+                final_f = fock_builder.build_fock(&h_core, basis, &final_p, 1.0);
+                let fps_exact = matmul(&matmul(&final_f, &final_p), &s);
+                let spf_exact = matmul(&matmul(&s, &final_p), &final_f);
+                let norm_exact = fps_exact
+                    .data
+                    .iter()
+                    .zip(&spf_exact.data)
+                    .map(|(a, b)| (a - b).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
+                if norm_exact.is_finite() && norm_exact <= fp_comm_tol {
+                    break;
+                }
             }
         }
     }
@@ -281,7 +321,12 @@ pub fn rhf(
         *slot = 2.0;
     }
 
+    let (gpu_kernel_invocations, gpu_fallback_invocations, rij_metric_truncated_modes) =
+        fock_builder.telemetry();
+    let diis_disk_backed = diis.is_disk_backed();
+
     Ok(ScfWavefunction {
+        density_fitting: opts.density_fitting,
         converged,
         iterations: used_iter,
         total_energy_hartree: e_tot_final,
@@ -302,6 +347,10 @@ pub fn rhf(
             energy_history,
             rms_density_history: rms_history,
             diis_error_history: diis_err_history,
+            gpu_kernel_invocations,
+            gpu_fallback_invocations,
+            diis_disk_backed,
+            rij_metric_truncated_modes,
         },
     })
 }

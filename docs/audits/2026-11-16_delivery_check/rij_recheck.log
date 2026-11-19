@@ -1,0 +1,14 @@
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.23s
+     Running tests\rij_precision_probe.rs (build_target\debug\deps\rij_precision_probe-48d1fe0a0ebdb3cc.exe)
+
+running 1 test
+sto-3g    : n_ao=7 n_aux=79 trunc=0 max|V*V^-1-I|=6.11e-9 max|V^-1|=9.71e5 dE=-5.829e-5
+6-31g     : n_ao=13 n_aux=101 trunc=0 max|V*V^-1-I|=6.98e-9 max|V^-1|=2.17e5 dE=-9.933e-5
+6-31g(d)  : n_ao=19 n_aux=121 trunc=0 max|V*V^-1-I|=3.57e-9 max|V^-1|=2.18e5 dE=-1.681e-5
+6-31g(d,p): n_ao=25 n_aux=169 trunc=0 max|V*V^-1-I|=1.03e-7 max|V^-1|=8.83e5 dE=-3.758e-6
+H2O 6-31G(d) J_RI vs J_exact: max|dJ|=9.275e-5 rms|dJ|=1.261e-5 E_J(RI)=49.1526662620 E_J(exact)=49.1526830690 dE_J=-1.681e-5
+test water_b3lyp_631gd_rij_vs_exact_probe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.59s
+

@@ -1,0 +1,55 @@
+   Compiling num-traits v0.2.19
+   Compiling once_cell v1.21.4
+   Compiling syn v2.0.119
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.47
+   Compiling rand_distr v0.4.3
+   Compiling matrixcompare v0.3.0
+   Compiling num-bigint v0.4.8
+   Compiling thiserror-impl v1.0.69
+   Compiling equator-macro v0.2.1
+   Compiling equator-macro v0.4.2
+   Compiling pulp v0.21.5
+   Compiling nano-gemm-c32 v0.1.0
+   Compiling nano-gemm-c64 v0.1.0
+   Compiling pulp v0.18.22
+   Compiling py_literal v0.4.0
+   Compiling faer-entity v0.20.1
+   Compiling equator v0.4.2
+   Compiling equator v0.2.2
+   Compiling thiserror v1.0.69
+   Compiling gemm-common v0.18.2
+   Compiling calchem-model v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-model)
+   Compiling calchem-basis v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-basis)
+   Compiling npyz v0.8.4
+   Compiling nano-gemm v0.1.3
+   Compiling gemm-f32 v0.18.2
+   Compiling gemm-f64 v0.18.2
+   Compiling gemm-c32 v0.18.2
+   Compiling gemm-c64 v0.18.2
+   Compiling gemm v0.18.2
+   Compiling faer v0.20.2
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+   Compiling calchem-grad v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-grad)
+    Finished `test` profile [optimized + debuginfo] target(s) in 34.67s
+     Running tests\polarization_and_ecp_gradient.rs (build_target\runtime\round2_20261110\target\debug\deps\polarization_and_ecp_gradient-40044421aabb4240.exe)
+
+running 2 tests
+test test_analytic_gradient_631gd_rhf_and_uhf_matches_finite_difference ... ok
+test test_ecp_analytic_gradient_lanl2dz_and_lanl2dzdp_halogens ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.14s
+
+     Running tests\redteam_boundaries.rs (build_target\runtime\round2_20261110\target\debug\deps\redteam_boundaries-1ca71876053b923e.exe)
+
+running 4 tests
+test diis_coefficients_are_invariant_under_residual_scale ... ok
+test singular_basis_is_rejected_instead_of_zero_energy_ghost_orbitals ... ok
+test legacy_lrc_enum_is_not_a_backdoor ... ok
+test memory_and_invalid_scf_options_are_rejected_before_integrals ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -13,14 +13,14 @@ pub mod davidson;
 
 use calchem_basis::BasisSet;
 use calchem_dft::{FxcKernel, GridLevel, MolecularGrid, XcFunctional};
-use calchem_int::primitive::{GaussianPair, overlap_primitive};
-use calchem_int::{SparseSymmetricEri, compute_sparse_eri};
+use calchem_int::primitive::{overlap_primitive, GaussianPair};
+use calchem_int::{compute_sparse_eri, SparseSymmetricEri};
 use calchem_model::{CalcError, Molecule, ScfOptions, ScfWavefunction};
 use calchem_scf::{rhf, rks_with_grid};
-use calchem_tensor::{Matrix2D, matmul, transpose};
+use calchem_tensor::{matmul, transpose, Matrix2D};
 use serde::{Deserialize, Serialize};
 
-use crate::davidson::{EigenMode, solve_rpa, solve_tda};
+use crate::davidson::{solve_rpa, solve_tda, EigenMode};
 
 /// CODATA 2018 Hartree to electron-volt conversion factor.
 pub const HARTREE_TO_EV: f64 = 27.211386245988;
@@ -470,6 +470,33 @@ fn run_tddft_from_scf_with_grid(
     opts: &TddftOptions,
 ) -> Result<TddftResult, CalcError> {
     let (n_alpha, n_beta) = basis.validate_rhf_valence(mol)?;
+    if wfn.density_fitting {
+        return Err(CalcError::UnsupportedMethod(
+            "RI-J response kernel is not implemented; use an exact-Coulomb SCF reference".into(),
+        ));
+    }
+    if let Some((func, _)) = xc_and_grid {
+        func.validate_native()?;
+    }
+    if !wfn.converged
+        || wfn.n_ao != basis.n_ao
+        || wfn.n_mo != basis.n_ao
+        || wfn.mo_coefficients.len() != basis.n_ao * wfn.n_mo
+        || wfn.mo_energies.len() != wfn.n_mo
+        || wfn.density_alpha.len() != basis.n_ao * basis.n_ao
+    {
+        return Err(CalcError::InvalidMolecule(
+            "TD-DFT requires a converged, dimensionally consistent SCF wavefunction".into(),
+        ));
+    }
+    // This response implementation precomputes stored ERIs even after Direct SCF.
+    calchem_scf::validate_resources_and_options(
+        basis,
+        &calchem_model::ScfOptions {
+            direct: Some(false),
+            ..opts.scf_options.clone()
+        },
+    )?;
     if n_alpha != n_beta {
         return Err(CalcError::UnsupportedMethod(
             "Closed-shell TD-DFT / CIS requires n_alpha == n_beta (multiplicity = 1)".into(),
@@ -510,9 +537,15 @@ fn run_tddft_from_scf_with_grid(
         }
     }
 
-    let c_hf = match xc_and_grid {
-        None => 1.0,
-        Some((func, _)) => func.exact_exchange_fraction(),
+    let (c_hf, lr_beta, lr_omega) = match xc_and_grid {
+        None => (1.0, 0.0, None),
+        Some((func, _)) => {
+            if let Some((alpha, beta, omega)) = func.range_separated_params() {
+                (alpha, beta, Some(omega))
+            } else {
+                (func.exact_exchange_fraction(), 0.0, None)
+            }
+        }
     };
 
     // Precompute 2e ERI tensor and adiabatic f_xc kernel once
@@ -521,6 +554,20 @@ fn run_tddft_from_scf_with_grid(
     let need_eri = need_singlet || c_hf.abs() > 1e-15;
     let eri_opt: Option<SparseSymmetricEri> = if need_eri {
         Some(compute_sparse_eri(basis))
+    } else {
+        None
+    };
+
+    let eri_lr_opt: Option<SparseSymmetricEri> = if let Some(w) = lr_omega {
+        if lr_beta.abs() > 1e-15 {
+            Some(calchem_int::compute_sparse_eri_with_omega(
+                basis,
+                &calchem_int::IntegralOptions::default(),
+                Some(w),
+            ))
+        } else {
+            None
+        }
     } else {
         None
     };
@@ -558,6 +605,12 @@ fn run_tddft_from_scf_with_grid(
                             );
                             for idx in 0..(n_ao * n_ao) {
                                 g_ao.data[idx] -= c_hf * k_mat.data[idx];
+                            }
+                        }
+                        if let Some(ref eri_lr) = eri_lr_opt {
+                            let k_mat_lr = contract_k_gen(eri_lr, &d_gen);
+                            for idx in 0..(n_ao * n_ao) {
+                                g_ao.data[idx] -= lr_beta * k_mat_lr.data[idx];
                             }
                         }
                         if let Some(ref fxc) = fxc_opt {
@@ -613,6 +666,12 @@ fn run_tddft_from_scf_with_grid(
                             gp_ao.data[idx] -= 2.0 * c_hf * k_sym.data[idx];
                         }
                     }
+                    if let Some(ref eri_lr) = eri_lr_opt {
+                        let k_sym_lr = contract_k_gen(eri_lr, &d_sym);
+                        for idx in 0..(n_ao * n_ao) {
+                            gp_ao.data[idx] -= 2.0 * lr_beta * k_sym_lr.data[idx];
+                        }
+                    }
                     if let Some(ref fxc) = fxc_opt {
                         let v_fxc = fxc.contract(&d_sym, triplet);
                         for idx in 0..(n_ao * n_ao) {
@@ -625,14 +684,23 @@ fn run_tddft_from_scf_with_grid(
                     }
 
                     // (A - B) * u: purely orbital difference + exact-exchange antisymmetric response!
-                    let amb_u = if c_hf.abs() > 1e-15 {
-                        let k_anti = contract_k_gen(
-                            eri_opt.as_ref().expect("ERI needed for hybrid/HF K"),
-                            &d_anti,
-                        );
+                    let has_exx = c_hf.abs() > 1e-15 || lr_beta.abs() > 1e-15;
+                    let amb_u = if has_exx {
                         let mut gm_ao = Matrix2D::zeros(n_ao, n_ao);
-                        for idx in 0..(n_ao * n_ao) {
-                            gm_ao.data[idx] = -2.0 * c_hf * k_anti.data[idx];
+                        if c_hf.abs() > 1e-15 {
+                            let k_anti = contract_k_gen(
+                                eri_opt.as_ref().expect("ERI needed for hybrid/HF K"),
+                                &d_anti,
+                            );
+                            for idx in 0..(n_ao * n_ao) {
+                                gm_ao.data[idx] -= 2.0 * c_hf * k_anti.data[idx];
+                            }
+                        }
+                        if let Some(ref eri_lr) = eri_lr_opt {
+                            let k_anti_lr = contract_k_gen(eri_lr, &d_anti);
+                            for idx in 0..(n_ao * n_ao) {
+                                gm_ao.data[idx] -= 2.0 * lr_beta * k_anti_lr.data[idx];
+                            }
                         }
                         let mut v = ao_to_ov(&gm_ao, &c_occ_t, &c_virt);
                         for idx in 0..n_ov {

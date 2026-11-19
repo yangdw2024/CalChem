@@ -4,7 +4,7 @@
 //! - Becke (1988) $k = 3$ fuzzy-Voronoi atomic partitioning with Bragg-Slater heteronuclear adjustment
 //! - Exact analytical nuclear derivatives $\frac{dw_g}{d\mathbf{R}_A}$ of Becke quadrature weights
 
-use calchem_model::{ANGSTROM_TO_BOHR, Molecule};
+use calchem_model::{Molecule, ANGSTROM_TO_BOHR};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -16,13 +16,15 @@ pub enum GridLevel {
     #[default]
     Medium,
     Fine,
+    UltraFine,
 }
 
 impl GridLevel {
     pub fn from_name(name: &str) -> Self {
         match name.trim().to_ascii_lowercase().as_str() {
             "coarse" | "small" | "1" => Self::Coarse,
-            "fine" | "ultrafine" | "3" | "4" => Self::Fine,
+            "fine" | "3" => Self::Fine,
+            "ultrafine" | "ultra_fine" | "4" => Self::UltraFine,
             _ => Self::Medium,
         }
     }
@@ -43,7 +45,13 @@ pub struct GridPoint {
 pub struct MolecularGrid {
     pub points: Vec<GridPoint>,
     pub level: GridLevel,
+    /// When `Some((mol, radial_min))` and `points.is_empty()`, grid points are generated
+    /// on-the-fly in small atomic radial-shell batches with zero full-grid RAM residency.
+    pub streaming: Option<(Molecule, usize)>,
 }
+
+/// Number of radial shells grouped into a single streaming batch (~800–1600 points per batch).
+pub const STREAMING_RADIAL_BATCH_SHELLS: usize = 8;
 
 /// Bragg-Slater empirical atomic radii in Angstrom for `Z = 1..=86`
 /// (Becke, *J. Chem. Phys.* **88**, 2547, 1988, Appendix; `H` = 0.35 Å).
@@ -160,6 +168,7 @@ fn radial_shell_count(z: u8, level: GridLevel) -> usize {
                 90
             }
         }
+        GridLevel::UltraFine => 200,
     }
 }
 
@@ -204,6 +213,9 @@ fn pruned_angular_degree(r_bohr: f64, r_bs: f64, level: GridLevel) -> LebedevDeg
                 LebedevDegree::N194
             }
         }
+        // Unpruned 590-point angular rule for convergence studies. This has
+        // different radial coordinates and atomic weights from Gaussian's grid.
+        GridLevel::UltraFine => LebedevDegree::N590,
     }
 }
 
@@ -249,6 +261,160 @@ pub fn becke_partition_weight(mol: &Molecule, host: usize, r: [f64; 3]) -> f64 {
         0.0
     } else {
         cell_p[host] / sum_p
+    }
+}
+
+/// Precomputed pairwise inverse distances and Becke asymmetry factors for a molecule.
+struct BeckeAtomTable {
+    n_atoms: usize,
+    coords: Vec<[f64; 3]>,
+    inv_rij: Vec<f64>,
+    a_ij: Vec<f64>,
+}
+
+struct BeckeScratch {
+    dist_r: Vec<f64>,
+    s_hb: Vec<f64>,
+    active: Vec<usize>,
+}
+
+impl BeckeScratch {
+    fn new(n_atoms: usize) -> Self {
+        Self {
+            dist_r: vec![0.0; n_atoms],
+            s_hb: vec![0.0; n_atoms],
+            active: Vec::with_capacity(n_atoms),
+        }
+    }
+}
+
+impl BeckeAtomTable {
+    fn new(mol: &Molecule) -> Self {
+        let n = mol.atoms.len();
+        let coords: Vec<[f64; 3]> = mol.atoms.iter().map(|a| a.position_bohr).collect();
+        let mut inv_rij = vec![0.0; n * n];
+        let mut a_ij = vec![0.0; n * n];
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let dx = coords[i][0] - coords[j][0];
+                let dy = coords[i][1] - coords[j][1];
+                let dz = coords[i][2] - coords[j][2];
+                let rij = (dx * dx + dy * dy + dz * dz).sqrt();
+                let inv = if rij >= 1e-14 { 1.0 / rij } else { 0.0 };
+                let a = becke_asymmetry_param(mol.atoms[i].z, mol.atoms[j].z);
+                inv_rij[i * n + j] = inv;
+                inv_rij[j * n + i] = inv;
+                a_ij[i * n + j] = a;
+                a_ij[j * n + i] = -a;
+            }
+        }
+        Self {
+            n_atoms: n,
+            coords,
+            inv_rij,
+            a_ij,
+        }
+    }
+}
+
+#[inline(always)]
+fn becke_step_fast(nu: f64) -> f64 {
+    if nu <= -1.0 {
+        return 1.0;
+    }
+    if nu >= 1.0 {
+        return 0.0;
+    }
+    let f1 = 0.5 * nu * (3.0 - nu * nu);
+    let f2 = 0.5 * f1 * (3.0 - f1 * f1);
+    let f3 = 0.5 * f2 * (3.0 - f2 * f2);
+    0.5 * (1.0 - f3)
+}
+
+/// Screened zero-allocation Becke partition weight for grid point `r` centered on `host`.
+///
+/// Pass 1 evaluates `host` against all atoms with early exit when `P_host < 1e-20`, recording
+/// atoms with `1 - s(nu_{host,b}) > 1e-17`. Pass 2 evaluates only those active atoms.
+fn becke_partition_weight_fast(
+    table: &BeckeAtomTable,
+    scratch: &mut BeckeScratch,
+    host: usize,
+    r: [f64; 3],
+) -> f64 {
+    let n = table.n_atoms;
+    if n <= 1 {
+        return 1.0;
+    }
+
+    for (a, c) in table.coords.iter().enumerate() {
+        let dx = r[0] - c[0];
+        let dy = r[1] - c[1];
+        let dz = r[2] - c[2];
+        scratch.dist_r[a] = (dx * dx + dy * dy + dz * dz).sqrt();
+    }
+
+    let r_host = scratch.dist_r[host];
+    let row_host = host * n;
+    let mut p_host = 1.0_f64;
+    scratch.active.clear();
+
+    for b in 0..n {
+        if b == host {
+            continue;
+        }
+        let inv_r = table.inv_rij[row_host + b];
+        if inv_r == 0.0 {
+            continue;
+        }
+        let mu = ((r_host - scratch.dist_r[b]) * inv_r).clamp(-1.0, 1.0);
+        let a_hb = table.a_ij[row_host + b];
+        let nu = mu + a_hb * (1.0 - mu * mu);
+        let s_hb = becke_step_fast(nu);
+        p_host *= s_hb;
+        if p_host < 1e-20 {
+            return 0.0;
+        }
+        scratch.s_hb[b] = s_hb;
+        if 1.0 - s_hb > 1e-17 {
+            scratch.active.push(b);
+        }
+    }
+
+    if scratch.active.is_empty() {
+        return 1.0;
+    }
+
+    let mut sum_p = p_host;
+    for &a in &scratch.active {
+        let r_a = scratch.dist_r[a];
+        let row_a = a * n;
+        let mut p_a = 1.0 - scratch.s_hb[a];
+        if p_a < 1e-20 {
+            continue;
+        }
+        for b in 0..n {
+            if b == host || b == a {
+                continue;
+            }
+            let inv_r = table.inv_rij[row_a + b];
+            if inv_r == 0.0 {
+                continue;
+            }
+            let mu = ((r_a - scratch.dist_r[b]) * inv_r).clamp(-1.0, 1.0);
+            let a_ab = table.a_ij[row_a + b];
+            let nu = mu + a_ab * (1.0 - mu * mu);
+            p_a *= becke_step_fast(nu);
+            if p_a < 1e-20 {
+                break;
+            }
+        }
+        sum_p += p_a;
+    }
+
+    if sum_p <= 0.0 {
+        0.0
+    } else {
+        p_host / sum_p
     }
 }
 
@@ -337,11 +503,7 @@ pub fn becke_weight_nuclear_gradient(
             continue;
         }
         let pos_a = mol.atoms[a].position_bohr;
-        let dr_a = [
-            -vec_ra[a][0] / ra,
-            -vec_ra[a][1] / ra,
-            -vec_ra[a][2] / ra,
-        ];
+        let dr_a = [-vec_ra[a][0] / ra, -vec_ra[a][1] / ra, -vec_ra[a][2] / ra];
 
         // Compute dP_A / dR_A = sum_{B != A} (P_A / s_{AB}) * ds_{AB}/dR_A
         // and for each B != A: dP_B / dR_A = (P_B / s_{BA}) * ds_{BA}/dR_A
@@ -369,10 +531,13 @@ pub fn becke_weight_nuclear_gradient(
                 continue;
             }
             let pos_b = mol.atoms[b].position_bohr;
-            let rab_vec = [pos_a[0] - pos_b[0], pos_a[1] - pos_b[1], pos_a[2] - pos_b[2]];
-            let rab =
-                (rab_vec[0] * rab_vec[0] + rab_vec[1] * rab_vec[1] + rab_vec[2] * rab_vec[2])
-                    .sqrt();
+            let rab_vec = [
+                pos_a[0] - pos_b[0],
+                pos_a[1] - pos_b[1],
+                pos_a[2] - pos_b[2],
+            ];
+            let rab = (rab_vec[0] * rab_vec[0] + rab_vec[1] * rab_vec[1] + rab_vec[2] * rab_vec[2])
+                .sqrt();
             if rab < 1e-14 {
                 continue;
             }
@@ -420,59 +585,214 @@ pub fn becke_weight_nuclear_gradient(
 
 impl MolecularGrid {
     pub fn build(mol: &Molecule, level: GridLevel) -> Self {
-        Self::build_with_radial_min(mol, level, 0)
+        let force_stream = std::env::var("CALCHEM_STREAM_GRID")
+            .ok()
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if force_stream || level == GridLevel::UltraFine || mol.atoms.len() >= 600 {
+            Self::build_streaming_with_radial_min(mol, level, 0)
+        } else {
+            Self::build_with_radial_min(mol, level, 0)
+        }
     }
 
     /// Resolve diffuse Gaussian tails from the basis exponents, not element radii.
-    pub fn build_for_basis(mol: &Molecule, basis: &calchem_basis::BasisSet, level: GridLevel) -> Self {
-        let alpha = basis.shells.iter().flat_map(|s| &s.primitives)
-            .map(|p| p.exponent).fold(f64::INFINITY, f64::min);
+    pub fn build_for_basis(
+        mol: &Molecule,
+        basis: &calchem_basis::BasisSet,
+        level: GridLevel,
+    ) -> Self {
+        let radial_min = Self::radial_min_for_basis(basis);
+        let force_stream = std::env::var("CALCHEM_STREAM_GRID")
+            .ok()
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if force_stream || level == GridLevel::UltraFine || mol.atoms.len() >= 600 {
+            Self::build_streaming_with_radial_min(mol, level, radial_min)
+        } else {
+            Self::build_with_radial_min(mol, level, radial_min)
+        }
+    }
+
+    /// Constructs a zero-full-grid-residency streaming [`MolecularGrid`] (`points.is_empty()`).
+    pub fn build_streaming(mol: &Molecule, level: GridLevel) -> Self {
+        Self::build_streaming_with_radial_min(mol, level, 0)
+    }
+
+    /// Constructs a zero-full-grid-residency streaming [`MolecularGrid`] for `basis` (`points.is_empty()`).
+    pub fn build_streaming_for_basis(
+        mol: &Molecule,
+        basis: &calchem_basis::BasisSet,
+        level: GridLevel,
+    ) -> Self {
+        Self::build_streaming_with_radial_min(mol, level, Self::radial_min_for_basis(basis))
+    }
+
+    pub fn radial_min_for_basis(basis: &calchem_basis::BasisSet) -> usize {
+        let alpha = basis
+            .shells
+            .iter()
+            .flat_map(|s| &s.primitives)
+            .map(|p| p.exponent)
+            .fold(f64::INFINITY, f64::min);
         let extra = if alpha < 1e-3 {
             (180.0 * (1e-4 / alpha.max(1e-12)).powf(0.25)).ceil() as usize
-        } else { 0 };
-        Self::build_with_radial_min(mol, level, extra.min(4096))
+        } else {
+            0
+        };
+        extra.min(4096)
+    }
+
+    pub fn build_streaming_with_radial_min(
+        mol: &Molecule,
+        level: GridLevel,
+        radial_min: usize,
+    ) -> Self {
+        Self {
+            points: Vec::new(),
+            level,
+            streaming: Some((mol.clone(), radial_min)),
+        }
+    }
+
+    pub fn is_streaming(&self) -> bool {
+        self.points.is_empty() && self.streaming.is_some()
+    }
+
+    /// Returns lightweight `(atom_idx, rad_start, rad_end)` task descriptors for streaming evaluation.
+    pub fn streaming_tasks(&self) -> Vec<(usize, usize, usize)> {
+        let Some((ref mol, radial_min)) = self.streaming else {
+            return Vec::new();
+        };
+        let base_min = if matches!(self.level, GridLevel::Fine) {
+            150
+        } else {
+            0
+        };
+        let mut tasks = Vec::new();
+        for (atom_idx, atom) in mol.atoms.iter().enumerate() {
+            let n_rad = radial_shell_count(atom.z, self.level)
+                .max(radial_min)
+                .max(base_min);
+            let mut s = 1;
+            while s <= n_rad {
+                let e = (s + STREAMING_RADIAL_BATCH_SHELLS - 1).min(n_rad);
+                tasks.push((atom_idx, s, e));
+                s = e + 1;
+            }
+        }
+        tasks
+    }
+
+    /// Generates the quadrature points for `(atom_idx, rad_start..=rad_end)` on-the-fly into `out`.
+    pub fn generate_task_points(
+        mol: &Molecule,
+        level: GridLevel,
+        radial_min: usize,
+        atom_idx: usize,
+        rad_start: usize,
+        rad_end: usize,
+        out: &mut Vec<GridPoint>,
+    ) {
+        let table = BeckeAtomTable::new(mol);
+        let mut scratch = BeckeScratch::new(table.n_atoms);
+        Self::generate_task_points_with_table(
+            mol,
+            &table,
+            &mut scratch,
+            level,
+            radial_min,
+            atom_idx,
+            rad_start,
+            rad_end,
+            out,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn generate_task_points_with_table(
+        mol: &Molecule,
+        table: &BeckeAtomTable,
+        scratch: &mut BeckeScratch,
+        level: GridLevel,
+        radial_min: usize,
+        atom_idx: usize,
+        rad_start: usize,
+        rad_end: usize,
+        out: &mut Vec<GridPoint>,
+    ) {
+        let atom = &mol.atoms[atom_idx];
+        let r_bs = bragg_slater_radius_bohr(atom.z);
+        let base_min = if matches!(level, GridLevel::Fine) {
+            150
+        } else {
+            0
+        };
+        let n_rad = radial_shell_count(atom.z, level)
+            .max(radial_min)
+            .max(base_min);
+        let m = (n_rad + 1) as f64;
+
+        for i in rad_start..=rad_end {
+            let t = i as f64;
+            let mt = m - t;
+            // Murray-Handy-Laming q=2 Euler-Maclaurin mapping:
+            let r = r_bs * (t * t) / (mt * mt);
+            let w_rad = 2.0 * r_bs.powi(3) * m * t.powi(5) / mt.powi(7);
+            let ang = pruned_angular_degree(r, r_bs, level).points();
+
+            for &(u, w_ang) in ang {
+                let raw_w = w_rad * w_ang;
+                let coords = [
+                    atom.position_bohr[0] + r * u[0],
+                    atom.position_bohr[1] + r * u[1],
+                    atom.position_bohr[2] + r * u[2],
+                ];
+                let bw = becke_partition_weight_fast(table, scratch, atom_idx, coords);
+                let w_tot = raw_w * bw;
+                if w_tot > 1e-18 {
+                    out.push(GridPoint {
+                        coords,
+                        weight: w_tot,
+                        raw_weight: raw_w,
+                        host_atom: atom_idx,
+                    });
+                }
+            }
+        }
     }
 
     fn build_with_radial_min(mol: &Molecule, level: GridLevel, radial_min: usize) -> Self {
+        let table = BeckeAtomTable::new(mol);
         let per_atom: Vec<Vec<GridPoint>> = (0..mol.atoms.len())
             .into_par_iter()
-            .map(|atom_idx| {
-                let atom = &mol.atoms[atom_idx];
-                let r_bs = bragg_slater_radius_bohr(atom.z);
-                let base_min = if matches!(level, GridLevel::Fine) { 150 } else { 0 };
-                let n_rad = radial_shell_count(atom.z, level).max(radial_min).max(base_min);
-                let m = (n_rad + 1) as f64;
-                let mut local_pts = Vec::with_capacity(n_rad * 150);
-
-                for i in 1..=n_rad {
-                    let t = i as f64;
-                    let mt = m - t;
-                    // Murray-Handy-Laming q=2 Euler-Maclaurin mapping:
-                    let r = r_bs * (t * t) / (mt * mt);
-                    let w_rad = 2.0 * r_bs.powi(3) * m * t.powi(5) / mt.powi(7);
-                    let ang = pruned_angular_degree(r, r_bs, level).points();
-
-                    for &(u, w_ang) in ang {
-                        let raw_w = w_rad * w_ang;
-                        let coords = [
-                            atom.position_bohr[0] + r * u[0],
-                            atom.position_bohr[1] + r * u[1],
-                            atom.position_bohr[2] + r * u[2],
-                        ];
-                        let bw = becke_partition_weight(mol, atom_idx, coords);
-                        let w_tot = raw_w * bw;
-                        if w_tot > 1e-18 {
-                            local_pts.push(GridPoint {
-                                coords,
-                                weight: w_tot,
-                                raw_weight: raw_w,
-                                host_atom: atom_idx,
-                            });
-                        }
-                    }
-                }
-                local_pts
-            })
+            .map_init(
+                || BeckeScratch::new(table.n_atoms),
+                |scratch, atom_idx| {
+                    let atom = &mol.atoms[atom_idx];
+                    let base_min = if matches!(level, GridLevel::Fine) {
+                        150
+                    } else {
+                        0
+                    };
+                    let n_rad = radial_shell_count(atom.z, level)
+                        .max(radial_min)
+                        .max(base_min);
+                    let mut local_pts = Vec::with_capacity(n_rad * 150);
+                    Self::generate_task_points_with_table(
+                        mol,
+                        &table,
+                        scratch,
+                        level,
+                        radial_min,
+                        atom_idx,
+                        1,
+                        n_rad,
+                        &mut local_pts,
+                    );
+                    local_pts
+                },
+            )
             .collect();
 
         let total_len: usize = per_atom.iter().map(|v| v.len()).sum();
@@ -481,7 +801,11 @@ impl MolecularGrid {
             points.append(&mut sub);
         }
 
-        Self { points, level }
+        Self {
+            points,
+            level,
+            streaming: None,
+        }
     }
 }
 

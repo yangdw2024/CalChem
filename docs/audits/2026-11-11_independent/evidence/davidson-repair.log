@@ -1,0 +1,17 @@
+   Compiling calchem-tensor v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tensor)
+   Compiling calchem-cuda v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-cuda)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+   Compiling calchem-tddft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-tddft)
+    Finished `test` profile [optimized + debuginfo] target(s) in 14.92s
+     Running tests\tddft_and_cis.rs (build_target\runtime\round2_20261110\target\debug\deps\tddft_and_cis-4ea86b9797f1ea4f.exe)
+
+running 4 tests
+test test_thouless_orbital_rotation_hessian_singlet_and_triplet ... ok
+test test_spectroscopy_benchmarks_ethylene_formaldehyde_ecp_and_uv_vis ... ok
+test test_rpa_exact_static_polarizability_sum_rule_and_origin_invariance ... ok
+test test_davidson_matches_dense_tda_and_rpa_singlet_and_triplet ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+

@@ -1,8 +1,8 @@
 //! Block Davidson Subspace Eigensolvers for Hermitian TDA / CIS ($A X = \omega X$)
-//! and Non-Hermitian Paired Casida RPA / TD-DFT ($\begin{pmatrix} A & B \\ B & A \end{pmatrix}$).
+//! and paired Casida RPA / TD-DFT with Liouvillian blocks (A, B; -B, -A).
 
 use calchem_model::CalcError;
-use calchem_tensor::{Matrix2D, eigh_sym, matmul, transpose};
+use calchem_tensor::{eigh_sym, matmul, transpose, Matrix2D};
 
 /// Threshold below which exact dense diagonalization is faster and exact in one shot.
 const DENSE_FASTPATH_MAX_DIM: usize = 64;
@@ -43,7 +43,7 @@ fn append_orthonormal(basis: &mut Vec<Vec<f64>>, mut cand: Vec<f64>) -> bool {
     for _pass in 0..2 {
         for q in basis.iter() {
             let proj = dot(q, &cand);
-            for (c, & q_i) in cand.iter_mut().zip(q.iter()) {
+            for (c, &q_i) in cand.iter_mut().zip(q.iter()) {
                 *c -= proj * q_i;
             }
         }
@@ -130,13 +130,15 @@ where
         return Ok((modes, 1));
     }
 
-    let max_subspace = (k_roots * 10).max(60).min(dim);
+    let n_track = (k_roots + 4).min(dim);
+    let max_subspace = (n_track * 10).max(64).min(dim);
     let mut v_basis = build_initial_guess(diag, k_roots);
     let mut av_basis = apply_a(&v_basis);
     let mut last_res = 0.0f64;
 
     for iter in 1..=max_iter {
         let m = v_basis.len();
+        let active_roots = n_track.min(m);
         let mut sub_a = Matrix2D::zeros(m, m);
         for i in 0..m {
             for j in i..m {
@@ -148,10 +150,10 @@ where
 
         let (evals, evecs) = eigh_sym(&sub_a, 120, 1e-13)?;
         let mut max_res = 0.0f64;
-        let mut ritz_vecs: Vec<Vec<f64>> = Vec::with_capacity(k_roots);
+        let mut ritz_vecs: Vec<Vec<f64>> = Vec::with_capacity(active_roots);
         let mut new_cands: Vec<Vec<f64>> = Vec::new();
 
-        for r in 0..k_roots {
+        for r in 0..active_roots {
             let omega = evals[r];
             let mut x_full = vec![0.0; dim];
             let mut ax_full = vec![0.0; dim];
@@ -167,7 +169,12 @@ where
                 res[i] = ax_full[i] - omega * x_full[i];
             }
             let r_norm = norm2(&res);
-            max_res = max_res.max(r_norm);
+            if !r_norm.is_finite() {
+                return Err(CalcError::LinearAlgebra("Nonfinite TDA residual".into()));
+            }
+            if r < k_roots {
+                max_res = max_res.max(r_norm);
+            }
             ritz_vecs.push(x_full);
 
             if r_norm > conv_tol {
@@ -228,15 +235,11 @@ where
             append_orthonormal(&mut v_basis, cand);
         }
         if v_basis.len() == old_m {
-            // Subspace exhausted; return current Ritz vectors
-            let modes = (0..k_roots)
-                .map(|r| EigenMode {
-                    omega: evals[r],
-                    x: ritz_vecs[r].clone(),
-                    y: vec![0.0; dim],
-                })
-                .collect();
-            return Ok((modes, iter));
+            return Err(CalcError::NotConverged {
+                iterations: iter,
+                delta_e: max_res,
+                rms_d: max_res,
+            });
         }
 
         let added_av = apply_a(&v_basis[old_m..]);
@@ -378,13 +381,15 @@ where
         return Ok((modes, 1));
     }
 
-    let max_subspace = (k_roots * 12).max(64).min(dim);
+    let n_track = (k_roots + 4).min(dim);
+    let max_subspace = (n_track * 12).max(64).min(dim);
     let mut v_basis = build_initial_guess(diag, k_roots);
     let (mut wp_basis, mut wm_basis) = apply_apb_amb(&v_basis);
     let mut last_res = 0.0f64;
 
     for iter in 1..=max_iter {
         let m = v_basis.len();
+        let active_roots = n_track.min(m);
         let mut m_plus = Matrix2D::zeros(m, m);
         let mut m_minus = Matrix2D::zeros(m, m);
         for i in 0..m {
@@ -398,12 +403,12 @@ where
             }
         }
 
-        let sub_sols = solve_projected_rpa(&m_plus, &m_minus, k_roots)?;
+        let sub_sols = solve_projected_rpa(&m_plus, &m_minus, active_roots)?;
         let mut max_res = 0.0f64;
-        let mut full_modes: Vec<EigenMode> = Vec::with_capacity(k_roots);
+        let mut full_modes: Vec<EigenMode> = Vec::with_capacity(active_roots);
         let mut new_cands: Vec<Vec<f64>> = Vec::new();
 
-        for (omega, xpy_sub, xmy_sub) in &sub_sols {
+        for (r, (omega, xpy_sub, xmy_sub)) in sub_sols.iter().enumerate() {
             let mut xpy = vec![0.0; dim];
             let mut xmy = vec![0.0; dim];
             let mut apb_xpy = vec![0.0; dim];
@@ -430,7 +435,12 @@ where
                 rm[i] = amb_xmy[i] - omega * xpy[i];
             }
             let r_norm = norm2(&rp).max(norm2(&rm));
-            max_res = max_res.max(r_norm);
+            if rp.iter().chain(&rm).any(|v| !v.is_finite()) {
+                return Err(CalcError::LinearAlgebra("Nonfinite RPA residual".into()));
+            }
+            if r < k_roots {
+                max_res = max_res.max(r_norm);
+            }
 
             let mut x = vec![0.0; dim];
             let mut y = vec![0.0; dim];
@@ -470,6 +480,7 @@ where
         }
 
         if max_res <= conv_tol {
+            full_modes.truncate(k_roots);
             return Ok((full_modes, iter));
         }
         last_res = max_res;
@@ -493,7 +504,11 @@ where
             append_orthonormal(&mut v_basis, cand);
         }
         if v_basis.len() == old_m {
-            return Ok((full_modes, iter));
+            return Err(CalcError::NotConverged {
+                iterations: iter,
+                delta_e: max_res,
+                rms_d: max_res,
+            });
         }
 
         let (added_wp, added_wm) = apply_apb_amb(&v_basis[old_m..]);

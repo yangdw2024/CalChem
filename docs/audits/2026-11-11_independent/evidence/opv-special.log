@@ -1,0 +1,12 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.13, pytest-9.1.1, pluggy-1.6.0 -- D:\YDW\Trae_Gromacs\miniconda3\python.exe
+cachedir: build_target\runtime\round2_20261110\pytest-cache
+rootdir: E:\YDW\Trae_Gaussian
+configfile: pyproject.toml
+collecting ... collected 3 items
+
+tests/unit/test_p6_opv_molecular_validation.py::test_p6_ic2f_b3lyp_rij_and_d3bj_validation PASSED [ 33%]
+tests/unit/test_p6_opv_molecular_validation.py::test_p6_btp_core_and_y6_authentic_chemdatas_baselines PASSED [ 66%]
+tests/unit/test_p6_opv_molecular_validation.py::test_p6_p4d18_authentic_log_inspection_and_scaling_bounds PASSED [100%]
+
+============================= 3 passed in 14.70s ==============================

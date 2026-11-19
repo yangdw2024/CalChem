@@ -1,0 +1,10 @@
+CalChem native CLI | file=E:\YDW\ChemDatas\Gjf\ydw-PTQ10.gjf atoms=72 charge=0 mult=1 method=Rks basis=sto-3g n_ao=212 n_shells=142 threads=4
+[stage] parse=0.0001s basis=0.0003s
+[stage] grid(Coarse)=0.1116s points=98014 streaming=false
+[rks] one-electron complete in 0.231s
+[rij] n_aux=2172 width=14807 dense_width=44944 bytes=257286432 limit=4294967296
+[rks] builder ready in 4.457s
+[rks_profile] iters=27 1e=0.231s builder_init=4.457s orth_guess=0.009s scf_2e=24.603s scf_vxc=5.286s scf_comm=0.022s scf_diag=0.110s polish=0.507s
+[stage] scf=35.2799s total_wall=35.3921s
+converged=true iters=27 total_energy_hartree=-1849.309081084158 electronic_energy_hartree=-5592.999924739861 nuclear_repulsion_hartree=3743.690843655703
+gpu_kernel_invocations=58 gpu_fallback_invocations=0 rij_metric_truncated_modes=0

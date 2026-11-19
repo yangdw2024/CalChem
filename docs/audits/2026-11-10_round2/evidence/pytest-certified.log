@@ -1,0 +1,24 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: E:\YDW\Trae_Gaussian
+configfile: pyproject.toml
+collected 103 items
+
+tests\unit\test_adapters.py ....                                         [  3%]
+tests\unit\test_atoms.py ...                                             [  6%]
+tests\unit\test_core_rust.py ............                                [ 18%]
+tests\unit\test_d3_and_solv_gradient.py .....                            [ 23%]
+tests\unit\test_dft_rust.py ...                                          [ 26%]
+tests\unit\test_esp_and_population.py ...                                [ 29%]
+tests\unit\test_io.py ...                                                [ 32%]
+tests\unit\test_isosurface_stream.py .....                               [ 36%]
+tests\unit\test_molecule.py .....                                        [ 41%]
+tests\unit\test_native_backend.py .......                                [ 48%]
+tests\unit\test_opv_cam_b3lyp_and_dimer.py .....                         [ 53%]
+tests\unit\test_opv_workflow.py .......                                  [ 60%]
+tests\unit\test_redteam_contracts.py .......                             [ 66%]
+tests\unit\test_request_validation.py ...........                        [ 77%]
+tests\unit\test_service_and_queue.py ....                                [ 81%]
+tests\unit\test_solvation_and_scrf.py .....                              [ 86%]
+tests\unit\test_tddft_rust.py .....                                      [ 91%]
+tests\unit\test_ts_and_irc.py ..

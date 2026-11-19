@@ -1,13 +1,13 @@
 use calchem_basis::BasisSet;
-use calchem_dft::{GridLevel, MolecularGrid, XcFunctional, evaluate_vxc_rks, evaluate_vxc_uks};
+use calchem_dft::{evaluate_vxc_rks, evaluate_vxc_uks, GridLevel, MolecularGrid, XcFunctional};
 use calchem_int::{compute_ecp, compute_eri, compute_kinetic, compute_nuclear, compute_overlap};
 use calchem_model::{Atom, Molecule, ScfOptions};
-use calchem_scf::{DiisState, rhf, rks_with_grid};
+use calchem_scf::{rhf, rks_with_grid, DiisState};
 use calchem_tddft::{
-    EV_TO_NM, SpinManifold, TddftOptions, broaden_uv_vis_spectrum, compute_ao_dipole_matrices,
-    orbital_hessian_apb_quad, run_tddft, run_tddft_from_scf,
+    broaden_uv_vis_spectrum, compute_ao_dipole_matrices, orbital_hessian_apb_quad, run_tddft,
+    run_tddft_from_scf, SpinManifold, TddftOptions, EV_TO_NM,
 };
-use calchem_tensor::{Matrix2D, Tensor4D, eigh_sym, matmul, rms_diff, transpose};
+use calchem_tensor::{eigh_sym, matmul, rms_diff, transpose, Matrix2D, Tensor4D};
 
 fn water_mol(shift_ang: [f64; 3]) -> Molecule {
     Molecule::new(
@@ -117,8 +117,7 @@ fn eval_uks_total_energy(
                     }
                 }
             }
-            e_2e += 0.5
-                * (pa.get(mu, nu) * (j - c_hf * ka) + pb.get(mu, nu) * (j - c_hf * kb));
+            e_2e += 0.5 * (pa.get(mu, nu) * (j - c_hf * ka) + pb.get(mu, nu) * (j - c_hf * kb));
         }
     }
     let (e_xc, _, _) = evaluate_vxc_uks(bs, grid, xc, pa, pb);
@@ -161,9 +160,7 @@ fn test_thouless_orbital_rotation_hessian_singlet_and_triplet() {
         for x in &mut alpha {
             *x /= norm_a;
         }
-        let mut beta: Vec<f64> = (0..n_virt)
-            .map(|a| (a as f64 * 1.3 + 0.7).cos())
-            .collect();
+        let mut beta: Vec<f64> = (0..n_virt).map(|a| (a as f64 * 1.3 + 0.7).cos()).collect();
         let norm_b: f64 = beta.iter().map(|x| x * x).sum::<f64>().sqrt();
         for x in &mut beta {
             *x /= norm_b;
@@ -213,16 +210,9 @@ fn test_thouless_orbital_rotation_hessian_singlet_and_triplet() {
 
         let theta = 5e-3;
         for (triplet, sign_b) in [(false, 1.0), (true, -1.0)] {
-            let apb_ana = orbital_hessian_apb_quad(
-                &mol,
-                &bs,
-                &wfn,
-                Some(func),
-                grid_level,
-                &u_ov,
-                triplet,
-            )
-            .unwrap();
+            let apb_ana =
+                orbital_hessian_apb_quad(&mol, &bs, &wfn, Some(func), grid_level, &u_ov, triplet)
+                    .unwrap();
 
             let eval_e = |th: f64| -> f64 {
                 let ta = th / std::f64::consts::SQRT_2;
@@ -238,7 +228,8 @@ fn test_thouless_orbital_rotation_hessian_singlet_and_triplet() {
             let ep2 = eval_e(2.0 * theta);
 
             // Exact 4th-order coefficient of theta^2 in E(theta) = E(0) + [U^T(A+B)U] theta^2 + O(theta^4)
-            let apb_fd = (-em2 + 16.0 * em1 - 30.0 * e0 + 16.0 * ep1 - ep2) / (24.0 * theta * theta);
+            let apb_fd =
+                (-em2 + 16.0 * em1 - 30.0 * e0 + 16.0 * ep1 - ep2) / (24.0 * theta * theta);
             let err = (apb_ana - apb_fd).abs();
             assert!(
                 err < 1e-8,
@@ -429,7 +420,13 @@ fn test_rpa_exact_static_polarizability_sum_rule_and_origin_invariance() {
         ..TddftOptions::default()
     };
     let r0 = run_tddft(&mol, &bs, Some(XcFunctional::B3lyp), &opts_inv).unwrap();
-    let r1 = run_tddft(&mol_shifted, &bs_shifted, Some(XcFunctional::B3lyp), &opts_inv).unwrap();
+    let r1 = run_tddft(
+        &mol_shifted,
+        &bs_shifted,
+        Some(XcFunctional::B3lyp),
+        &opts_inv,
+    )
+    .unwrap();
     for (s0, s1) in r0.states.iter().zip(r1.states.iter()) {
         assert!(
             (s0.excitation_energy_ev - s1.excitation_energy_ev).abs() < 1e-7,

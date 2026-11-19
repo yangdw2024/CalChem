@@ -1,0 +1,13 @@
+{"Path":"E:\\YDW\\Trae_Gaussian\\crates\\calchem-int\\src\\direct_fock.rs","Hash":"06D8DB9627FF67EA63EC7F9F890127DB8DB8DC008AC8DA4D1948F745533E5A5F"}
+{"Path":"E:\\YDW\\Trae_Gaussian\\crates\\calchem-int\\src\\density_fitting.rs","Hash":"370DD74BAAAF1C4212616A7C46B0C89ED4F499F6061EE3944E2BE1B06CAD87D5"}
+{"Path":"E:\\YDW\\Trae_Gaussian\\crates\\calchem-int\\src\\eri.rs","Hash":"79AC2D0E25405F0B51F78CDCDD5E6EAFE5A4F54F024F5A1C2807BF4BB9677E15"}
+{"Path":"E:\\YDW\\Trae_Gaussian\\crates\\calchem-tensor\\src\\lib.rs","Hash":"F5049326E150A8D212CB73B72C352CF37B0E702E6A3AAC794FA1170E60C50844"}
+{"Path":"E:\\YDW\\Trae_Gaussian\\crates\\calchem-scf\\src\\rks.rs","Hash":"6A4F8959203D6EAB74107D04D37931C7A5BC601162023EF22FCB94D7FD247856"}
+{"Path":"E:\\YDW\\Trae_Gaussian\\build_target\\release\\calchem_cli.exe","Hash":"9C4F2F03115C2FDE96E9530A546973955055A65F1C3584E3EB11A90B2877AE86"}
+
+{"Path": "crates\\calchem-int\\src\\one_electron.rs", "Hash": "27be8eb63f85c1ba6263667c22feca4a7e064f55c8538d479cee02e851d1c3e4"}
+{"Path": "crates\\calchem-int\\src\\boys.rs", "Hash": "5c4787d449b7fe2c65a20d70eebf7e14750c578bdc2521f286423845c34b04b7"}
+{"Path": "crates\\calchem-dft\\src\\vxc.rs", "Hash": "0886821ff68c0ba837dcb875b7eaee2e596fc11a70451eca4a4ed150494a5180"}
+{"Path":"crates/calchem-cuda/src/lib.rs","Hash":"9F52DB134396B4DB13B85E74E91B4A9503226FA8731D8A6C727FA514EA970521"}
+{"Path":"crates/calchem-cuda/src/cuda_kernels.cu","Hash":"86C22CD9FE368F27350B2A160522D467262338EA73391C2D811AD88FA454AE11"}
+{"Path":"crates/calchem-cuda/tests/ffi_contract.rs","Hash":"DE08D62E67D59EADE8DD74171FC87CD8505D0BDEE136F870887FA5B7977CCA91"}

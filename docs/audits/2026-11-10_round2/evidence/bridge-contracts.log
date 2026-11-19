@@ -1,0 +1,11 @@
+[True, True, True] True
+============================= test session starts =============================
+platform win32 -- Python 3.13.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: E:\YDW\Trae_Gaussian
+configfile: pyproject.toml
+collected 10 items
+
+tests\unit\test_redteam_contracts.py ........                            [ 80%]
+tests\unit\test_ts_and_irc.py ..                                         [100%]
+
+======================== 10 passed in 81.24s (0:01:21) ========================

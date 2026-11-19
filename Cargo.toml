@@ -13,6 +13,8 @@ members = [
     "crates/calchem-prop",
     "crates/calchem-opt",
     "crates/calchem-solv",
+    "crates/calchem-cuda",
+    "crates/calchem-cli",
     "crates/calchem-py",
 ]
 

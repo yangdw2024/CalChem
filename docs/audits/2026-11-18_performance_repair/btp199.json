@@ -1,0 +1,19 @@
+{
+  "args": [
+    "E:\\YDW\\Trae_Gaussian\\build_target\\release\\calchem_cli.exe",
+    "E:\\YDW\\ChemDatas\\Gjf\\ydw-BTP-4F.gjf",
+    "--rij",
+    "--gpu",
+    "--grid",
+    "coarse",
+    "--xc",
+    "pbe",
+    "--basis",
+    "sto-3g"
+  ],
+  "exit": 4294967295,
+  "wall_s": 75.09086750000006,
+  "peak_working_set_bytes": 1862021120,
+  "input_sha256": "60ad0384e2446894879649242d88c30245fbc00193ec374560413fcd58a05cf3",
+  "binary_sha256": "a94c8b366dddfc21d49f3b615d8bb283eae0d83d76abe83ad2e84950b925d274"
+}

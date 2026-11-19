@@ -15,8 +15,11 @@ pub mod lebedev;
 pub mod vxc;
 pub mod xc;
 
-pub use d3::{covalent_radius_bohr, vdw_radius_bohr, D3Model, DampingScheme};
+pub use d3::{
+    covalent_radius_bohr, vdw_radius_bohr, wb97xd_chg_d2_energy_and_gradient, D3Model,
+    DampingScheme,
+};
 pub use fxc::FxcKernel;
 pub use grid::{GridLevel, GridPoint, MolecularGrid};
-pub use vxc::{evaluate_vxc_rks, evaluate_vxc_uks, xc_nuclear_gradient};
-pub use xc::{XcFunctional, XcPointOut, eval_xc_spin};
+pub use vxc::{evaluate_vxc_rks, evaluate_vxc_uks, xc_nuclear_gradient, RksVxcEngine};
+pub use xc::{eval_xc_spin, XcFunctional, XcPointOut};

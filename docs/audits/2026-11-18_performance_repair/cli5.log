@@ -1,0 +1,16 @@
+warning: use of deprecated method `std::sync::atomic::Atomic::<u64>::fetch_update`: renamed to `try_update` for consistency
+   --> crates\calchem-cuda\src\lib.rs:122:14
+    |
+122 |             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| x.checked_add(1))
+    |              ^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+    |
+122 -             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| x.checked_add(1))
+122 +             .try_update(Ordering::Relaxed, Ordering::Relaxed, |x| x.checked_add(1))
+    |
+
+warning: `calchem-cuda` (lib) generated 1 warning (run `cargo fix --lib -p calchem-cuda` to apply 1 suggestion)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+    Finished `release` profile [optimized] target(s) in 1m 42s

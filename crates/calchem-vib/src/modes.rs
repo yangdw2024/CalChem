@@ -2,12 +2,10 @@
 //! vibrational frequencies ($\text{cm}^{-1}$), and infrared (IR) intensities ($\text{km/mol}$).
 
 use calchem_model::{CalcError, Molecule};
-use calchem_tensor::{Matrix2D, eigh_sym, matmul, transpose};
+use calchem_tensor::{eigh_sym, matmul, transpose, Matrix2D};
 use serde::{Deserialize, Serialize};
 
-use crate::masses::{
-    HESSIAN_EVAL_TO_INV_CM, IR_INTENSITY_PREFACTOR_KM_MOL, atomic_mass_amu,
-};
+use crate::masses::{atomic_mass_amu, HESSIAN_EVAL_TO_INV_CM, IR_INTENSITY_PREFACTOR_KM_MOL};
 
 const HARTREE_BOHR2_TO_MDYN_ANG: f64 = 15.568931;
 
@@ -81,7 +79,10 @@ fn center_of_mass(mol: &Molecule, masses_amu: &[f64]) -> ([f64; 3], Vec<[f64; 3]
 }
 
 /// Computes the $3 \times 3$ inertia tensor in $\text{amu}\cdot\text{Bohr}^2$ and principal moments.
-fn compute_inertia_tensor(shifted_coords: &[[f64; 3]], masses_amu: &[f64]) -> ([f64; 3], [f64; 3], bool) {
+fn compute_inertia_tensor(
+    shifted_coords: &[[f64; 3]],
+    masses_amu: &[f64],
+) -> ([f64; 3], [f64; 3], bool) {
     let mut i_mat = Matrix2D::zeros(3, 3);
     for (pos, &m) in shifted_coords.iter().zip(masses_amu) {
         let x = pos[0];
@@ -99,7 +100,8 @@ fn compute_inertia_tensor(shifted_coords: &[[f64; 3]], masses_amu: &[f64]) -> ([
         i_mat.add_assign_at(2, 1, -m * y * z);
     }
 
-    let (mut evals, _) = eigh_sym(&i_mat, 50, 1e-14).unwrap_or(([0.0, 0.0, 0.0].to_vec(), Matrix2D::identity(3)));
+    let (mut evals, _) =
+        eigh_sym(&i_mat, 50, 1e-14).unwrap_or(([0.0, 0.0, 0.0].to_vec(), Matrix2D::identity(3)));
     evals.sort_by(|a, b| a.total_cmp(b));
     let moments = [evals[0].max(0.0), evals[1].max(0.0), evals[2].max(0.0)];
 
@@ -108,12 +110,25 @@ fn compute_inertia_tensor(shifted_coords: &[[f64; 3]], masses_amu: &[f64]) -> ([
     // h / (8 * pi^2 * 4.6509653e-48 kg*m^2) in GHz = 6.62607015e-34 / (8 * pi^2 * 4.6509653e-48) * 1e-9 = 505.379006 GHz * amu * Bohr^2
     const INERTIA_TO_GHZ: f64 = 505.379006;
     let b_ghz = [
-        if moments[0] > 1e-6 { INERTIA_TO_GHZ / moments[0] } else { 0.0 },
-        if moments[1] > 1e-6 { INERTIA_TO_GHZ / moments[1] } else { 0.0 },
-        if moments[2] > 1e-6 { INERTIA_TO_GHZ / moments[2] } else { 0.0 },
+        if moments[0] > 1e-6 {
+            INERTIA_TO_GHZ / moments[0]
+        } else {
+            0.0
+        },
+        if moments[1] > 1e-6 {
+            INERTIA_TO_GHZ / moments[1]
+        } else {
+            0.0
+        },
+        if moments[2] > 1e-6 {
+            INERTIA_TO_GHZ / moments[2]
+        } else {
+            0.0
+        },
     ];
 
-    let is_linear = shifted_coords.len() >= 2 && (moments[0] < 1e-4 * moments[2] || moments[0] < 1e-4);
+    let is_linear =
+        shifted_coords.len() >= 2 && (moments[0] < 1e-4 * moments[2] || moments[0] < 1e-4);
     (moments, b_ghz, is_linear)
 }
 
@@ -156,8 +171,17 @@ pub fn analyze_vibrations(
         )));
     }
 
-    if apt.rows!=3 || apt.cols!=dim || cart_hessian.data.iter().chain(&apt.data).any(|x|!x.is_finite()) {
-        return Err(CalcError::InvalidMolecule("Hessian/APT must be finite, with APT shaped (3,3N)".into()));
+    if apt.rows != 3
+        || apt.cols != dim
+        || cart_hessian
+            .data
+            .iter()
+            .chain(&apt.data)
+            .any(|x| !x.is_finite())
+    {
+        return Err(CalcError::InvalidMolecule(
+            "Hessian/APT must be finite, with APT shaped (3,3N)".into(),
+        ));
     }
     let masses_amu: Vec<f64> = mol.atoms.iter().map(|a| atomic_mass_amu(a.z)).collect();
     let mut mass_coord = vec![0.0f64; dim];
@@ -239,7 +263,8 @@ pub fn analyze_vibrations(
 
         for i in 0..dim {
             for j in 0..dim {
-                let v = h_mw.get(i, j) - d_dt_h.get(i, j) - h_d_dt.get(i, j) + d_dt_h_d_dt.get(i, j);
+                let v =
+                    h_mw.get(i, j) - d_dt_h.get(i, j) - h_d_dt.get(i, j) + d_dt_h_d_dt.get(i, j);
                 h_proj.set(i, j, v);
             }
         }
@@ -256,24 +281,46 @@ pub fn analyze_vibrations(
 
     // Diagonalize only the orthogonal complement of rigid translations/rotations.
     // Sorting the 3N spectrum by |lambda| can delete genuine floppy modes.
-    let mut seeds=tr_basis.clone();
-    for axis in 0..dim {let mut v=vec![0.0;dim];v[axis]=1.0;seeds.push(v);}
-    let complete=gram_schmidt_ortho(dim,seeds);
-    if complete.len()!=dim {return Err(CalcError::LinearAlgebra("Incomplete vibrational projection basis".into()));}
-    let mut v=Matrix2D::zeros(dim,n_vib);
-    for (j,col) in complete[n_tr..].iter().enumerate() {
-        for i in 0..dim {v.set(i,j,col[i]);}
+    let mut seeds = tr_basis.clone();
+    for axis in 0..dim {
+        let mut v = vec![0.0; dim];
+        v[axis] = 1.0;
+        seeds.push(v);
     }
-    let hv=matmul(&matmul(&transpose(&v),&h_mw),&v);
-    let (evals,small)=if n_vib>0 {eigh_sym(&hv,150,1e-14)?} else {(Vec::new(),Matrix2D::zeros(0,0))};
-    let evecs=matmul(&v,&small);
-    let mut vib_modes:Vec<(f64,Vec<f64>)>=(0..n_vib)
-        .map(|j|(evals[j],(0..dim).map(|i|evecs.get(i,j)).collect())).collect();
-    let trans_rot_modes:Vec<f64>=tr_basis.iter().map(|q| {
-        let mut value=0.0;
-        for i in 0..dim {for j in 0..dim {value+=q[i]*h_proj.get(i,j)*q[j];}}
-        value
-    }).collect();
+    let complete = gram_schmidt_ortho(dim, seeds);
+    if complete.len() != dim {
+        return Err(CalcError::LinearAlgebra(
+            "Incomplete vibrational projection basis".into(),
+        ));
+    }
+    let mut v = Matrix2D::zeros(dim, n_vib);
+    for (j, col) in complete[n_tr..].iter().enumerate() {
+        for i in 0..dim {
+            v.set(i, j, col[i]);
+        }
+    }
+    let hv = matmul(&matmul(&transpose(&v), &h_mw), &v);
+    let (evals, small) = if n_vib > 0 {
+        eigh_sym(&hv, 150, 1e-14)?
+    } else {
+        (Vec::new(), Matrix2D::zeros(0, 0))
+    };
+    let evecs = matmul(&v, &small);
+    let mut vib_modes: Vec<(f64, Vec<f64>)> = (0..n_vib)
+        .map(|j| (evals[j], (0..dim).map(|i| evecs.get(i, j)).collect()))
+        .collect();
+    let trans_rot_modes: Vec<f64> = tr_basis
+        .iter()
+        .map(|q| {
+            let mut value = 0.0;
+            for i in 0..dim {
+                for j in 0..dim {
+                    value += q[i] * h_proj.get(i, j) * q[j];
+                }
+            }
+            value
+        })
+        .collect();
 
     // Sort vibrational modes by ascending signed eigenvalue (imaginary/negative first, then real)
     vib_modes.sort_by(|a, b| a.0.total_cmp(&b.0));
@@ -297,7 +344,11 @@ pub fn analyze_vibrations(
         let red_mass = if sum_u2 > 1e-15 { 1.0 / sum_u2 } else { 1.0 };
 
         // Normalize Cartesian displacement: Q_i = U_i / sqrt(sum_j U_j^2)
-        let inv_norm = if sum_u2 > 1e-15 { 1.0 / sum_u2.sqrt() } else { 1.0 };
+        let inv_norm = if sum_u2 > 1e-15 {
+            1.0 / sum_u2.sqrt()
+        } else {
+            1.0
+        };
         let q_disp: Vec<f64> = u_cart.iter().map(|&x| x * inv_norm).collect();
 
         // Harmonic force constant k = lambda * red_mass in mDyn / A

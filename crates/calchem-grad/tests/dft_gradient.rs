@@ -68,8 +68,22 @@ fn test_rks_and_uks_analytical_gradients_match_central_finite_differences() {
     // Open-shell UKS gradient on H2O+ radical cation (`charge=1, mult=2`)
     let mol_cat = Molecule::new(mol.atoms.clone(), 1, 2);
     let bs_cat = BasisSet::from_name("6-31g(d)", &mol_cat).unwrap();
-    let wf_cat = uks(&mol_cat, &bs_cat, XcFunctional::B3lyp, GridLevel::Coarse, &opts).unwrap();
-    let ana_cat = uks_gradient(&mol_cat, &bs_cat, XcFunctional::B3lyp, GridLevel::Coarse, &wf_cat).unwrap();
+    let wf_cat = uks(
+        &mol_cat,
+        &bs_cat,
+        XcFunctional::B3lyp,
+        GridLevel::Coarse,
+        &opts,
+    )
+    .unwrap();
+    let ana_cat = uks_gradient(
+        &mol_cat,
+        &bs_cat,
+        XcFunctional::B3lyp,
+        GridLevel::Coarse,
+        &wf_cat,
+    )
+    .unwrap();
 
     for a in 0..mol_cat.atoms.len() {
         for q in 0..3 {
@@ -107,7 +121,14 @@ fn test_rks_and_uks_analytical_gradients_match_central_finite_differences() {
     );
     let bs_hbr = BasisSet::from_name("lanl2dz", &hbr).unwrap();
     let wf_hbr = rks(&hbr, &bs_hbr, XcFunctional::B3lyp, GridLevel::Coarse, &opts).unwrap();
-    let ana_hbr = rks_gradient(&hbr, &bs_hbr, XcFunctional::B3lyp, GridLevel::Coarse, &wf_hbr).unwrap();
+    let ana_hbr = rks_gradient(
+        &hbr,
+        &bs_hbr,
+        XcFunctional::B3lyp,
+        GridLevel::Coarse,
+        &wf_hbr,
+    )
+    .unwrap();
 
     let mut mp = hbr.clone();
     let mut mm = hbr.clone();
@@ -138,3 +159,42 @@ fn test_rks_and_uks_analytical_gradients_match_central_finite_differences() {
         ana_hbr[1][2]
     );
 }
+
+#[test]
+fn test_cam_b3lyp_gradient_accuracy() {
+    let mol = Molecule::new(
+        vec![
+            Atom::from_bohr("H", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("H", [0.0, 0.0, 1.40]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let bs = BasisSet::from_name("6-31g", &mol).unwrap();
+    let opts = tight_scf_opts();
+    let xc = XcFunctional::CamB3lyp;
+    let gl = GridLevel::Fine;
+
+    let wf = rks(&mol, &bs, xc, gl, &opts).unwrap();
+    let ana = rks_gradient(&mol, &bs, xc, gl, &wf).unwrap();
+
+    let h = 1e-4;
+    let mut mp = mol.clone();
+    let mut mm = mol.clone();
+    mp.atoms[1].position_bohr[2] += h;
+    mm.atoms[1].position_bohr[2] -= h;
+    let bsp = BasisSet::from_name("6-31g", &mp).unwrap();
+    let bsm = BasisSet::from_name("6-31g", &mm).unwrap();
+    let wfp = rks(&mp, &bsp, xc, gl, &opts).unwrap();
+    let wfm = rks(&mm, &bsm, xc, gl, &opts).unwrap();
+    let fd_z = (wfp.total_energy_hartree - wfm.total_energy_hartree) / (2.0 * h);
+
+    let diff = (ana[1][2] - fd_z).abs();
+    assert!(
+        diff < 5e-6,
+        "CAM-B3LYP analytical gradient mismatch: ana={:.8e}, fd={:.8e}, diff={diff:.3e}",
+        ana[1][2],
+        fd_z
+    );
+}
+

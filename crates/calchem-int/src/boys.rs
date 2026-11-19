@@ -110,11 +110,33 @@ pub fn boys_batch(max_n: usize, t: f64, out: &mut [f64]) {
     assert!(out.len() > max_n, "boys_batch output slice too short");
     assert!(t >= 0.0, "Boys function argument t must be >= 0, got {t}");
 
+    // d^k F_m/dT^k = (-1)^k F_{m+k}. The nearest 1/8 node is
+    // within 1/16, giving absolute truncation error <= (1/16)^10 / 10!.
+    if max_n <= 16 && t >= 1e-14 && t <= 50.0 {
+        static TABLE: std::sync::OnceLock<Vec<[f64; 26]>> = std::sync::OnceLock::new();
+        let table = TABLE.get_or_init(|| (0..=400).map(|i| {
+            let mut row = [0.0;26];
+            boys_reference_batch(25, i as f64/8.0, &mut row);
+            row
+        }).collect());
+        let i = (8.0*t).round() as usize;
+        let h = i as f64/8.0-t;
+        let row = &table[i];
+        let mut weights = [1.0;10];
+        for k in 1..10 {weights[k]=weights[k-1]*h/k as f64;}
+        for m in 0..=max_n {
+            out[m] = (0..10).rev().fold(0.0,|v,k| v+weights[k]*row[m+k]);
+        }
+        return;
+    }
+    boys_reference_batch(max_n,t,out);
+}
+
+fn boys_reference_batch(max_n:usize,t:f64,out:&mut [f64]) {
     if t < 1e-14 {
         for (n, slot) in out.iter_mut().enumerate().take(max_n + 1) {
             let nf = n as f64;
-            *slot = 1.0 / (2.0 * nf + 1.0) - t / (2.0 * nf + 3.0)
-                + 0.5 * t * t / (2.0 * nf + 5.0);
+            *slot = 1.0 / (2.0 * nf + 1.0) - t / (2.0 * nf + 3.0) + 0.5 * t * t / (2.0 * nf + 5.0);
         }
         return;
     }
@@ -128,33 +150,36 @@ pub fn boys_batch(max_n: usize, t: f64, out: &mut [f64]) {
         out[0] = 0.5 * (PI / t).sqrt() * erf_approx(t.sqrt());
         let last_up = max_n.min(t as usize);
         for n in 1..=last_up {
-            out[n] = ((2*n-1) as f64 * out[n-1] - et) * (0.5 / t);
+            out[n] = ((2 * n - 1) as f64 * out[n - 1] - et) * (0.5 / t);
         }
         // For n>T the Gaussian tail is not negligible, even if exp(-T) is
         // tiny. The old asymptotic-only branch produced unbounded relative error.
-        for n in last_up+1..=max_n {
-            out[n] = et * kummer_scaled(n,t);
+        for n in last_up + 1..=max_n {
+            out[n] = et * kummer_scaled(n, t);
         }
         return;
     }
-    out[max_n] = et * kummer_scaled(max_n,t);
+    out[max_n] = et * kummer_scaled(max_n, t);
     for n in (1..=max_n).rev() {
-        out[n-1] = (2.0*t*out[n] + et)/(2*n-1) as f64;
+        out[n - 1] = (2.0 * t * out[n] + et) / (2 * n - 1) as f64;
     }
 }
 
 /// exp(T) F_n(T), evaluated only where T <= n+40 and T < 700,
 /// or n >= T. Kahan summation avoids loss in the positive series tail.
-fn kummer_scaled(n:usize,t:f64)->f64 {
-    let mut term=1.0/(2.0*n as f64+1.0);
-    let mut sum=term; let mut correction=0.0;
+fn kummer_scaled(n: usize, t: f64) -> f64 {
+    let mut term = 1.0 / (2.0 * n as f64 + 1.0);
+    let mut sum = term;
+    let mut correction = 0.0;
     for k in 1..10000 {
-        term *= t/(n as f64+k as f64+0.5);
-        let y=term-correction;
-        let next=sum+y;
-        correction=(next-sum)-y;
-        sum=next;
-        if term<=sum*5e-17 {break;}
+        term *= t / (n as f64 + k as f64 + 0.5);
+        let y = term - correction;
+        let next = sum + y;
+        correction = (next - sum) - y;
+        sum = next;
+        if term <= sum * 5e-17 {
+            break;
+        }
     }
     sum
 }

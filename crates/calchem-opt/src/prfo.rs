@@ -11,9 +11,7 @@ use calchem_basis::BasisSet;
 use calchem_dft::GridLevel;
 use calchem_model::{CalcError, Molecule, ScfOptions};
 use calchem_tensor::{eigh_sym, Matrix2D};
-use calchem_vib::{
-    compute_cartesian_hessian_and_apt, FreqOptions, VibMethod,
-};
+use calchem_vib::{compute_cartesian_hessian_and_apt, FreqOptions, VibMethod};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -87,7 +85,7 @@ pub struct TsResult {
 }
 
 /// Computes the initial exact finite-difference Cartesian Hessian matrix.
-fn compute_initial_hessian(
+pub(super) fn compute_initial_hessian(
     mol: &Molecule,
     basis_name: &str,
     reference: Reference,
@@ -114,11 +112,7 @@ fn compute_initial_hessian(
 
 /// Solves the 1D transverse P-RFO secular equation for lambda_n <= min_{j != m} Lambda_j:
 /// f(lambda_n) = lambda_n - sum_{j != m} (g_tilde_j^2 / (lambda_n - Lambda_j)) = 0
-fn solve_transverse_lambda(
-    evals: &[f64],
-    g_tilde: &[f64],
-    ts_mode: usize,
-) -> f64 {
+fn solve_transverse_lambda(evals: &[f64], g_tilde: &[f64], ts_mode: usize) -> f64 {
     let mut min_lam = f64::INFINITY;
     for (j, &lam) in evals.iter().enumerate() {
         if j != ts_mode && lam < min_lam {
@@ -131,11 +125,7 @@ fn solve_transverse_lambda(
     }
 
     // Initial guess strictly below min_lam
-    let mut lambda = if min_lam > 0.1 {
-        0.0
-    } else {
-        min_lam - 0.1
-    };
+    let mut lambda = if min_lam > 0.1 { 0.0 } else { min_lam - 0.1 };
     if lambda >= min_lam - 1e-8 {
         lambda = min_lam - 0.1;
     }
@@ -175,11 +165,7 @@ fn solve_transverse_lambda(
 
 /// Updates Hessian matrix using the Bofill (1994) formula:
 /// H_{k+1} = H_k + (1 - mu) * Delta H_PSB + mu * Delta H_MS
-fn update_hessian_bofill(
-    h: &mut Matrix2D,
-    s: &[f64],
-    y: &[f64],
-) {
+fn update_hessian_bofill(h: &mut Matrix2D, s: &[f64], y: &[f64]) {
     let dim = s.len();
     let s_dot_s = dot_prod(s, s);
     if s_dot_s < 1e-14 {
@@ -241,10 +227,19 @@ pub fn search_transition_state(
     }
 
     let dim = n_atoms * 3;
-    if opts.mode_index.is_some_and(|i| i>=dim)
-        || [opts.max_force,opts.rms_force,opts.max_displacement,opts.trust_radius_bohr]
-            .iter().any(|x|!x.is_finite() || *x<=0.0) {
-        return Err(CalcError::InvalidMolecule("Invalid TS mode index or nonpositive/nonfinite tolerances/trust radius".into()));
+    if opts.mode_index.is_some_and(|i| i >= dim)
+        || [
+            opts.max_force,
+            opts.rms_force,
+            opts.max_displacement,
+            opts.trust_radius_bohr,
+        ]
+        .iter()
+        .any(|x| !x.is_finite() || *x <= 0.0)
+    {
+        return Err(CalcError::InvalidMolecule(
+            "Invalid TS mode index or nonpositive/nonfinite tolerances/trust radius".into(),
+        ));
     }
     let mut x = coords_from_mol(mol);
 
@@ -340,18 +335,29 @@ pub fn search_transition_state(
         if is_force_converged {
             // Bofill is a search model, never a certificate of Hessian inertia.
             let exact_hessian = compute_initial_hessian(
-                &cur_mol, basis_name, opts.reference, opts.grid_level, &opts.scf_options,
+                &cur_mol,
+                basis_name,
+                opts.reference,
+                opts.grid_level,
+                &opts.scf_options,
             )?;
             let empty_apt = Matrix2D::zeros(3, dim);
             let vib = calchem_vib::analyze_vibrations(&cur_mol, &exact_hessian, &empty_apt)?;
             // Curvatures within 10 cm^-1 are unresolved at the numerical Hessian accuracy.
             // Reject both flat modes and saddles with more than one negative curvature.
-            let imag_modes: Vec<_> = vib.modes.iter().filter(|m| m.frequency_cm < -10.0).collect();
-            let is_true_ts = imag_modes.len() == 1
-                && vib.modes.iter().all(|m| m.frequency_cm.abs() > 10.0);
+            let imag_modes: Vec<_> = vib
+                .modes
+                .iter()
+                .filter(|m| m.frequency_cm < -10.0)
+                .collect();
+            let is_true_ts =
+                imag_modes.len() == 1 && vib.modes.iter().all(|m| m.frequency_cm.abs() > 10.0);
             let imag_freq = vib.modes.first().map(|m| m.frequency_cm).unwrap_or(0.0);
-            let certified_vector = vib.modes.first()
-                .map(|m| m.displacements.clone()).unwrap_or(cur_ts_vec);
+            let certified_vector = vib
+                .modes
+                .first()
+                .map(|m| m.displacements.clone())
+                .unwrap_or(cur_ts_vec);
 
             return Ok(TsResult {
                 molecule: cur_mol,

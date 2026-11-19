@@ -350,9 +350,7 @@ pub fn extract_isosurface(
         ));
     }
     if !isovalue.is_finite() {
-        return Err(CalcError::InvalidMolecule(
-            "Isovalue must be finite".into(),
-        ));
+        return Err(CalcError::InvalidMolecule("Isovalue must be finite".into()));
     }
     if !coord_scale.is_finite() || coord_scale <= 0.0 {
         return Err(CalcError::InvalidMolecule(
@@ -455,8 +453,7 @@ pub fn extract_isosurface(
                         let mut nx_val = grad_sign * (g0[0] + t * (g1[0] - g0[0]));
                         let mut ny_val = grad_sign * (g0[1] + t * (g1[1] - g0[1]));
                         let mut nz_val = grad_sign * (g0[2] + t * (g1[2] - g0[2]));
-                        let norm_len =
-                            (nx_val * nx_val + ny_val * ny_val + nz_val * nz_val).sqrt();
+                        let norm_len = (nx_val * nx_val + ny_val * ny_val + nz_val * nz_val).sqrt();
                         if norm_len > 1e-20 {
                             let inv_n = 1.0 / norm_len;
                             nx_val *= inv_n;
@@ -750,8 +747,7 @@ mod tests {
         for &[c0, c1] in &CUBE_EDGES {
             let a = CORNER_OFFSETS[c0 as usize];
             let b = CORNER_OFFSETS[c1 as usize];
-            let manhattan =
-                a[0].abs_diff(b[0]) + a[1].abs_diff(b[1]) + a[2].abs_diff(b[2]);
+            let manhattan = a[0].abs_diff(b[0]) + a[1].abs_diff(b[1]) + a[2].abs_diff(b[2]);
             assert_eq!(manhattan, 1);
         }
     }

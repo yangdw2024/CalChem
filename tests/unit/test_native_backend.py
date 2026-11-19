@@ -186,3 +186,70 @@ def test_native_backend_631gd_and_lanl2dz_halogens():
     assert 1.60 <= r_hi <= 1.68
 
 
+def test_native_direct_scf_options():
+    """Verify that options['direct'] (True, False, None) is correctly forwarded and evaluated."""
+    pytest.importorskip("calchem._core")
+    backend = NativeCalchem()
+    
+    # Run with direct=False (Stored ERI)
+    req_stored = CalculationRequest(
+        task="single_point",
+        molecule=_H2_MOL,
+        backend="native",
+        method="rhf",
+        basis="sto-3g",
+        options={"direct": False},
+    )
+    res_stored = backend.single_point(req_stored)
+    assert res_stored.status == "succeeded"
+
+    # Run with direct=True (Direct SCF)
+    req_direct = CalculationRequest(
+        task="single_point",
+        molecule=_H2_MOL,
+        backend="native",
+        method="rhf",
+        basis="sto-3g",
+        options={"direct": True},
+    )
+    res_direct = backend.single_point(req_direct)
+    assert res_direct.status == "succeeded"
+
+    # Run with default (direct=None auto-selected)
+    req_auto = CalculationRequest(
+        task="single_point",
+        molecule=_H2_MOL,
+        backend="native",
+        method="rhf",
+        basis="sto-3g",
+    )
+    res_auto = backend.single_point(req_auto)
+    assert res_auto.status == "succeeded"
+
+    # Energy agreement between Direct and Stored must be machine precision (< 1e-12 Eh)
+    assert abs(res_direct.total_energy_hartree - res_stored.total_energy_hartree) < 1e-12
+    assert abs(res_auto.total_energy_hartree - res_stored.total_energy_hartree) < 1e-12
+
+
+def test_native_rij_density_fitting_options():
+    """Verify that options['ri_j'] / options['density_fitting'] is correctly forwarded and evaluated."""
+    pytest.importorskip("calchem._core")
+    backend = NativeCalchem()
+
+    # Run with density_fitting=True
+    req_rij = CalculationRequest(
+        task="single_point",
+        molecule=_H2_MOL,
+        backend="native",
+        method="rhf",
+        basis="sto-3g",
+        options={"density_fitting": True},
+    )
+    res_rij = backend.single_point(req_rij)
+    assert res_rij.status == "succeeded"
+    assert res_rij.total_energy_hartree is not None
+    assert abs(res_rij.total_energy_hartree - (-1.116714325)) < 1e-3
+
+
+
+

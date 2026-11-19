@@ -1,0 +1,604 @@
+warning: calchem-cuda@0.2.0: CUDA kernels could not be built; using CPU fallback
+warning: unused variable: `e_solv_elec`
+   --> crates\calchem-solv\src\scrf.rs:317:9
+    |
+317 |     let e_solv_elec: f64 = 0.5
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `e_solv_elec`
+   --> crates\calchem-solv\src\scrf.rs:542:9
+    |
+542 |     let e_solv_elec: f64 = 0.5
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_e_solv_elec`
+
+warning: `calchem-solv` (lib) generated 2 warnings (run `cargo fix --lib -p calchem-solv` to apply 2 suggestions)
+warning: `calchem-solv` (lib test) generated 2 warnings (2 duplicates)
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:41:1
+   |
+41 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:41:1
+   |
+41 | create_exception!(_core, ScfNotConvergedError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `gil-refs`
+  --> crates\calchem-py\src\lib.rs:42:1
+   |
+42 | create_exception!(_core, RustCoreError, PyRuntimeError);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::impl_exception_boilerplate` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::impl_exception_boilerplate` which comes from the expansion of the macro `create_exception` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `calchem-py` (lib) generated 4 warnings (1 duplicate)
+warning: `calchem-py` (lib test) generated 4 warnings (4 duplicates)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1.54s
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_basis-1fb262763f3686d8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\basis_normalization.rs (build_target\runtime\round2_20261110\target\debug\deps\basis_normalization-1456325c6b402c3d.exe)
+
+running 4 tests
+test test_primitive_normalization_s_p_d ... ok
+test test_d_shell_contraction_self_overlap ... ok
+test test_unknown_shell_type_rejected ... ok
+test test_sto3g_and_631g_contraction_self_overlap_is_one ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_cuda-0221a6cdb870430c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cuda_rij_test.rs (build_target\runtime\round2_20261110\target\debug\deps\cuda_rij_test-a907d83ef38d40e5.exe)
+
+running 3 tests
+test test_cuda_device_detection ... ok
+test test_cuda_rij_contraction_accuracy ... ok
+test test_cuda_graceful_cpu_fallback ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\ffi_contract.rs (build_target\runtime\round2_20261110\target\debug\deps\ffi_contract-4aef572d99c1d45f.exe)
+
+running 2 tests
+test gpu_result_or_unchanged_cpu_fallback_contract ... ok
+test safe_wrapper_rejects_invalid_lengths_and_overflows_before_ffi ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_dft-3258f7089610e5be.exe)
+
+running 11 tests
+test xc::tests::cam_exchange_matches_independent_70_digit_ityh_reference ... ok
+test xc::tests::test_lyp_one_electron_correlation_vanishes_identically ... ok
+test xc::tests::test_all_xc_functionals_analytic_derivatives_vs_fd ... ok
+test grid::tests::test_single_center_gaussian_3d_integral ... ok
+test ao_grid::tests::test_ao_grad_and_hessian_s_p_d_f_finite_differences ... ok
+test grid::tests::test_multicenter_becke_gaussian_sum_and_weight_gradient_fd ... ok
+test lebedev::tests::test_lebedev_monomials_and_exp_benchmark ... ok
+test vxc::tests::test_streaming_grid_matches_materialized_vxc_and_gradient_with_zero_residency ... ok
+test fxc::tests::test_fxc_singlet_and_triplet_match_uks_vxc_finite_differences_all_functionals ... ok
+test vxc::tests::test_vxc_rks_and_uks_matrix_matches_exact_density_derivative ... ok
+test vxc::tests::test_xc_nuclear_gradient_matches_exact_finite_differences_with_moving_grid_and_basis ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests\d3_dispersion.rs (build_target\runtime\round2_20261110\target\debug\deps\d3_dispersion-cbe5ff6ae39aac83.exe)
+
+running 5 tests
+test test_d3_rejects_unknown_functional_audit_probe ... ok
+test test_d3bj_energy_and_translational_invariance ... ok
+test test_d3bj_analytical_gradient_vs_finite_difference ... ok
+test test_water_d3bj_matches_gaussian_and_orca_golden_reference ... ok
+test test_d3zero_analytical_gradient_vs_finite_difference ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\redteam_diffuse.rs (build_target\runtime\round2_20261110\target\debug\deps\redteam_diffuse-8491b42b97ea2107.exe)
+
+running 1 test
+test diffuse_gaussian_density_conserves_one_electron ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_grad-60002c6972c27f1c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\dft_gradient.rs (build_target\runtime\round2_20261110\target\debug\deps\dft_gradient-6cacd2f9bcc11321.exe)
+
+running 2 tests
+test test_cam_b3lyp_gradient_accuracy ... ok
+test test_rks_and_uks_analytical_gradients_match_central_finite_differences ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.60s
+
+     Running tests\polarization_and_ecp_gradient.rs (build_target\runtime\round2_20261110\target\debug\deps\polarization_and_ecp_gradient-62120a7521784e31.exe)
+
+running 2 tests
+test test_analytic_gradient_631gd_rhf_and_uhf_matches_finite_difference ... ok
+test test_ecp_analytic_gradient_lanl2dz_and_lanl2dzdp_halogens ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.13s
+
+     Running tests\rhf_gradient.rs (build_target\runtime\round2_20261110\target\debug\deps\rhf_gradient-b41a055fa5df088b.exe)
+
+running 4 tests
+test test_single_atom_gradient_vanishes ... ok
+test test_one_electron_derivatives_finite_difference ... ok
+test test_h2_sto3g_rhf_gradient ... ok
+test test_h2o_sto3g_rhf_gradient ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests\rij_provenance.rs (build_target\runtime\round2_20261110\target\debug\deps\rij_provenance-c72ebc0531c96a38.exe)
+
+running 3 tests
+test ri_j_gradient_rejects_rank_truncated_pseudoinverse_metric ... ok
+test ri_wavefunctions_compute_consistent_analytical_gradients ... ok
+test ri_j_fixed_density_coulomb_gradient_matches_central_finite_difference ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running tests\uhf_gradient.rs (build_target\runtime\round2_20261110\target\debug\deps\uhf_gradient-98bd51a13116fcea.exe)
+
+running 4 tests
+test test_h2_cation_gradient_fd ... ok
+test test_closed_shell_uhf_gradient_equals_rhf ... ok
+test test_h2o_anion_gradient_fd ... ok
+test test_h2o_cation_gradient_fd ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.43s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_int-d4ab49de167656e5.exe)
+
+running 8 tests
+test ecp::tests::test_bessel_continuity_at_crossover ... ok
+test density_fitting::tests::test_2center_metric_positivity_and_symmetry ... ok
+test ecp::tests::test_3center_local_coulomb_matches_boys_nuclear_vrr ... ok
+test ecp::tests::test_spherical_harmonics_orthonormality_and_addition_theorem ... ok
+test ecp::tests::test_semilocal_completeness_sum_equals_local_3center ... ok
+test density_fitting::tests::test_ri_j_coulomb_matrix_matches_exact_four_center_on_water ... ok
+test direct_fock::tests::test_direct_fock_uks_matches_dense_tensor_on_water ... ok
+test direct_fock::tests::test_direct_fock_rks_matches_sparse_eri_on_water ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\boys.rs (build_target\runtime\round2_20261110\target\debug\deps\boys-cb9192010590e675.exe)
+
+running 4 tests
+test test_boys_batch_recurrence_consistency ... ok
+test test_boys_high_n_stability_audit_probe ... ok
+test test_boys_known_values_and_stability ... ok
+test test_erf_approx_precision ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\direct_fock_bounded_benchmark.rs (build_target\runtime\round2_20261110\target\debug\deps\direct_fock_bounded_benchmark-a00418e30ab0ecc8.exe)
+
+running 1 test
+test test_bounded_memory_fock_thread_scaling_and_determinism ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.07s
+
+     Running tests\direct_fock_numerical.rs (build_target\runtime\round2_20261110\target\debug\deps\direct_fock_numerical-6e61af6a9a0f4747.exe)
+
+running 4 tests
+test test_screening_distance_scaling_he_dimer ... ok
+test test_unscreened_direct_fock_strictly_matches_stored_eri_rks ... ok
+test test_screening_statistics_and_rigorous_cumulative_bound ... ok
+test test_unscreened_direct_fock_strictly_matches_stored_eri_uks ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests\eri_reference.rs (build_target\runtime\round2_20261110\target\debug\deps\eri_reference-f6dc3f69055f72ad.exe)
+
+running 2 tests
+test test_h2_sto3g_eri_reference ... ok
+test test_h2o_sto3g_eri_reference_quartets ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\eri_symmetry.rs (build_target\runtime\round2_20261110\target\debug\deps\eri_symmetry-6ccef9f5cd90c496.exe)
+
+running 1 test
+test test_eri_8fold_symmetry_h2o_sto3g ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\independent_audit.rs (build_target\runtime\round2_20261110\target\debug\deps\independent_audit-1a763f7c13df384e.exe)
+
+running 3 tests
+test ri_metric_rank_protection_and_normalization_invariance ... ok
+test cached_and_on_the_fly_ri_coulomb_agree ... ok
+test erf_zero_large_omega_and_high_angular_center_derivatives ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\one_electron.rs (build_target\runtime\round2_20261110\target\debug\deps\one_electron-b2b90914b4813ca2.exe)
+
+running 3 tests
+test test_cartesian_d_shell_one_electron_reference ... ok
+test test_h2_sto3g_one_electron_reference ... ok
+test test_h2o_sto3g_one_electron_symmetry_and_reference ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\range_separated_eri.rs (build_target\runtime\round2_20261110\target\debug\deps\range_separated_eri-1733fefa3d702fa5.exe)
+
+running 2 tests
+test test_range_separated_eri_asymptotic_limits ... ok
+test test_range_separated_eri_8fold_symmetry_and_stability ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\redteam_quartets.rs (build_target\runtime\round2_20261110\target\debug\deps\redteam_quartets-998d61b3a7b12cba.exe)
+
+running 1 test
+test lazy_quartets_match_canonical_definition ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\screening_and_parallel.rs (build_target\runtime\round2_20261110\target\debug\deps\screening_and_parallel-b9b5953e07740541.exe)
+
+running 1 test
+test test_schwarz_screening_and_parallel_equivalence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_model-0e50719334048314.exe)
+
+running 2 tests
+test tests::test_nuclear_repulsion_h2_he_h2o ... ok
+test tests::test_validate_rhf_checks ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_opt-adbdc12ad7c51af9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\dft_optimization.rs (build_target\runtime\round2_20261110\target\debug\deps\dft_optimization-adaef9d648b7b95b.exe)
+
+running 1 test
+test test_water_and_cation_b3lyp_geometry_optimization ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.23s
+
+     Running tests\ecp_optimization.rs (build_target\runtime\round2_20261110\target\debug\deps\ecp_optimization-e1283f16abd3ec58.exe)
+
+running 1 test
+test test_ecp_geometry_optimization_hbr_and_hi_equilibrium_bond_lengths ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.30s
+
+     Running tests\optimization.rs (build_target\runtime\round2_20261110\target\debug\deps\optimization-867a73cd9b14f2a0.exe)
+
+running 3 tests
+test test_single_atom_optimization ... ok
+test test_h2_optimization_from_1_4_bohr ... ok
+test test_h2_optimization_from_compressed_1_2_bohr ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\redteam_certificates.rs (build_target\runtime\round2_20261110\target\debug\deps\redteam_certificates-b930497a276a559e.exe)
+
+running 1 test
+test irc_coordinates_energy_and_gradient_are_synchronized ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 40.32s
+
+     Running tests\ts_and_irc.rs (build_target\runtime\round2_20261110\target\debug\deps\ts_and_irc-45617c2f9b39ec33.exe)
+
+running 2 tests
+test test_h2_minimum_rejected_by_ts_search ... ok
+test test_hcn_isomerization_ts_search_and_irc ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 37.29s
+
+     Running tests\uhf_optimization.rs (build_target\runtime\round2_20261110\target\debug\deps\uhf_optimization-bb517b0ba3b1a799.exe)
+
+running 2 tests
+test test_h2_cation_uhf_optimization_reaches_minimum ... ok
+test test_h2o_cation_uhf_optimization_converges ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_prop-11259f4956649995.exe)
+
+running 2 tests
+test marching_cubes::tests::test_corner_offsets_match_edges ... ok
+test marching_cubes::tests::test_all_256_mc_cases_valid_cycles ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\esp_and_population.rs (build_target\runtime\round2_20261110\target\debug\deps\esp_and_population-aca35ad9284d6ee2.exe)
+
+running 4 tests
+test test_esp_matches_independent_nuclear_attraction_integrals_and_ecp_screening ... ok
+test test_water_esp_mapped_isodensity_surface_and_ccesp_roundtrip ... ok
+test test_esp_far_field_multipole_limits_neutral_dipole_and_cation_charge ... ok
+test test_mulliken_lowdin_charges_conservation_symmetry_spin_and_ecp ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\isosurface_and_cube.rs (build_target\runtime\round2_20261110\target\debug\deps\isosurface_and_cube-0926f34dc65f03bd.exe)
+
+running 4 tests
+test test_f_xyz_octant_nodal_saddle_disambiguation_watertight ... ok
+test test_analytic_gaussian_sphere_manifold_geometry_and_normals ... ok
+test test_water_631gd_homo_dual_mesh_density_cube_and_binary_protocol ... ok
+test test_uhf_spin_density_and_ecp_valence_density_grids ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\_core-98bde463b718b419.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_scf-881706949ae0119d.exe)
+
+running 2 tests
+test diis::tests::test_disk_diis_never_falls_back_to_ram_on_io_error ... ok
+test diis::tests::test_disk_backed_diis_matches_in_memory_diis_with_zero_ram_lists ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\density_fitting_scf.rs (build_target\runtime\round2_20261110\target\debug\deps\density_fitting_scf-15ad417fd62d770c.exe)
+
+running 2 tests
+test test_rij_density_fitting_rhf_and_uks_radical ... ok
+test test_rij_density_fitting_rks_pure_dft_and_b3lyp_on_water ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\direct_scf.rs (build_target\runtime\round2_20261110\target\debug\deps\direct_scf-75979bad9f462a33.exe)
+
+running 4 tests
+test test_rhf_direct_scf_matches_stored_eri_energy_and_orbitals ... ok
+test test_rks_b3lyp_direct_scf_matches_stored_eri ... ok
+test test_uhf_and_uks_direct_scf_matches_stored ... ok
+test test_large_molecule_direct_scf_runs_without_memory_barrier ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.99s
+
+     Running tests\kohn_sham_dft.rs (build_target\runtime\round2_20261110\target\debug\deps\kohn_sham_dft-d08b3e563b13b19f.exe)
+
+running 3 tests
+test test_halogen_ecp_hbr_lanl2dz_b3lyp_rks_and_uks ... ok
+test test_ethylene_dft_frontier_gap_and_vertical_ionization_potential ... ok
+test test_closed_shell_uks_matches_rks_across_all_functionals_and_water_b3lyp_benchmark ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.92s
+
+     Running tests\polarization_and_ecp.rs (build_target\runtime\round2_20261110\target\debug\deps\polarization_and_ecp-163052ff22ddf204.exe)
+
+running 3 tests
+test test_water_631gd_and_631gdp_variational_hierarchy_and_literature_energy ... ok
+test test_lanl2dz_and_lanl2dzdp_ecp_invariance_and_open_shell_halogens ... ok
+test test_h2s_631gd_and_all_electron_halogens_sto3g ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
+
+     Running tests\redteam_boundaries.rs (build_target\runtime\round2_20261110\target\debug\deps\redteam_boundaries-808a54e6138df356.exe)
+
+running 5 tests
+test diis_coefficients_are_invariant_under_residual_scale ... ok
+test singular_basis_is_rejected_instead_of_zero_energy_ghost_orbitals ... ok
+test dense_open_shell_memory_is_not_admitted_using_sparse_rks_estimate ... ok
+test memory_and_invalid_scf_options_are_rejected_before_integrals ... ok
+test cam_b3lyp_succeeds_and_incomplete_wb97xd_is_rejected ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\rhf_631g.rs (build_target\runtime\round2_20261110\target\debug\deps\rhf_631g-006e94f9c432a5bc.exe)
+
+running 2 tests
+test test_h2o_631g_shells_and_normalization ... ok
+test test_h2o_631g_energy_and_gradient ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running tests\rhf_sto3g.rs (build_target\runtime\round2_20261110\target\debug\deps\rhf_sto3g-4d8daca938cfc2f6.exe)
+
+running 6 tests
+test test_he_sto3g_rhf ... ok
+test test_h2_sto3g_rhf ... ok
+test test_ne_sto3g_rhf ... ok
+test test_rhf_returns_not_converged_error_when_max_iter_is_one ... ok
+test test_h2o_sto3g_rhf_szabo_geometry ... ok
+test test_631g_rhf_benchmarks ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\uhf.rs (build_target\runtime\round2_20261110\target\debug\deps\uhf-cc2b0fd4d50703a6.exe)
+
+running 4 tests
+test test_h_atom_sto3g_exact_one_electron ... ok
+test test_h2_triplet_pure_spin ... ok
+test test_h2o_cation_doublet ... ok
+test test_closed_shell_uhf_equals_rhf ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_solv-4d7efe15c9f62c4c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pcm_and_scrf.rs (build_target\runtime\round2_20261110\target\debug\deps\pcm_and_scrf-4d901ffe7922c7b0.exe)
+
+running 5 tests
+test test_born_ion_solvation_analytical_benchmark ... ok
+test test_water_scrf_rhf_and_solvent_polarity_ordering ... ok
+test test_pcm_nuclear_gradient ... ok
+test test_water_scrf_rks_b3lyp ... ok
+test test_unified_run_scrf_rhf_and_dft ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_tddft-0a8f7ee6dc83adb5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\independent_solver.rs (build_target\runtime\round2_20261110\target\debug\deps\independent_solver-b7cc18a08e9642c3.exe)
+
+running 2 tests
+test unconverged_exhausted_subspace_is_not_reported_successful ... ok
+test rpa_obeys_original_equations_and_symplectic_normalization ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tddft_and_cis.rs (build_target\runtime\round2_20261110\target\debug\deps\tddft_and_cis-f610b88760f3399c.exe)
+
+running 4 tests
+test test_thouless_orbital_rotation_hessian_singlet_and_triplet ... ok
+test test_spectroscopy_benchmarks_ethylene_formaldehyde_ecp_and_uv_vis ... ok
+test test_rpa_exact_static_polarizability_sum_rule_and_origin_invariance ... ok
+test test_davidson_matches_dense_tda_and_rpa_singlet_and_triplet ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_tensor-6041ac610a0b5c6d.exe)
+
+running 2 tests
+test tests::requested_eigen_residual_is_not_limited_by_an_arbitrary_relative_floor ... ok
+test tests::test_eigh_sym_7x7_reconstruction ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_vib-e5f5cf8031fbe987.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\frequencies_and_thermo.rs (build_target\runtime\round2_20261110\target\debug\deps\frequencies_and_thermo-47b6965ebce5b242.exe)
+
+running 2 tests
+test test_water_b3lyp_vibrational_frequencies_and_thermo ... ok
+test test_diatomic_linear_hbr_ecp_frequencies ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.52s
+
+   Doc-tests calchem_basis
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_cuda
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_dft
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_grad
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_int
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_model
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_opt
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_prop
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests _core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_scf
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_solv
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_tddft
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_tensor
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests calchem_vib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

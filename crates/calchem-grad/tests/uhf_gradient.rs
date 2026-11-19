@@ -33,7 +33,14 @@ fn uhf_energy(symbols: &[&str], coords: &[[f64; 3]], charge: i32, mult: usize, b
     uhf(&mol, &bs, &tight()).unwrap().total_energy_hartree
 }
 
-fn check_fd(symbols: &[&str], coords: &[[f64; 3]], charge: i32, mult: usize, basis: &str, tol: f64) {
+fn check_fd(
+    symbols: &[&str],
+    coords: &[[f64; 3]],
+    charge: i32,
+    mult: usize,
+    basis: &str,
+    tol: f64,
+) {
     let mol = build(symbols, coords, charge, mult);
     let bs = BasisSet::from_name(basis, &mol).unwrap();
     let wf = uhf(&mol, &bs, &tight()).unwrap();
@@ -42,7 +49,10 @@ fn check_fd(symbols: &[&str], coords: &[[f64; 3]], charge: i32, mult: usize, bas
     // Translational invariance: total force vanishes.
     for q in 0..3 {
         let sum: f64 = g.iter().map(|a| a[q]).sum();
-        assert!(sum.abs() < 1e-8, "{basis}: sum of gradient axis {q} = {sum:e}");
+        assert!(
+            sum.abs() < 1e-8,
+            "{basis}: sum of gradient axis {q} = {sum:e}"
+        );
     }
 
     let h = 1e-4;
@@ -68,7 +78,14 @@ fn check_fd(symbols: &[&str], coords: &[[f64; 3]], charge: i32, mult: usize, bas
 /// H2+ (one electron, doublet) away from equilibrium.
 #[test]
 fn test_h2_cation_gradient_fd() {
-    check_fd(&["H", "H"], &[[0.0, 0.0, 0.0], [0.1, -0.05, 1.6]], 1, 2, "sto-3g", 1e-6);
+    check_fd(
+        &["H", "H"],
+        &[[0.0, 0.0, 0.0], [0.1, -0.05, 1.6]],
+        1,
+        2,
+        "sto-3g",
+        1e-6,
+    );
 }
 
 /// H2O+ radical cation, distorted geometry, both basis sets.

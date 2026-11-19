@@ -1,0 +1,10 @@
+CalChem native CLI | file=E:\YDW\ChemDatas\Gjf\ydw-BTP-4F.gjf atoms=199 charge=0 mult=1 method=Rks basis=sto-3g n_ao=639 n_shells=419 threads=4
+[stage] parse=0.6073s basis=0.0005s
+[stage] grid(Coarse)=1.3205s points=266181 streaming=false
+[rks] one-electron complete in 5.410s
+[rij] n_aux=6355 width=62058 dense_width=408321 bytes=3155028720 limit=4294967296
+[rks] builder ready in 50.938s
+[rks_profile] iters=56 1e=5.410s builder_init=50.938s orth_guess=0.175s scf_2e=12.231s scf_vxc=57.440s scf_comm=2.761s scf_diag=5.896s polish=2.451s
+[stage] scf=138.4859s total_wall=140.4145s
+converged=true iters=56 total_energy_hartree=-6230.647210389689 electronic_energy_hartree=-27637.950295390172 nuclear_repulsion_hartree=21407.303085000483
+gpu_kernel_invocations=116 gpu_fallback_invocations=0 rij_metric_truncated_modes=0

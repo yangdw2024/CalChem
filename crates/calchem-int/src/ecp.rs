@@ -468,7 +468,8 @@ fn precompute_semilocal_center_omega(
 
         let cos_ku = k_hat[0] * u[0] + k_hat[1] * u[1] + k_hat[2] * u[2];
         legendre_batch(max_lam, cos_ku, &mut leg);
-        let ylm_slice = &g.ylm_table[pt_idx * NUM_YLM + ylm_base..pt_idx * NUM_YLM + ylm_base + n_m];
+        let ylm_slice =
+            &g.ylm_table[pt_idx * NUM_YLM + ylm_base..pt_idx * NUM_YLM + ylm_base + n_m];
 
         for m_idx in 0..n_m {
             let y_w = ylm_slice[m_idx] * w_ang;

@@ -1,0 +1,14 @@
+{"probe": "provenance", "extension": "E:\\YDW\\Trae_Gaussian\\calchem\\_core.pyd", "sha256": "483a0a94282baab9f4e9daa9248935c4938f674f8e6f7fc94544b1bc0a83546d"}
+{"probe": "ECP_gradient", "symbols": ["H", "Br"], "basis": "lanl2dz", "gradient_errors": [1.0420841967985484e-08, 1.1571410496458157e-09], "total_force_norm": 5.3526103714471755e-15}
+{"probe": "ECP_gradient", "symbols": ["H", "I"], "basis": "lanl2dzdp", "gradient_errors": [8.442240684303215e-09, 9.81541958822163e-10], "total_force_norm": 2.2243626634992012e-15}
+{"probe": "minimum_TS_rejection", "converged": false, "frequency_cm": 5480.9918879713005}
+Traceback (most recent call last):
+  File "E:\YDW\Trae_Gaussian\docs\audits\2026-11-10_round2\probes\ecp_and_ts.py", line 25, in <module>
+    r=NativeCalchem().run(req)
+  File "E:\YDW\Trae_Gaussian\calchem\core\calculator.py", line 96, in run
+    return self.irc(request)
+           ~~~~~~~~^^^^^^^^^
+  File "E:\YDW\Trae_Gaussian\calchem\backends\native.py", line 1195, in irc
+    fwd_barrier = irc_res.barrier_forward_kcal_mol
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'builtins.IrcResult' object has no attribute 'barrier_forward_kcal_mol'

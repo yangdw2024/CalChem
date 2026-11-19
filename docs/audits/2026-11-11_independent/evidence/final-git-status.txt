@@ -1,0 +1,179 @@
+ M Cargo.lock
+ M Cargo.toml
+ M calchem/_core.pyi
+ M calchem/backends/native.py
+ M calchem/jobs/global_lock.py
+ M calchem/solvent/smd.py
+ M crates/calchem-basis/src/lib.rs
+ M crates/calchem-basis/tests/basis_normalization.rs
+ M crates/calchem-dft/src/d3.rs
+ M crates/calchem-dft/src/d3_data.rs
+ M crates/calchem-dft/src/fxc.rs
+ M crates/calchem-dft/src/grid.rs
+ M crates/calchem-dft/src/lebedev.rs
+ M crates/calchem-dft/src/lib.rs
+ M crates/calchem-dft/src/vxc.rs
+ M crates/calchem-dft/src/xc.rs
+ M crates/calchem-dft/tests/d3_dispersion.rs
+ M crates/calchem-dft/tests/redteam_diffuse.rs
+ M crates/calchem-grad/src/derivatives.rs
+ M crates/calchem-grad/src/lib.rs
+ M crates/calchem-grad/tests/dft_gradient.rs
+ M crates/calchem-grad/tests/uhf_gradient.rs
+ M crates/calchem-int/Cargo.toml
+ M crates/calchem-int/src/boys.rs
+ M crates/calchem-int/src/ecp.rs
+ M crates/calchem-int/src/eri.rs
+ M crates/calchem-int/src/lib.rs
+ M crates/calchem-int/src/symmetry.rs
+ M crates/calchem-int/tests/boys.rs
+ M crates/calchem-int/tests/eri_symmetry.rs
+ M crates/calchem-int/tests/one_electron.rs
+ M crates/calchem-int/tests/redteam_quartets.rs
+ M crates/calchem-int/tests/screening_and_parallel.rs
+ M crates/calchem-model/src/lib.rs
+ M crates/calchem-opt/src/irc.rs
+ M crates/calchem-opt/src/lib.rs
+ M crates/calchem-opt/src/prfo.rs
+ M crates/calchem-opt/tests/dft_optimization.rs
+ M crates/calchem-opt/tests/redteam_certificates.rs
+ M crates/calchem-opt/tests/ts_and_irc.rs
+ M crates/calchem-opt/tests/uhf_optimization.rs
+ M crates/calchem-prop/src/esp.rs
+ M crates/calchem-prop/src/lib.rs
+ M crates/calchem-prop/src/marching_cubes.rs
+ M crates/calchem-prop/tests/esp_and_population.rs
+ M crates/calchem-prop/tests/isosurface_and_cube.rs
+ M crates/calchem-py/Cargo.toml
+ M crates/calchem-py/src/lib.rs
+ M crates/calchem-scf/Cargo.toml
+ M crates/calchem-scf/src/diis.rs
+ M crates/calchem-scf/src/lib.rs
+ M crates/calchem-scf/src/rhf.rs
+ M crates/calchem-scf/src/rks.rs
+ M crates/calchem-scf/src/uhf.rs
+ M crates/calchem-scf/src/uks.rs
+ M crates/calchem-scf/tests/polarization_and_ecp.rs
+ M crates/calchem-scf/tests/redteam_boundaries.rs
+ M crates/calchem-scf/tests/uhf.rs
+ M crates/calchem-solv/src/cavity.rs
+ M crates/calchem-solv/src/gradient.rs
+ M crates/calchem-solv/src/lib.rs
+ M crates/calchem-solv/src/potential.rs
+ M crates/calchem-solv/src/scrf.rs
+ M crates/calchem-solv/src/solvent.rs
+ M crates/calchem-solv/tests/pcm_and_scrf.rs
+ M crates/calchem-tddft/src/davidson.rs
+ M crates/calchem-tddft/src/lib.rs
+ M crates/calchem-tddft/tests/tddft_and_cis.rs
+ M crates/calchem-tensor/src/lib.rs
+ M crates/calchem-vib/src/hessian.rs
+ M crates/calchem-vib/src/lib.rs
+ M crates/calchem-vib/src/modes.rs
+ M crates/calchem-vib/src/thermo.rs
+ M crates/calchem-vib/tests/frequencies_and_thermo.rs
+ M docs/audits/2026-11-10_round2/01_PLAN_STATUS_RULES.md
+ M docs/audits/2026-11-10_round2/evidence/acceptance-response.jsonl
+ M docs/audits/2026-11-10_round2/evidence/pytest-final.log
+ M docs/audits/2026-11-10_round2/probes/env.ps1
+ M docs/audits/2026-11-10_round2/probes/package_acceptance.py
+ M tests/unit/test_native_backend.py
+ M tests/unit/test_opv_cam_b3lyp_and_dimer.py
+ M tests/unit/test_solvation_and_scrf.py
+ M tests/unit/test_ts_and_irc.py
+ M tools/dev/build_ext.ps1
+?? crates/calchem-cuda/
+?? crates/calchem-grad/tests/rij_provenance.rs
+?? crates/calchem-int/src/density_fitting.rs
+?? crates/calchem-int/src/direct_fock.rs
+?? crates/calchem-int/tests/direct_fock_bounded_benchmark.rs
+?? crates/calchem-int/tests/direct_fock_numerical.rs
+?? crates/calchem-int/tests/independent_audit.rs
+?? crates/calchem-int/tests/range_separated_eri.rs
+?? crates/calchem-scf/src/fock_builder.rs
+?? crates/calchem-scf/tests/density_fitting_scf.rs
+?? crates/calchem-scf/tests/direct_scf.rs
+?? crates/calchem-tddft/tests/independent_solver.rs
+?? docs/architecture/
+?? docs/audits/2026-11-10_p0_baseline_audit.md
+?? docs/audits/2026-11-10_p1/
+?? docs/audits/2026-11-10_round2/02_ACCEPTANCE_AND_REPAIR_REPORT.md
+?? docs/audits/2026-11-10_round2/03_RESULTS_AND_REPRODUCTION.md
+?? docs/audits/2026-11-10_round2/04_OPERATIONS_AND_LESSONS.md
+?? docs/audits/2026-11-10_round2/05_REPAIR_MAP.md
+?? docs/audits/2026-11-10_round2/06_DROPIN_CODE.md
+?? docs/audits/2026-11-10_round2/07_PRIMARY_REFERENCES.md
+?? docs/audits/2026-11-10_round2/README.md
+?? docs/audits/2026-11-10_round2/artifacts/
+?? docs/audits/2026-11-10_round2/changes.patch
+?? docs/audits/2026-11-10_round2/evidence/acceptance-certified.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/acceptance-certified.jsonl
+?? docs/audits/2026-11-10_round2/evidence/acceptance-closed-loop.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/acceptance-closed-loop.jsonl
+?? docs/audits/2026-11-10_round2/evidence/acceptance-delivery.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/acceptance-delivery.jsonl
+?? docs/audits/2026-11-10_round2/evidence/acceptance-response.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/ast.log
+?? docs/audits/2026-11-10_round2/evidence/boys-certified.csv
+?? docs/audits/2026-11-10_round2/evidence/boys-certified.jsonl
+?? docs/audits/2026-11-10_round2/evidence/bridge-contracts.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/bridge-contracts.log
+?? docs/audits/2026-11-10_round2/evidence/cargo-certified.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/cargo-certified.log
+?? docs/audits/2026-11-10_round2/evidence/cargo-closed-loop.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/cargo-closed-loop.log
+?? docs/audits/2026-11-10_round2/evidence/cargo-delivery.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/cargo-delivery.log
+?? docs/audits/2026-11-10_round2/evidence/core-certified-build.log
+?? docs/audits/2026-11-10_round2/evidence/core-closed-loop.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/core-closed-loop.log
+?? docs/audits/2026-11-10_round2/evidence/diis-regression.log
+?? docs/audits/2026-11-10_round2/evidence/ecp-ts-certified.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/ecp-ts-certified.jsonl
+?? docs/audits/2026-11-10_round2/evidence/ecp-ts-closed-loop.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/ecp-ts-closed-loop.jsonl
+?? docs/audits/2026-11-10_round2/evidence/ecp-ts-delivery.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/ecp-ts-delivery.jsonl
+?? docs/audits/2026-11-10_round2/evidence/external_raw_round2.zip
+?? docs/audits/2026-11-10_round2/evidence/final-qa.json
+?? docs/audits/2026-11-10_round2/evidence/final_manifest.json
+?? docs/audits/2026-11-10_round2/evidence/finalization-summary.json
+?? docs/audits/2026-11-10_round2/evidence/last-source-check.json
+?? docs/audits/2026-11-10_round2/evidence/observed-git-state-final.txt
+?? docs/audits/2026-11-10_round2/evidence/package-delivery-acceptance.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/package-delivery-acceptance.jsonl
+?? docs/audits/2026-11-10_round2/evidence/package-delivery-build.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/package-delivery-build.log
+?? docs/audits/2026-11-10_round2/evidence/package-delivery-contracts.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/package-delivery-contracts.jsonl
+?? docs/audits/2026-11-10_round2/evidence/pytest-certified.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/pytest-certified.log
+?? docs/audits/2026-11-10_round2/evidence/pytest-closed-loop.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/pytest-closed-loop.log
+?? docs/audits/2026-11-10_round2/evidence/pytest-delivery.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/pytest-delivery.log
+?? docs/audits/2026-11-10_round2/evidence/pytest-final.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/pytest-superseded.txt
+?? docs/audits/2026-11-10_round2/evidence/release-bridge.log
+?? docs/audits/2026-11-10_round2/evidence/release-closed-loop.log
+?? docs/audits/2026-11-10_round2/evidence/release-delivery.log
+?? docs/audits/2026-11-10_round2/evidence/release-final-certified.log
+?? docs/audits/2026-11-10_round2/evidence/ruff-critical.exit.txt
+?? docs/audits/2026-11-10_round2/evidence/ruff-critical.log
+?? docs/audits/2026-11-10_round2/evidence/rustfmt.log
+?? docs/audits/2026-11-10_round2/probes/boys_certified.rs
+?? docs/audits/2026-11-10_round2/probes/boys_certified_compare.py
+?? docs/audits/2026-11-10_round2/probes/core_certified.rs
+?? docs/audits/2026-11-10_round2/probes/ecp_and_ts.py
+?? docs/audits/2026-11-10_round2/probes/finalize_round2.py
+?? docs/audits/2026-11-10_round2/probes/write_repair_map.py
+?? docs/audits/2026-11-10_round2/replacements.zip
+?? docs/audits/2026-11-11_independent/
+?? docs/audits/master_mission/
+?? scripts/
+?? target/
+?? test_cuda.lib
+?? tests/unit/test_gpu_and_density_fitting.py
+?? tests/unit/test_p5_gradients_solvation_tddft.py
+?? tests/unit/test_p6_opv_molecular_validation.py
+?? tests/unit/test_redteam_contracts.py

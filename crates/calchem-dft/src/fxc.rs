@@ -10,9 +10,9 @@ use calchem_basis::BasisSet;
 use calchem_tensor::Matrix2D;
 use rayon::prelude::*;
 
-use crate::ao_grid::{AoGradVal, PrecomputedAoShell, eval_aos_grad};
-use crate::grid::MolecularGrid;
-use crate::xc::{XcFunctional, eval_xc_spin};
+use crate::ao_grid::{eval_aos_grad, AoGradVal, PrecomputedAoShell};
+use crate::grid::{GridPoint, MolecularGrid};
+use crate::xc::{eval_xc_spin, XcFunctional};
 
 const FXC_CHUNK_SIZE: usize = 256;
 /// Ground-state total density screening cutoff (avoids divergent $\rho^{-2/3}$ / $\rho^{-8/3}$ vacuum tails).
@@ -63,138 +63,176 @@ impl FxcKernel {
         let p_slice = &density_total.data;
         let is_gga = func.is_gga();
 
-        let points: Vec<ActiveFxcPoint> = grid
-            .points
-            .par_chunks(FXC_CHUNK_SIZE)
-            .flat_map_iter(|chunk| {
-                let mut active: Vec<AoGradVal> = Vec::with_capacity(n);
-                let mut out_pts: Vec<ActiveFxcPoint> = Vec::with_capacity(chunk.len());
-
-                for gp in chunk {
-                    let w = gp.weight;
-                    if w.abs() < 1e-22 {
-                        continue;
-                    }
-                    eval_aos_grad(&shells, gp.coords, &mut active);
-                    if active.is_empty() {
-                        continue;
-                    }
-
-                    let mut rho_t = 0.0;
-                    let mut grad_rho_t = [0.0f64; 3];
-                    for a_i in &active {
-                        let row = &p_slice[a_i.mu * n..(a_i.mu + 1) * n];
-                        let mut s = 0.0;
-                        for a_j in &active {
-                            s += row[a_j.mu] * a_j.val;
-                        }
-                        rho_t += a_i.val * s;
-                        grad_rho_t[0] += 2.0 * a_i.grad[0] * s;
-                        grad_rho_t[1] += 2.0 * a_i.grad[1] * s;
-                        grad_rho_t[2] += 2.0 * a_i.grad[2] * s;
-                    }
-
-                    if rho_t < FXC_RHO_CUTOFF {
-                        continue;
-                    }
-
-                    let rho_s = 0.5 * rho_t;
-                    let g_s = [
-                        0.5 * grad_rho_t[0],
-                        0.5 * grad_rho_t[1],
-                        0.5 * grad_rho_t[2],
-                    ];
-                    let gamma_s = dot3(g_s, g_s);
-                    let out0 = eval_xc_spin(func, rho_s, rho_s, gamma_s, gamma_s, gamma_s);
-
-                    // Relative density step guarantees rho_s +/- 2*hr > 0 everywhere.
-                    let hr = 1e-5 * rho_s;
-
-                    // --- Singlet kernel (spin-symmetric perturbation) ---
-                    let eval_s = |r: f64, g: f64| -> (f64, f64) {
-                        let o = eval_xc_spin(func, r, r, g, g, g);
-                        (o.v_rho_a, 2.0 * o.v_gamma_aa + o.v_gamma_ab)
-                    };
-                    let (vr_m2, ug_m2) = eval_s(rho_s - 2.0 * hr, gamma_s);
-                    let (vr_m1, ug_m1) = eval_s(rho_s - hr, gamma_s);
-                    let (vr_p1, ug_p1) = eval_s(rho_s + hr, gamma_s);
-                    let (vr_p2, ug_p2) = eval_s(rho_s + 2.0 * hr, gamma_s);
-                    let inv_12hr = 1.0 / (12.0 * hr);
-
-                    let k_rr_s = (vr_m2 - 8.0 * vr_m1 + 8.0 * vr_p1 - vr_p2) * inv_12hr;
-                    let (k_rg_s, k_gg_s, u_iso_s) = if is_gga {
-                        let k_rg = (ug_m2 - 8.0 * ug_m1 + 8.0 * ug_p1 - ug_p2) * inv_12hr;
-                        let u_iso = 2.0 * out0.v_gamma_aa + out0.v_gamma_ab;
-                        let k_gg = if gamma_s > GAMMA_ANISO_CUTOFF {
-                            let hg = 1e-5 * gamma_s;
-                            let (_, u_gm2) = eval_s(rho_s, gamma_s - 2.0 * hg);
-                            let (_, u_gm1) = eval_s(rho_s, gamma_s - hg);
-                            let (_, u_gp1) = eval_s(rho_s, gamma_s + hg);
-                            let (_, u_gp2) = eval_s(rho_s, gamma_s + 2.0 * hg);
-                            2.0 * (u_gm2 - 8.0 * u_gm1 + 8.0 * u_gp1 - u_gp2) / (12.0 * hg)
-                        } else {
-                            0.0
-                        };
-                        (k_rg, k_gg, u_iso)
-                    } else {
-                        (0.0, 0.0, 0.0)
-                    };
-
-                    // --- Triplet kernel (spin-antisymmetric perturbation; odd symmetry halves evaluations!) ---
-                    let eval_t = |tau: f64, zeta: f64| -> (f64, f64) {
-                        let o = eval_xc_spin(
-                            func,
-                            rho_s + tau,
-                            rho_s - tau,
-                            gamma_s + zeta,
-                            gamma_s,
-                            gamma_s - zeta,
-                        );
-                        (0.5 * (o.v_rho_a - o.v_rho_b), o.v_gamma_aa - o.v_gamma_bb)
-                    };
-                    let (vt_1, ut_1) = eval_t(hr, 0.0);
-                    let (vt_2, ut_2) = eval_t(2.0 * hr, 0.0);
-                    let inv_6hr = 1.0 / (6.0 * hr);
-
-                    let k_rr_t = (8.0 * vt_1 - vt_2) * inv_6hr;
-                    let (k_rg_t, k_gg_t, u_iso_t) = if is_gga {
-                        let k_rg = (8.0 * ut_1 - ut_2) * inv_6hr;
-                        let u_iso = 2.0 * out0.v_gamma_aa - out0.v_gamma_ab;
-                        let k_gg = if gamma_s > GAMMA_ANISO_CUTOFF {
-                            let hg = 1e-5 * gamma_s;
-                            let (_, u_z1) = eval_t(0.0, hg);
-                            let (_, u_z2) = eval_t(0.0, 2.0 * hg);
-                            2.0 * (8.0 * u_z1 - u_z2) / (6.0 * hg)
-                        } else {
-                            0.0
-                        };
-                        (k_rg, k_gg, u_iso)
-                    } else {
-                        (0.0, 0.0, 0.0)
-                    };
-
-                    out_pts.push(ActiveFxcPoint {
-                        coords: gp.coords,
-                        weight: w,
-                        g_s,
-                        singlet: SpinChannelKernel {
-                            k_rr: k_rr_s,
-                            k_rg: k_rg_s,
-                            k_gg: k_gg_s,
-                            u_iso: u_iso_s,
-                        },
-                        triplet: SpinChannelKernel {
-                            k_rr: k_rr_t,
-                            k_rg: k_rg_t,
-                            k_gg: k_gg_t,
-                            u_iso: u_iso_t,
-                        },
-                    });
+        let eval_chunk = |chunk: &[GridPoint],
+                          active: &mut Vec<AoGradVal>,
+                          out_pts: &mut Vec<ActiveFxcPoint>| {
+            for gp in chunk {
+                let w = gp.weight;
+                if w.abs() < 1e-22 {
+                    continue;
+                }
+                eval_aos_grad(&shells, gp.coords, active);
+                if active.is_empty() {
+                    continue;
                 }
 
-                out_pts
-            })
-            .collect();
+                let mut rho_t = 0.0;
+                let mut grad_rho_t = [0.0f64; 3];
+                for a_i in active.iter() {
+                    let row = &p_slice[a_i.mu * n..(a_i.mu + 1) * n];
+                    let mut s = 0.0;
+                    for a_j in active.iter() {
+                        s += row[a_j.mu] * a_j.val;
+                    }
+                    rho_t += a_i.val * s;
+                    grad_rho_t[0] += 2.0 * a_i.grad[0] * s;
+                    grad_rho_t[1] += 2.0 * a_i.grad[1] * s;
+                    grad_rho_t[2] += 2.0 * a_i.grad[2] * s;
+                }
+
+                if rho_t < FXC_RHO_CUTOFF {
+                    continue;
+                }
+
+                let rho_s = 0.5 * rho_t;
+                let g_s = [
+                    0.5 * grad_rho_t[0],
+                    0.5 * grad_rho_t[1],
+                    0.5 * grad_rho_t[2],
+                ];
+                let gamma_s = dot3(g_s, g_s);
+                let out0 = eval_xc_spin(func, rho_s, rho_s, gamma_s, gamma_s, gamma_s);
+
+                // Relative density step guarantees rho_s +/- 2*hr > 0 everywhere.
+                let hr = 1e-5 * rho_s;
+
+                // --- Singlet kernel (spin-symmetric perturbation) ---
+                let eval_s = |r: f64, g: f64| -> (f64, f64) {
+                    let o = eval_xc_spin(func, r, r, g, g, g);
+                    (o.v_rho_a, 2.0 * o.v_gamma_aa + o.v_gamma_ab)
+                };
+                let (vr_m2, ug_m2) = eval_s(rho_s - 2.0 * hr, gamma_s);
+                let (vr_m1, ug_m1) = eval_s(rho_s - hr, gamma_s);
+                let (vr_p1, ug_p1) = eval_s(rho_s + hr, gamma_s);
+                let (vr_p2, ug_p2) = eval_s(rho_s + 2.0 * hr, gamma_s);
+                let inv_12hr = 1.0 / (12.0 * hr);
+
+                let k_rr_s = (vr_m2 - 8.0 * vr_m1 + 8.0 * vr_p1 - vr_p2) * inv_12hr;
+                let (k_rg_s, k_gg_s, u_iso_s) = if is_gga {
+                    let k_rg = (ug_m2 - 8.0 * ug_m1 + 8.0 * ug_p1 - ug_p2) * inv_12hr;
+                    let u_iso = 2.0 * out0.v_gamma_aa + out0.v_gamma_ab;
+                    let k_gg = if gamma_s > GAMMA_ANISO_CUTOFF {
+                        let hg = 1e-5 * gamma_s;
+                        let (_, u_gm2) = eval_s(rho_s, gamma_s - 2.0 * hg);
+                        let (_, u_gm1) = eval_s(rho_s, gamma_s - hg);
+                        let (_, u_gp1) = eval_s(rho_s, gamma_s + hg);
+                        let (_, u_gp2) = eval_s(rho_s, gamma_s + 2.0 * hg);
+                        2.0 * (u_gm2 - 8.0 * u_gm1 + 8.0 * u_gp1 - u_gp2) / (12.0 * hg)
+                    } else {
+                        0.0
+                    };
+                    (k_rg, k_gg, u_iso)
+                } else {
+                    (0.0, 0.0, 0.0)
+                };
+
+                // --- Triplet kernel (spin-antisymmetric perturbation; odd symmetry halves evaluations!) ---
+                let eval_t = |tau: f64, zeta: f64| -> (f64, f64) {
+                    let o = eval_xc_spin(
+                        func,
+                        rho_s + tau,
+                        rho_s - tau,
+                        gamma_s + zeta,
+                        gamma_s,
+                        gamma_s - zeta,
+                    );
+                    (0.5 * (o.v_rho_a - o.v_rho_b), o.v_gamma_aa - o.v_gamma_bb)
+                };
+                let (vt_1, ut_1) = eval_t(hr, 0.0);
+                let (vt_2, ut_2) = eval_t(2.0 * hr, 0.0);
+                let inv_6hr = 1.0 / (6.0 * hr);
+
+                let k_rr_t = (8.0 * vt_1 - vt_2) * inv_6hr;
+                let (k_rg_t, k_gg_t, u_iso_t) = if is_gga {
+                    let k_rg = (8.0 * ut_1 - ut_2) * inv_6hr;
+                    let u_iso = 2.0 * out0.v_gamma_aa - out0.v_gamma_ab;
+                    let k_gg = if gamma_s > GAMMA_ANISO_CUTOFF {
+                        let hg = 1e-5 * gamma_s;
+                        let (_, u_z1) = eval_t(0.0, hg);
+                        let (_, u_z2) = eval_t(0.0, 2.0 * hg);
+                        2.0 * (8.0 * u_z1 - u_z2) / (6.0 * hg)
+                    } else {
+                        0.0
+                    };
+                    (k_rg, k_gg, u_iso)
+                } else {
+                    (0.0, 0.0, 0.0)
+                };
+
+                out_pts.push(ActiveFxcPoint {
+                    coords: gp.coords,
+                    weight: w,
+                    g_s,
+                    singlet: SpinChannelKernel {
+                        k_rr: k_rr_s,
+                        k_rg: k_rg_s,
+                        k_gg: k_gg_s,
+                        u_iso: u_iso_s,
+                    },
+                    triplet: SpinChannelKernel {
+                        k_rr: k_rr_t,
+                        k_rg: k_rg_t,
+                        k_gg: k_gg_t,
+                        u_iso: u_iso_t,
+                    },
+                });
+            }
+        };
+
+        let points: Vec<ActiveFxcPoint> = if let Some((ref mol, radial_min)) = grid.streaming {
+            if grid.points.is_empty() {
+                let tasks = grid.streaming_tasks();
+                tasks
+                    .par_iter()
+                    .flat_map_iter(|&(atom_idx, rad_start, rad_end)| {
+                        let mut active: Vec<AoGradVal> = Vec::with_capacity(n);
+                        let mut batch_pts: Vec<GridPoint> = Vec::with_capacity(2048);
+                        MolecularGrid::generate_task_points(
+                            mol,
+                            grid.level,
+                            radial_min,
+                            atom_idx,
+                            rad_start,
+                            rad_end,
+                            &mut batch_pts,
+                        );
+                        let mut out_pts: Vec<ActiveFxcPoint> = Vec::with_capacity(batch_pts.len());
+                        eval_chunk(&batch_pts, &mut active, &mut out_pts);
+                        out_pts
+                    })
+                    .collect()
+            } else {
+                grid.points
+                    .par_chunks(FXC_CHUNK_SIZE)
+                    .flat_map_iter(|chunk| {
+                        let mut active: Vec<AoGradVal> = Vec::with_capacity(n);
+                        let mut out_pts: Vec<ActiveFxcPoint> = Vec::with_capacity(chunk.len());
+                        eval_chunk(chunk, &mut active, &mut out_pts);
+                        out_pts
+                    })
+                    .collect()
+            }
+        } else {
+            grid.points
+                .par_chunks(FXC_CHUNK_SIZE)
+                .flat_map_iter(|chunk| {
+                    let mut active: Vec<AoGradVal> = Vec::with_capacity(n);
+                    let mut out_pts: Vec<ActiveFxcPoint> = Vec::with_capacity(chunk.len());
+                    eval_chunk(chunk, &mut active, &mut out_pts);
+                    out_pts
+                })
+                .collect()
+        };
 
         Self {
             func,
@@ -388,7 +426,8 @@ mod tests {
 
                 let mut max_err = 0.0f64;
                 for k in 0..(n * n) {
-                    let fd = (va_m2.data[k] - 8.0 * va_m1.data[k] + 8.0 * va_p1.data[k] - va_p2.data[k])
+                    let fd = (va_m2.data[k] - 8.0 * va_m1.data[k] + 8.0 * va_p1.data[k]
+                        - va_p2.data[k])
                         / (12.0 * eps);
                     max_err = max_err.max((dv_ana.data[k] - fd).abs());
                 }

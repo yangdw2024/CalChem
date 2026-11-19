@@ -16,16 +16,15 @@ pub mod masses;
 pub mod modes;
 pub mod thermo;
 
-pub use hessian::{FreqOptions, VibMethod, compute_cartesian_hessian_and_apt};
+pub use hessian::{compute_cartesian_hessian_and_apt, FreqOptions, VibMethod};
 pub use masses::{
     atomic_mass_amu, GAS_CONSTANT_CAL_MOL_K, GAS_CONSTANT_HARTREE_K, GAS_CONSTANT_J_MOL_K,
     HARTREE_TO_EV, HARTREE_TO_KCAL_MOL, HESSIAN_EVAL_TO_INV_CM, IR_INTENSITY_PREFACTOR_KM_MOL,
 };
-pub use modes::{NormalMode, VibrationalAnalysis, analyze_vibrations};
-pub use thermo::{Thermochemistry, compute_thermochemistry};
+pub use modes::{analyze_vibrations, NormalMode, VibrationalAnalysis};
+pub use thermo::{compute_thermochemistry, Thermochemistry};
 
 use calchem_model::{CalcError, Molecule};
-
 
 use calchem_tensor::Matrix2D;
 

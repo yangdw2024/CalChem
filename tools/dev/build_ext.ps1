@@ -15,11 +15,14 @@ try {
         if ($needCopy) {
             $bk = Join-Path $script:CalChemRepo ('build_target\runtime\pyd-backup\_core-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.pyd')
             New-Item -ItemType Directory -Force -Path (Split-Path $bk) | Out-Null
-            Copy-Item -LiteralPath $dest -Destination $bk
-            Copy-Item -LiteralPath $built -Destination $dest -Force
+            Copy-Item -LiteralPath $dest -Destination $bk -ErrorAction Stop
+            Copy-Item -LiteralPath $built -Destination $dest -Force -ErrorAction Stop
         }
     } else {
-        Copy-Item -LiteralPath $built -Destination $dest -Force
+        Copy-Item -LiteralPath $built -Destination $dest -Force -ErrorAction Stop
+    }
+    if ((Get-FileHash -LiteralPath $built).Hash -ne (Get-FileHash -LiteralPath $dest).Hash) {
+        throw 'Installed extension hash does not match the just-built library'
     }
     & $env:CALCHEM_PYTHON -B -c "import calchem._core as c; print('installed _core:', sorted(n for n in dir(c) if not n.startswith('_')))"
 } finally {

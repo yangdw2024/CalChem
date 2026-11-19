@@ -1,8 +1,6 @@
 use calchem_dft::{GridLevel, XcFunctional};
 use calchem_model::{Atom, Molecule, ScfOptions};
-use calchem_vib::{
-    FreqOptions, VibMethod, compute_frequencies_and_thermo,
-};
+use calchem_vib::{compute_frequencies_and_thermo, FreqOptions, VibMethod};
 
 fn water_mol() -> Molecule {
     // Near-equilibrium H2O geometry
@@ -33,13 +31,9 @@ fn test_water_b3lyp_vibrational_frequencies_and_thermo() {
         },
     };
 
-    let res = compute_frequencies_and_thermo(
-        &mol,
-        "6-31g",
-        VibMethod::Rks(XcFunctional::B3lyp),
-        &opts,
-    )
-    .unwrap();
+    let res =
+        compute_frequencies_and_thermo(&mol, "6-31g", VibMethod::Rks(XcFunctional::B3lyp), &opts)
+            .unwrap();
 
     let vib = &res.vibrational_analysis;
     let thermo = &res.thermochemistry;
@@ -67,8 +61,16 @@ fn test_water_b3lyp_vibrational_frequencies_and_thermo() {
 
     // Verify all 3 modes are real (local minimum on PES)
     for mode in &vib.modes {
-        assert!(!mode.is_imaginary, "Mode {} should be real, got freq={}", mode.mode_index, mode.frequency_cm);
-        assert!(mode.frequency_cm > 1000.0, "Frequency should be > 1000 cm^-1, got {}", mode.frequency_cm);
+        assert!(
+            !mode.is_imaginary,
+            "Mode {} should be real, got freq={}",
+            mode.mode_index, mode.frequency_cm
+        );
+        assert!(
+            mode.frequency_cm > 1000.0,
+            "Frequency should be > 1000 cm^-1, got {}",
+            mode.frequency_cm
+        );
         assert!(mode.reduced_mass_amu > 0.9 && mode.reduced_mass_amu < 2.5);
         assert!(mode.ir_intensity_km_mol >= 0.0);
     }
@@ -80,7 +82,10 @@ fn test_water_b3lyp_vibrational_frequencies_and_thermo() {
         "Bending mode frequency expected in [1500, 1900] cm^-1, got {:.1}",
         bend.frequency_cm
     );
-    assert!(bend.ir_intensity_km_mol > 1.0, "Water bending mode has strong IR intensity");
+    assert!(
+        bend.ir_intensity_km_mol > 1.0,
+        "Water bending mode has strong IR intensity"
+    );
     // Modes 2 & 3: Symmetric & Asymmetric stretches (expected ~3700 - 4100 cm^-1)
     let sym_str = &vib.modes[1];
     let asym_str = &vib.modes[2];
@@ -136,13 +141,9 @@ fn test_diatomic_linear_hbr_ecp_frequencies() {
         },
     };
 
-    let res = compute_frequencies_and_thermo(
-        &hbr,
-        "lanl2dz",
-        VibMethod::Rks(XcFunctional::B3lyp),
-        &opts,
-    )
-    .unwrap();
+    let res =
+        compute_frequencies_and_thermo(&hbr, "lanl2dz", VibMethod::Rks(XcFunctional::B3lyp), &opts)
+            .unwrap();
 
     let vib = &res.vibrational_analysis;
     assert!(vib.is_linear);

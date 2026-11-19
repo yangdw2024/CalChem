@@ -1,0 +1,45 @@
+   Compiling calchem-cuda v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-cuda)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+warning: linker stdout: LINK : warning LNK4098: 默认库“LIBCMT”与其他库的使用冲突；请使用 /NODEFAULTLIB:library
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `calchem-int` (lib test) generated 1 warning
+warning: `calchem-dft` (lib test) generated 1 warning (1 duplicate)
+    Finished `test` profile [optimized + debuginfo] target(s) in 9.21s
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_cuda-e0f5c830271733ff.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_dft-005ce98152cda865.exe)
+
+running 9 tests
+test xc::tests::test_lyp_one_electron_correlation_vanishes_identically ... ok
+test xc::tests::test_all_xc_functionals_analytic_derivatives_vs_fd ... ok
+test grid::tests::test_single_center_gaussian_3d_integral ... ok
+test ao_grid::tests::test_ao_grad_and_hessian_s_p_d_f_finite_differences ... ok
+test grid::tests::test_multicenter_becke_gaussian_sum_and_weight_gradient_fd ... ok
+test lebedev::tests::test_lebedev_monomials_and_exp_benchmark ... ok
+test fxc::tests::test_fxc_singlet_and_triplet_match_uks_vxc_finite_differences_all_functionals ... ok
+test vxc::tests::test_xc_nuclear_gradient_matches_exact_finite_differences_with_moving_grid_and_basis ... ok
+test vxc::tests::test_vxc_rks_and_uks_matrix_matches_exact_density_derivative ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running unittests src\lib.rs (build_target\runtime\round2_20261110\target\debug\deps\calchem_int-2c17df93a253e4e9.exe)
+
+running 8 tests
+test ecp::tests::test_bessel_continuity_at_crossover ... ok
+test ecp::tests::test_3center_local_coulomb_matches_boys_nuclear_vrr ... ok
+test density_fitting::tests::test_2center_metric_positivity_and_symmetry ... ok
+test ecp::tests::test_spherical_harmonics_orthonormality_and_addition_theorem ... ok
+test ecp::tests::test_semilocal_completeness_sum_equals_local_3center ... ok
+test direct_fock::tests::test_direct_fock_rks_matches_sparse_eri_on_water ... ok
+test direct_fock::tests::test_direct_fock_uks_matches_dense_tensor_on_water ... ok
+test density_fitting::tests::test_ri_j_coulomb_matrix_matches_exact_four_center_on_water ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

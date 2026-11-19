@@ -1,0 +1,2061 @@
+{
+  "name": "def2-universal-jfit",
+  "source": "MolSSI Basis Set Exchange (Weigend, Phys. Chem. Chem. Phys. 2006, 8, 1057-1065)",
+  "elements": {
+    "1": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          15.6752927,
+          3.6063578,
+          1.2080016
+        ],
+        "coefficients": [
+          0.0186886,
+          0.063167,
+          0.1204609
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.4726794
+        ],
+        "coefficients": [
+          0.0592485
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.20181
+        ],
+        "coefficients": [
+          0.0051272
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          2.0281365,
+          0.535873
+        ],
+        "coefficients": [
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          2.2165124
+        ],
+        "coefficients": [
+          0.0033116
+        ]
+      }
+    ],
+    "3": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          498.368973,
+          162.9342738,
+          57.3246735,
+          21.6427314,
+          8.7345375,
+          3.7491039,
+          1.7006754
+        ],
+        "coefficients": [
+          0.0207908,
+          0.0542177,
+          0.1776783,
+          0.418115,
+          0.6535245,
+          0.5492618,
+          0.1701425
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.8090859
+        ],
+        "coefficients": [
+          -0.0097548
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.4000933
+        ],
+        "coefficients": [
+          -0.0050152
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.2035793
+        ],
+        "coefficients": [
+          0.02322
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1054201
+        ],
+        "coefficients": [
+          0.0134535
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.0549139
+        ],
+        "coefficients": [
+          0.0006647
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          10.7024696,
+          3.6551543
+        ],
+        "coefficients": [
+          0.0072923,
+          0.006094
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.2464013
+        ],
+        "coefficients": [
+          0.0172529
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.4246282
+        ],
+        "coefficients": [
+          -0.0160026
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1446192
+        ],
+        "coefficients": [
+          -0.0195111
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          1.1510647,
+          0.6019112
+        ],
+        "coefficients": [
+          -0.0014314,
+          0.0038969
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.3109573
+        ],
+        "coefficients": [
+          0.0024683
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.1600032
+        ],
+        "coefficients": [
+          0.0036451
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          0.5967918,
+          0.1790687
+        ],
+        "coefficients": [
+          0.0010494,
+          0.0006468
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          1.046013
+        ],
+        "coefficients": [
+          -0.0001971
+        ]
+      }
+    ],
+    "5": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          1322.2016723,
+          458.2370653,
+          168.0023641,
+          64.957769,
+          26.3871856,
+          11.2108611,
+          4.955446
+        ],
+        "coefficients": [
+          0.0542834,
+          0.1167149,
+          0.402023,
+          0.9377941,
+          1.5869087,
+          1.3566478,
+          0.3199019
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          2.2652825
+        ],
+        "coefficients": [
+          -0.1340611
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.0638086
+        ],
+        "coefficients": [
+          0.0498171
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.5095187
+        ],
+        "coefficients": [
+          0.2553537
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.2469859
+        ],
+        "coefficients": [
+          0.0800208
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1202089
+        ],
+        "coefficients": [
+          0.0163658
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          9.3560736,
+          3.9743131
+        ],
+        "coefficients": [
+          -0.0130117,
+          -0.0114013
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.6645147
+        ],
+        "coefficients": [
+          0.030985
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.6913035
+        ],
+        "coefficients": [
+          -0.0037719
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.2863135
+        ],
+        "coefficients": [
+          0.0449188
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          2.1120313,
+          0.7780769
+        ],
+        "coefficients": [
+          0.0228072,
+          0.0405259
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.3277101
+        ],
+        "coefficients": [
+          0.0082013
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.1449465
+        ],
+        "coefficients": [
+          0.0024471
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          1.0582718,
+          0.401
+        ],
+        "coefficients": [
+          0.0087498,
+          0.0036145
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          0.65143
+        ],
+        "coefficients": [
+          -0.0012389
+        ]
+      }
+    ],
+    "6": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          1861.0916331,
+          642.9939764,
+          235.1105725,
+          90.7028894,
+          36.7794552,
+          15.6046273,
+          6.8907294
+        ],
+        "coefficients": [
+          0.0744171,
+          0.1653957,
+          0.5576484,
+          1.3108298,
+          2.1694681,
+          1.7668846,
+          0.2930769
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          3.147885
+        ],
+        "coefficients": [
+          -0.1708702
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.4777287
+        ],
+        "coefficients": [
+          0.1641553
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.7076466
+        ],
+        "coefficients": [
+          0.4149941
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.3430122
+        ],
+        "coefficients": [
+          0.1624366
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1669453
+        ],
+        "coefficients": [
+          0.0207675
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          13.5472892,
+          5.4669419
+        ],
+        "coefficients": [
+          -0.0206477,
+          -0.0115282
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          2.1751721
+        ],
+        "coefficients": [
+          0.0455914
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.8582194
+        ],
+        "coefficients": [
+          0.002836
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.337672
+        ],
+        "coefficients": [
+          0.0181875
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          5.9287253,
+          1.9809209
+        ],
+        "coefficients": [
+          -0.0225948,
+          -0.0476827
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.8055417
+        ],
+        "coefficients": [
+          -0.0365372
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.3531244
+        ],
+        "coefficients": [
+          -0.0145417
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          1.6755626,
+          0.5997536
+        ],
+        "coefficients": [
+          0.0088798,
+          0.0069903
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          1.00246
+        ],
+        "coefficients": [
+          -0.0022192
+        ]
+      }
+    ],
+    "7": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          2542.9401785,
+          1029.5472946,
+          424.9053546,
+          178.4573708,
+          76.1362742,
+          32.9338653,
+          14.4155436
+        ],
+        "coefficients": [
+          0.0904668,
+          0.1455675,
+          0.459409,
+          1.1392859,
+          2.1795891,
+          2.7604305,
+          1.2837451
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          6.3718891
+        ],
+        "coefficients": [
+          -0.1702642
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          2.8381742
+        ],
+        "coefficients": [
+          0.0504472
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.2711793
+        ],
+        "coefficients": [
+          0.6634588
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.5712407
+        ],
+        "coefficients": [
+          0.4116559
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.2569887
+        ],
+        "coefficients": [
+          0.0489167
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          17.897599,
+          6.5346319
+        ],
+        "coefficients": [
+          -0.0330656,
+          0.0041582
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          2.3523645
+        ],
+        "coefficients": [
+          0.0525824
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.8397377
+        ],
+        "coefficients": [
+          0.0017058
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.2989335
+        ],
+        "coefficients": [
+          0.012296
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          7.690987,
+          2.3044972
+        ],
+        "coefficients": [
+          0.003582,
+          0.0180403
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.8403987
+        ],
+        "coefficients": [
+          0.0194441
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.3303797
+        ],
+        "coefficients": [
+          0.0002361
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          2.3331076,
+          0.8446137
+        ],
+        "coefficients": [
+          0.0067248,
+          0.0054427
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          1.40377
+        ],
+        "coefficients": [
+          -0.0023051
+        ]
+      }
+    ],
+    "8": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          2876.8216605,
+          1004.7443032,
+          369.7579954,
+          142.9442404,
+          57.8366425,
+          24.3864983,
+          10.6622662
+        ],
+        "coefficients": [
+          0.1443558,
+          0.2920041,
+          1.0258517,
+          2.2875516,
+          3.6080237,
+          2.3737865,
+          0.0489414
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          4.8070437
+        ],
+        "coefficients": [
+          -0.1295186
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          2.221077
+        ],
+        "coefficients": [
+          0.7747158
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.0447795
+        ],
+        "coefficients": [
+          0.7647816
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.4968425
+        ],
+        "coefficients": [
+          0.2369803
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.2371384
+        ],
+        "coefficients": [
+          0.0208099
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          64.2613382,
+          16.3006076
+        ],
+        "coefficients": [
+          -0.0126659,
+          -0.0378744
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          4.3550542
+        ],
+        "coefficients": [
+          0.0638078
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.2019554
+        ],
+        "coefficients": [
+          0.0169516
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.3354196
+        ],
+        "coefficients": [
+          0.0065743
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          9.2146611,
+          2.8435251
+        ],
+        "coefficients": [
+          -0.0597914,
+          -0.0846724
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.9955759
+        ],
+        "coefficients": [
+          -0.0466066
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.3649441
+        ],
+        "coefficients": [
+          -0.0096978
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          2.6420115,
+          0.7345613
+        ],
+        "coefficients": [
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          1.3931
+        ],
+        "coefficients": [
+          -0.0016533
+        ]
+      }
+    ],
+    "9": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          3514.9201549,
+          1231.2458815,
+          454.1367336,
+          175.8376258,
+          71.2081775,
+          30.0316883,
+          13.1259023
+        ],
+        "coefficients": [
+          0.1805835,
+          0.3676084,
+          1.2707881,
+          2.8274164,
+          4.3588226,
+          2.7180994,
+          -0.0804726
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          5.9126861
+        ],
+        "coefficients": [
+          -0.002337
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          2.7284431
+        ],
+        "coefficients": [
+          1.1236274
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.2813993
+        ],
+        "coefficients": [
+          0.9999042
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.6082793
+        ],
+        "coefficients": [
+          0.3119579
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.2897894
+        ],
+        "coefficients": [
+          0.0312295
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          49.3740409,
+          13.4874956
+        ],
+        "coefficients": [
+          -0.0346332,
+          -0.0096069
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          3.96649
+        ],
+        "coefficients": [
+          0.0762067
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.2226629
+        ],
+        "coefficients": [
+          -0.0103329
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.3830317
+        ],
+        "coefficients": [
+          0.0018853
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          29.971914,
+          6.7860915
+        ],
+        "coefficients": [
+          -0.0113316,
+          -0.0467639
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          1.8137313
+        ],
+        "coefficients": [
+          -0.0167604
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.515784
+        ],
+        "coefficients": [
+          -0.0050777
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          2.8301877,
+          0.9155962
+        ],
+        "coefficients": [
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          1.60975
+        ],
+        "coefficients": [
+          -0.0005411
+        ]
+      }
+    ],
+    "14": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          5826.765766,
+          2173.1214409,
+          839.4966509,
+          335.2659622,
+          138.1170978,
+          58.5516054,
+          25.4744274
+        ],
+        "coefficients": [
+          0.5677983,
+          1.0118069,
+          3.2799844,
+          6.7361713,
+          8.6949143,
+          3.2431556,
+          -1.2520738
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          11.3418415
+        ],
+        "coefficients": [
+          2.6706099
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          5.1513356
+        ],
+        "coefficients": [
+          4.3474757
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          2.3788654
+        ],
+        "coefficients": [
+          0.8729007
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.1130498
+        ],
+        "coefficients": [
+          -0.3244603
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.5257427
+        ],
+        "coefficients": [
+          0.2956979
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.2497578
+        ],
+        "coefficients": [
+          0.1946885
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1188768
+        ],
+        "coefficients": [
+          0.0318632
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          8.7836931,
+          2.6158248
+        ],
+        "coefficients": [
+          0.0242245,
+          -0.0153268
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.826604
+        ],
+        "coefficients": [
+          0.0061588
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.2711487
+        ],
+        "coefficients": [
+          0.0428066
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.090087
+        ],
+        "coefficients": [
+          0.0015544
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          10.8892767,
+          2.6605925,
+          0.8067528
+        ],
+        "coefficients": [
+          0.0240593,
+          -0.0189904,
+          0.0242108
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.2859848
+        ],
+        "coefficients": [
+          0.0317147
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.1074329
+        ],
+        "coefficients": [
+          0.0020599
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          0.8103816,
+          0.1988529
+        ],
+        "coefficients": [
+          0.0088216,
+          0.0020248
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          0.40149
+        ],
+        "coefficients": [
+          -0.0016684
+        ]
+      }
+    ],
+    "15": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          7402.6405628,
+          2444.3806296,
+          1031.0485275,
+          387.5215861,
+          159.3342518,
+          72.5438912,
+          29.2976155
+        ],
+        "coefficients": [
+          0.6312551,
+          1.0410015,
+          3.5177235,
+          7.8577024,
+          9.3323916,
+          3.5808385,
+          -1.103988
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          13.1685047
+        ],
+        "coefficients": [
+          2.8706692
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          6.4235268
+        ],
+        "coefficients": [
+          4.9937953
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          3.1479365
+        ],
+        "coefficients": [
+          1.200375
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.4941282
+        ],
+        "coefficients": [
+          -0.4895877
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.6745215
+        ],
+        "coefficients": [
+          0.3794973
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.3252877
+        ],
+        "coefficients": [
+          0.362504
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1527285
+        ],
+        "coefficients": [
+          0.0512179
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          10.6100703,
+          3.3972489
+        ],
+        "coefficients": [
+          0.0333958,
+          -0.0239301
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.0821336
+        ],
+        "coefficients": [
+          0.0194214
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.3436265
+        ],
+        "coefficients": [
+          0.0184052
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1090044
+        ],
+        "coefficients": [
+          0.0008768
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          5.5575593,
+          2.603324,
+          1.2378589
+        ],
+        "coefficients": [
+          0.00664,
+          -0.0123559,
+          0.0087029
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.5939646
+        ],
+        "coefficients": [
+          0.007218
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.2858732
+        ],
+        "coefficients": [
+          -0.0025575
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          1.0262041,
+          0.2959414
+        ],
+        "coefficients": [
+          0.0104661,
+          0.0038742
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          0.5510844
+        ],
+        "coefficients": [
+          -0.0032181
+        ]
+      }
+    ],
+    "16": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          7399.0303145,
+          2710.1675859,
+          1034.3279062,
+          410.4645411,
+          168.9762502,
+          71.9687889,
+          31.6172683
+        ],
+        "coefficients": [
+          0.7227933,
+          1.3706745,
+          4.32175,
+          8.7624644,
+          10.5289909,
+          3.0836598,
+          -1.5821203
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          14.2796836
+        ],
+        "coefficients": [
+          4.4920092
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          6.6060948
+        ],
+        "coefficients": [
+          5.6247567
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          3.1181477
+        ],
+        "coefficients": [
+          0.2331133
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.4954039
+        ],
+        "coefficients": [
+          -0.4527401
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.7254779
+        ],
+        "coefficients": [
+          0.6731617
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.3544216
+        ],
+        "coefficients": [
+          0.4015653
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1735525
+        ],
+        "coefficients": [
+          0.0610369
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          12.6998799,
+          4.4295784
+        ],
+        "coefficients": [
+          0.0457971,
+          -0.0394968
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.5232889
+        ],
+        "coefficients": [
+          0.0357338
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.5194667
+        ],
+        "coefficients": [
+          -0.0040859
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1766547
+        ],
+        "coefficients": [
+          -0.003688
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          16.8546461,
+          5.0810461,
+          1.5102323
+        ],
+        "coefficients": [
+          0.0263236,
+          -0.0190773,
+          0.0213668
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.4451331
+        ],
+        "coefficients": [
+          0.0219369
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.1308362
+        ],
+        "coefficients": [
+          0.0016925
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          1.080986,
+          0.4161474
+        ],
+        "coefficients": [
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          0.67071
+        ],
+        "coefficients": [
+          -0.0044361
+        ]
+      }
+    ],
+    "17": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          8044.276624,
+          2924.5123954,
+          1110.8168739,
+          439.9050761,
+          181.1987287,
+          77.4148302,
+          34.1977273
+        ],
+        "coefficients": [
+          0.8306605,
+          1.6146203,
+          5.0051398,
+          9.9863273,
+          11.344397,
+          2.6726629,
+          -1.6043227
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          15.5648397
+        ],
+        "coefficients": [
+          5.7539291
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          7.2707873
+        ],
+        "coefficients": [
+          6.0638907
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          3.47119
+        ],
+        "coefficients": [
+          -0.3199326
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.6860808
+        ],
+        "coefficients": [
+          -0.394732
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.8293125
+        ],
+        "coefficients": [
+          0.9334036
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.4110124
+        ],
+        "coefficients": [
+          0.4864175
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.204219
+        ],
+        "coefficients": [
+          0.0781778
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          12.2564993,
+          4.8922575
+        ],
+        "coefficients": [
+          0.0563086,
+          -0.0563007
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.926546
+        ],
+        "coefficients": [
+          0.0469222
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.7525989
+        ],
+        "coefficients": [
+          -0.0071758
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.2932189
+        ],
+        "coefficients": [
+          -0.0162325
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          28.4370504,
+          7.2772298,
+          2.3111621
+        ],
+        "coefficients": [
+          -0.0265404,
+          0.0134848,
+          -0.0136452
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.8580943
+        ],
+        "coefficients": [
+          -0.0131608
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.3376227
+        ],
+        "coefficients": [
+          -0.0045372
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          1.2035685,
+          0.47
+        ],
+        "coefficients": [
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          0.75211
+        ],
+        "coefficients": [
+          -0.0026699
+        ]
+      }
+    ],
+    "35": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          181929.69074,
+          21782.506235,
+          7843.2391724,
+          2608.0271777,
+          1564.9696465,
+          920.5703545,
+          552.396338,
+          191.1405907,
+          108.0484426,
+          64.8354183,
+          38.1384803,
+          22.4343995
+        ],
+        "coefficients": [
+          0.970382,
+          3.1341819,
+          11.0443801,
+          24.6916778,
+          12.3123948,
+          24.6284398,
+          16.2668646,
+          -3.1865943,
+          5.1797612,
+          25.8419691,
+          15.577103,
+          -9.1953776
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          13.1967052
+        ],
+        "coefficients": [
+          -1.3048405
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          7.9187991
+        ],
+        "coefficients": [
+          8.573887
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          4.658117
+        ],
+        "coefficients": [
+          9.2928352
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          2.6331523
+        ],
+        "coefficients": [
+          0.5617368
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.557718
+        ],
+        "coefficients": [
+          0.8600521
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.3152683
+        ],
+        "coefficients": [
+          0.2596004
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1854519
+        ],
+        "coefficients": [
+          0.0721463
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          8.4481854,
+          3.0812881
+        ],
+        "coefficients": [
+          0.013469,
+          -0.0389777
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          1.1536778
+        ],
+        "coefficients": [
+          0.0500453
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.4389478
+        ],
+        "coefficients": [
+          -0.008797
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.1679158
+        ],
+        "coefficients": [
+          0.0062473
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          8.7933629,
+          3.5598266,
+          1.4866514
+        ],
+        "coefficients": [
+          -0.0194411,
+          0.0201204,
+          -0.0158267
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.6328484
+        ],
+        "coefficients": [
+          -0.0103896
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.2711415
+        ],
+        "coefficients": [
+          -0.0137988
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          3.4681858,
+          0.8708007
+        ],
+        "coefficients": [
+          -0.0029576,
+          0.0124094
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          0.2186427
+        ],
+        "coefficients": [
+          0.0004936
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          1.1078575
+        ],
+        "coefficients": [
+          -0.0027251
+        ]
+      }
+    ],
+    "53": [
+      {
+        "shell_type": "s",
+        "exponents": [
+          129.9537471,
+          25.699496,
+          15.635993,
+          9.2032587
+        ],
+        "coefficients": [
+          0.0331547,
+          -2.2540948,
+          10.9929981,
+          -17.9755829
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          5.4136814
+        ],
+        "coefficients": [
+          1.3660383
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          3.1529885
+        ],
+        "coefficients": [
+          10.6040521
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          1.8546991
+        ],
+        "coefficients": [
+          1.8140037
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.648182
+        ],
+        "coefficients": [
+          0.2070696
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.3812835
+        ],
+        "coefficients": [
+          0.7208308
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.2220638
+        ],
+        "coefficients": [
+          0.155017
+        ]
+      },
+      {
+        "shell_type": "s",
+        "exponents": [
+          0.1306257
+        ],
+        "coefficients": [
+          0.047942
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          6.3414007,
+          2.2502515
+        ],
+        "coefficients": [
+          0.0175949,
+          -0.0450366
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.785395
+        ],
+        "coefficients": [
+          0.0437747
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.2714491
+        ],
+        "coefficients": [
+          0.0026449
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
+          0.0935145
+        ],
+        "coefficients": [
+          -0.0009715
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          14.1399698,
+          5.2162306,
+          1.9554103
+        ],
+        "coefficients": [
+          0.0037566,
+          -0.0186363,
+          0.0143662
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.7402137
+        ],
+        "coefficients": [
+          -0.0132379
+        ]
+      },
+      {
+        "shell_type": "d",
+        "exponents": [
+          0.2811242
+        ],
+        "coefficients": [
+          -0.0194808
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          1.8878261,
+          0.7736294
+        ],
+        "coefficients": [
+          -0.0038611,
+          0.007527
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
+          0.31666
+        ],
+        "coefficients": [
+          0.0033025
+        ]
+      },
+      {
+        "shell_type": "g",
+        "exponents": [
+          0.9097867
+        ],
+        "coefficients": [
+          -0.0028599
+        ]
+      }
+    ]
+  }
+}

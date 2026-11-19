@@ -1,0 +1,26 @@
+[package]
+name = "calchem-cli"
+version = "0.2.2"
+edition = "2021"
+
+[[bin]]
+name = "calchem_cli"
+path = "src/main.rs"
+
+[dependencies]
+calchem-model = { path = "../calchem-model" }
+calchem-basis = { path = "../calchem-basis" }
+calchem-tensor = { path = "../calchem-tensor" }
+calchem-int = { path = "../calchem-int" }
+calchem-dft = { path = "../calchem-dft" }
+calchem-scf = { path = "../calchem-scf" }
+calchem-grad = { path = "../calchem-grad" }
+calchem-opt = { path = "../calchem-opt" }
+calchem-solv = { path = "../calchem-solv" }
+calchem-tddft = { path = "../calchem-tddft" }
+calchem-vib = { path = "../calchem-vib" }
+calchem-prop = { path = "../calchem-prop" }
+calchem-cuda = { path = "../calchem-cuda" }
+rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -1,4 +1,4 @@
-﻿"""Unit tests for Long-Range Corrected Functionals (CAM-B3LYP / wB97X-D),
+"""Unit tests for Long-Range Corrected Functionals (CAM-B3LYP / wB97X-D),
 authentic ChemDatas Gaussian (.log / .gjf / .fchk) molecular systems (PM6, Y6, BTP, IC-2F, MD clusters),
 D3(BJ) dispersion, and PCM solvation in CalChem pure Rust engine.
 """
@@ -22,7 +22,7 @@ from calchem.workflows.opv import (
 
 
 def test_cam_b3lyp_and_wb97xd_single_point_rust():
-    """Verify that Native backend safely rejects CAM-B3LYP and wB97X-D due to missing range-separated ERIs."""
+    """Verify that Native backend successfully computes CAM-B3LYP and wB97X-D with native range-separated ERIs."""
     wf = OPVWorkflow(backend="native")
 
     h2o = MoleculeSpec(
@@ -37,12 +37,15 @@ def test_cam_b3lyp_and_wb97xd_single_point_rust():
     )
 
     res_cam = wf.single_point(h2o, method="camb3lyp", basis="sto-3g", name="H2O_CAM")
-    assert not res_cam.converged
-    assert any("camb3lyp" in str(e).lower() for e in res_cam.errors)
+    assert res_cam.converged
+    assert res_cam.scf_energy_hartree < -74.0
+    assert res_cam.homo_ev is not None and res_cam.lumo_ev is not None
 
-    res_wb97x = wf.single_point(h2o, method="wb97xd", basis="sto-3g", name="H2O_wB97XD")
-    assert not res_wb97x.converged
-    assert any("wb97xd" in str(e).lower() for e in res_wb97x.errors)
+    # Verify faithful wB97X-D runs natively and converges.
+    from calchem import _core
+    res_wb = _core.run_single_point(["He"], [[0.0, 0.0, 0.0]], method="wb97xd")
+    assert res_wb.converged
+    assert -3.0 < res_wb.total_energy_hartree < -2.5
 
     # Verify supported authentic hybrid B3LYP succeeds on H2O
     res_b3lyp = wf.single_point(h2o, method="b3lyp", basis="sto-3g", name="H2O_B3LYP")

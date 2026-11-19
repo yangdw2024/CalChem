@@ -6,6 +6,11 @@ __pycache__/
 *.egg-info/
 _dist/
 dist/
+build/
+target/
+scratch/
+test_cuda.lib
 .pytest_cache/
 _test_baseline/
 _build_temp/
+

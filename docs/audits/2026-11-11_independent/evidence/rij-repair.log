@@ -1,0 +1,14 @@
+   Compiling calchem-cuda v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-cuda)
+   Compiling calchem-int v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-int)
+   Compiling calchem-dft v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-dft)
+   Compiling calchem-scf v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-scf)
+   Compiling calchem-grad v0.2.0 (E:\YDW\Trae_Gaussian\crates\calchem-grad)
+    Finished `test` profile [optimized + debuginfo] target(s) in 12.10s
+     Running tests\density_fitting_scf.rs (build_target\runtime\round2_20261110\target\debug\deps\density_fitting_scf-e09dcf57250bd948.exe)
+
+running 2 tests
+test test_rij_density_fitting_rhf_and_uks_radical ... ok
+test test_rij_density_fitting_rks_pure_dft_and_b3lyp_on_water ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+

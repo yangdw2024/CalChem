@@ -1,4 +1,6 @@
-use calchem_basis::{ normalized_contraction, primitive_norm, BasisSet, Primitive, Shell, ShellType };
+use calchem_basis::{
+    normalized_contraction, primitive_norm, BasisSet, Primitive, Shell, ShellType,
+};
 use calchem_int::{
     compute_kinetic, compute_nuclear, compute_overlap, shell_kinetic_block, shell_nuclear_block,
     shell_overlap_block,
@@ -59,7 +61,11 @@ fn test_h2o_sto3g_one_electron_symmetry_and_reference() {
     assert!(v.sym_frobenius_error() < 1e-13);
 
     for i in 0..basis.n_ao {
-        assert!((s.get(i, i) - 1.0).abs() < 1e-13, "S[{i},{i}] = {}", s.get(i, i));
+        assert!(
+            (s.get(i, i) - 1.0).abs() < 1e-13,
+            "S[{i},{i}] = {}",
+            s.get(i, i)
+        );
         assert!(t.get(i, i) > 0.0, "T[{i},{i}] = {}", t.get(i, i));
         assert!(v.get(i, i) < 0.0, "V[{i},{i}] = {}", v.get(i, i));
     }

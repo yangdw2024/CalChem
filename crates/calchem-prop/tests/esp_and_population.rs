@@ -49,7 +49,10 @@ fn euler_characteristic(mesh: &IsosurfaceMesh) -> isize {
             *edges.entry((a.min(b), a.max(b))).or_insert(0) += 1;
         }
     }
-    assert!(edges.values().all(|&c| c == 2), "mesh must be a closed 2-manifold");
+    assert!(
+        edges.values().all(|&c| c == 2),
+        "mesh must be a closed 2-manifold"
+    );
     mesh.n_vertices() as isize - edges.len() as isize + mesh.n_triangles() as isize
 }
 
@@ -101,7 +104,10 @@ fn test_esp_matches_independent_nuclear_attraction_integrals_and_ecp_screening()
     .unwrap();
     // Perpendicular to the dipole axis the monopole/dipole terms vanish: only O(1/R^3) remains.
     for x in v {
-        assert!(x.abs() < 1e-4, "ECP far-field ESP must vanish for neutral HBr, got {x}");
+        assert!(
+            x.abs() < 1e-4,
+            "ECP far-field ESP must vanish for neutral HBr, got {x}"
+        );
     }
 }
 
@@ -129,9 +135,18 @@ fn test_esp_far_field_multipole_limits_neutral_dipole_and_cation_charge() {
     let e40 = rel_residual(40.0);
     let e80 = rel_residual(80.0);
     let e160 = rel_residual(160.0);
-    assert!(e160.abs() < 1e-3, "dipolar far field relative residual {e160:.3e} at R=160");
-    assert!((e40 / e80 - 4.0).abs() < 0.2, "octupole R^-2 scaling: {e40:.3e} / {e80:.3e}");
-    assert!((e80 / e160 - 4.0).abs() < 0.2, "octupole R^-2 scaling: {e80:.3e} / {e160:.3e}");
+    assert!(
+        e160.abs() < 1e-3,
+        "dipolar far field relative residual {e160:.3e} at R=160"
+    );
+    assert!(
+        (e40 / e80 - 4.0).abs() < 0.2,
+        "octupole R^-2 scaling: {e40:.3e} / {e80:.3e}"
+    );
+    assert!(
+        (e80 / e160 - 4.0).abs() < 0.2,
+        "octupole R^-2 scaling: {e80:.3e} / {e160:.3e}"
+    );
 
     // H2O+ (UHF doublet): symmetric part (V(+R n) + V(-R n)) / 2 = q / R + O(R^-3).
     let cat = water(1, 2);
@@ -150,7 +165,10 @@ fn test_esp_far_field_multipole_limits_neutral_dipole_and_cation_charge() {
     ];
     let v = compute_esp_at_points(&cat, &bs_c, &p_tot, &pts).unwrap();
     let q_eff = 0.5 * (v[0] + v[1]) * r;
-    assert!((q_eff - 1.0).abs() < 1e-3, "cation monopole q_eff = {q_eff}");
+    assert!(
+        (q_eff - 1.0).abs() < 1e-3,
+        "cation monopole q_eff = {q_eff}"
+    );
 
     // Grid ESP equals point ESP on identical points.
     let spec = GridSpec {
@@ -176,9 +194,15 @@ fn test_mulliken_lowdin_charges_conservation_symmetry_spin_and_ecp() {
     let wf = rhf(&mol, &bs, &ScfOptions::default()).unwrap();
     let pop = population_analysis(&mol, &bs, &wf.density_alpha, None).unwrap();
     for q in [&pop.mulliken_charges, &pop.lowdin_charges] {
-        assert!(q.iter().sum::<f64>().abs() < 1e-8, "charges must sum to 0: {q:?}");
+        assert!(
+            q.iter().sum::<f64>().abs() < 1e-8,
+            "charges must sum to 0: {q:?}"
+        );
         assert!(q[0] < -0.3, "O must be negative: {q:?}");
-        assert!(q[1] > 0.15 && (q[1] - q[2]).abs() < 1e-8, "H symmetric positive: {q:?}");
+        assert!(
+            q[1] > 0.15 && (q[1] - q[2]).abs() < 1e-8,
+            "H symmetric positive: {q:?}"
+        );
     }
     // Literature RHF/6-31G(d) Mulliken charge of O in water ~ -0.87 e.
     assert!((pop.mulliken_charges[0] + 0.87).abs() < 0.08);
@@ -188,13 +212,26 @@ fn test_mulliken_lowdin_charges_conservation_symmetry_spin_and_ecp() {
     let cat = water(1, 2);
     let bs_c = BasisSet::from_name("6-31g(d)", &cat).unwrap();
     let wf_c = uhf(&cat, &bs_c, &ScfOptions::default()).unwrap();
-    let p_tot: Vec<f64> = wf_c.density_alpha.iter().zip(&wf_c.density_beta).map(|(a, b)| a + b).collect();
-    let p_spin: Vec<f64> = wf_c.density_alpha.iter().zip(&wf_c.density_beta).map(|(a, b)| a - b).collect();
+    let p_tot: Vec<f64> = wf_c
+        .density_alpha
+        .iter()
+        .zip(&wf_c.density_beta)
+        .map(|(a, b)| a + b)
+        .collect();
+    let p_spin: Vec<f64> = wf_c
+        .density_alpha
+        .iter()
+        .zip(&wf_c.density_beta)
+        .map(|(a, b)| a - b)
+        .collect();
     let pc = population_analysis(&cat, &bs_c, &p_tot, Some(&p_spin)).unwrap();
     for q in [&pc.mulliken_charges, &pc.lowdin_charges] {
         assert!((q.iter().sum::<f64>() - 1.0).abs() < 1e-8);
     }
-    for s in [pc.mulliken_spin.as_ref().unwrap(), pc.lowdin_spin.as_ref().unwrap()] {
+    for s in [
+        pc.mulliken_spin.as_ref().unwrap(),
+        pc.lowdin_spin.as_ref().unwrap(),
+    ] {
         assert!((s.iter().sum::<f64>() - 1.0).abs() < 1e-8);
         // 1b1 hole is an O 2p_x lone pair: spin is localized on oxygen.
         assert!(s[0] > 0.8, "spin on O {s:?}");
@@ -227,8 +264,16 @@ fn test_water_esp_mapped_isodensity_surface_and_ccesp_roundtrip() {
     assert_eq!(euler_characteristic(&surf.mesh), 2);
     assert_eq!(surf.esp.len(), surf.mesh.n_vertices());
     // Water 0.001 a.u. surface: lone-pair minimum ~ -0.06 Eh/e, O-H hydrogen maximum ~ +0.07 Eh/e.
-    assert!(surf.esp_min < -0.03 && surf.esp_min > -0.12, "esp_min {}", surf.esp_min);
-    assert!(surf.esp_max > 0.04 && surf.esp_max < 0.15, "esp_max {}", surf.esp_max);
+    assert!(
+        surf.esp_min < -0.03 && surf.esp_min > -0.12,
+        "esp_min {}",
+        surf.esp_min
+    );
+    assert!(
+        surf.esp_max > 0.04 && surf.esp_max < 0.15,
+        "esp_max {}",
+        surf.esp_max
+    );
 
     let dist = |v: [f64; 3], a: usize| -> f64 {
         let p = mol.atoms[a].position_bohr;
@@ -241,12 +286,22 @@ fn test_water_esp_mapped_isodensity_surface_and_ccesp_roundtrip() {
             surf.mesh.vertices[3 * i + 2] as f64,
         ]
     };
-    let i_min = (0..surf.esp.len()).min_by(|&a, &b| surf.esp[a].total_cmp(&surf.esp[b])).unwrap();
-    let i_max = (0..surf.esp.len()).max_by(|&a, &b| surf.esp[a].total_cmp(&surf.esp[b])).unwrap();
+    let i_min = (0..surf.esp.len())
+        .min_by(|&a, &b| surf.esp[a].total_cmp(&surf.esp[b]))
+        .unwrap();
+    let i_max = (0..surf.esp.len())
+        .max_by(|&a, &b| surf.esp[a].total_cmp(&surf.esp[b]))
+        .unwrap();
     let vmin = vtx(i_min);
     let vmax = vtx(i_max);
-    assert!(dist(vmin, 0) < dist(vmin, 1).min(dist(vmin, 2)), "ESP minimum must sit on O side");
-    assert!(dist(vmax, 0) > dist(vmax, 1).min(dist(vmax, 2)), "ESP maximum must sit on H side");
+    assert!(
+        dist(vmin, 0) < dist(vmin, 1).min(dist(vmin, 2)),
+        "ESP minimum must sit on O side"
+    );
+    assert!(
+        dist(vmax, 0) > dist(vmax, 1).min(dist(vmax, 2)),
+        "ESP maximum must sit on H side"
+    );
 
     let packet = encode_esp_surface_binary(&surf);
     let back = decode_esp_surface_binary(&packet).unwrap();

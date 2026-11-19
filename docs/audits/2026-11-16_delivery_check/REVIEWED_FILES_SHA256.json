@@ -1,0 +1,50 @@
+[
+  {
+    "path": "crates/calchem-tensor/src/lib.rs",
+    "sha256": "33D4708B09CD651B89A7F22B566D518A2C137F6443A4136A1B99E9AA9D5B19A0"
+  },
+  {
+    "path": "crates/calchem-int/src/density_fitting.rs",
+    "sha256": "B470A580F7B0158688512F841131DB113E1763AB1F2E0F706059DC278B7B9EF0"
+  },
+  {
+    "path": "crates/calchem-dft/src/xc.rs",
+    "sha256": "B8606D3635DB995960CC60AB812BD1CE7CDCDEA9760D1C587D6F293E8C573D24"
+  },
+  {
+    "path": "crates/calchem-dft/src/grid.rs",
+    "sha256": "58ECD9C1224B4C84106B29569CA59CAA1D42EC8F66329C8B8CE1B033C1AA1643"
+  },
+  {
+    "path": "crates/calchem-dft/src/lebedev.rs",
+    "sha256": "9B9AA0F4797D9CEB81144609F0AF0ADA670FD4A6AA2E8D6D6C967F4A45D69FD7"
+  },
+  {
+    "path": "crates/calchem-py/src/lib.rs",
+    "sha256": "6A01998F3FAFF2DAE11D79141ECE5704532413BA99D34D953D6A865CEFBF6809"
+  },
+  {
+    "path": "crates/calchem-scf/tests/rij_precision_probe.rs",
+    "sha256": "E6C9717B20BFA1CDE2A2594463511462DE3339E52AA4B9025B3DEAD4918D230B"
+  },
+  {
+    "path": "crates/calchem-grad/tests/rij_provenance.rs",
+    "sha256": "5BFD42A7097E2A492D0580DB6F5D944297271955476D9D958CA1BDDA153FCE9D"
+  },
+  {
+    "path": "tests/unit/test_p6_opv_molecular_validation.py",
+    "sha256": "1533067DB2631597B518851C3688DA473B52C1580CEF5E0BDD2ABD6B8B8831C1"
+  },
+  {
+    "path": "docs/audits/2026-11-16_final_certification/cargo_full.log",
+    "sha256": "B7542159BBAC0DB2098B4CEACF8D71DAC8CB5F7EA1456888C7BDA1E49C19A88E"
+  },
+  {
+    "path": "docs/audits/2026-11-16_final_certification/pytest_full.log",
+    "sha256": "E91670001AA53917B83A702045E70D6FA968A7AE34B9011EE5DFEC32007B88AA"
+  },
+  {
+    "path": "docs/audits/2026-11-16_final_certification/cuda_full.log",
+    "sha256": "1D8B9B2326AC13881776BD69C5121A4CA382540A83E4072FF5CBC92F0F81BE47"
+  }
+]

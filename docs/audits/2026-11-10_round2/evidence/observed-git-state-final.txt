@@ -1,0 +1,2 @@
+1f90ec08bc35d84e5fc410894ec89266ec682307 2026-11-10T14:46:26+08:00 feat(npm): add @yangdw2024/calchem CLI wrapper and update audit tests
+27241364c81457cb387651616d347ef24992c6b8 2026-11-10T11:27:03+08:00 feat(core): release v0.2.0 - pure-rust quantum chemistry engine with hardened SCF DIIS, open-shell solvation, and TD-DFT

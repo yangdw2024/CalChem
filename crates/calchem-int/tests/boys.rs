@@ -54,7 +54,18 @@ fn test_boys_known_values_and_stability() {
 
 #[test]
 fn test_boys_batch_recurrence_consistency() {
-    for &t in &[1e-12_f64, 0.05, 1.2, 8.5, 18.0, 26.42683569, 29.34071349, 35.0, 42.0, 80.0] {
+    for &t in &[
+        1e-12_f64,
+        0.05,
+        1.2,
+        8.5,
+        18.0,
+        26.42683569,
+        29.34071349,
+        35.0,
+        42.0,
+        80.0,
+    ] {
         let mut out = [0.0; 9];
         boys_batch(8, t, &mut out);
         let exp_neg_t = (-t).exp();
@@ -79,7 +90,13 @@ fn test_boys_high_n_stability_audit_probe() {
     let t = 35.000001;
     let val = boys(n, t);
     let exact = 3.358514441274557e-18;
-    assert!(val > 0.0, "Boys function must always be strictly positive! Got {val}");
+    assert!(
+        val > 0.0,
+        "Boys function must always be strictly positive! Got {val}"
+    );
     let rel_err = (val - exact).abs() / exact;
-    assert!(rel_err < 1e-14, "n=128, t=35.000001: val={val:.16e}, exact={exact:.16e}, rel_err={rel_err:.2e}");
+    assert!(
+        rel_err < 1e-14,
+        "n=128, t=35.000001: val={val:.16e}, exact={exact:.16e}, rel_err={rel_err:.2e}"
+    );
 }

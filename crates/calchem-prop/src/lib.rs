@@ -80,11 +80,7 @@ pub fn auto_grid_for_molecule(
 }
 
 /// Computes the electric dipole moment vector (in Debye) and its magnitude (in Debye).
-pub fn compute_dipole(
-    mol: &Molecule,
-    basis: &BasisSet,
-    density_alpha: &[f64],
-) -> ([f64; 3], f64) {
+pub fn compute_dipole(mol: &Molecule, basis: &BasisSet, density_alpha: &[f64]) -> ([f64; 3], f64) {
     let n = basis.n_ao;
     let mut mu_elec = [0.0; 3];
 
@@ -396,54 +392,53 @@ pub fn compute_density_grid(
     let mut grid = vec![0.0f32; total_pts];
     let slice_len = ny * nx;
 
-    grid.par_chunks_mut(slice_len)
-        .enumerate()
-        .for_each_init(
-            || Vec::<(usize, f64)>::with_capacity(n_ao),
-            |active_aos, (iz, z_slice)| {
-                let z = origin[2] + (iz as f64) * spacing[2];
-                for iy in 0..ny {
-                    let y = origin[1] + (iy as f64) * spacing[1];
-                    let row_off = iy * nx;
-                    for ix in 0..nx {
-                        let x = origin[0] + (ix as f64) * spacing[0];
-                        active_aos.clear();
+    grid.par_chunks_mut(slice_len).enumerate().for_each_init(
+        || Vec::<(usize, f64)>::with_capacity(n_ao),
+        |active_aos, (iz, z_slice)| {
+            let z = origin[2] + (iz as f64) * spacing[2];
+            for iy in 0..ny {
+                let y = origin[1] + (iy as f64) * spacing[1];
+                let row_off = iy * nx;
+                for ix in 0..nx {
+                    let x = origin[0] + (ix as f64) * spacing[0];
+                    active_aos.clear();
 
-                        for sh in &shells {
-                            let dx = x - sh.center[0];
-                            let dy = y - sh.center[1];
-                            let dz = z - sh.center[2];
-                            let r2 = dx * dx + dy * dy + dz * dz;
-                            if r2 > sh.r2_cutoff {
-                                continue;
-                            }
-                            let radial = sh.eval_radial(r2);
-                            if radial.abs() < 1e-18 {
-                                continue;
-                            }
-                            for (ic, &c) in sh.comps.iter().enumerate() {
-                                let phi = radial * sh.comp_scales[ic] * cartesian_monomial(dx, dy, dz, c);
-                                if phi.abs() >= 1e-15 {
-                                    active_aos.push((sh.ao_offset + ic, phi));
-                                }
+                    for sh in &shells {
+                        let dx = x - sh.center[0];
+                        let dy = y - sh.center[1];
+                        let dz = z - sh.center[2];
+                        let r2 = dx * dx + dy * dy + dz * dz;
+                        if r2 > sh.r2_cutoff {
+                            continue;
+                        }
+                        let radial = sh.eval_radial(r2);
+                        if radial.abs() < 1e-18 {
+                            continue;
+                        }
+                        for (ic, &c) in sh.comps.iter().enumerate() {
+                            let phi =
+                                radial * sh.comp_scales[ic] * cartesian_monomial(dx, dy, dz, c);
+                            if phi.abs() >= 1e-15 {
+                                active_aos.push((sh.ao_offset + ic, phi));
                             }
                         }
-
-                        let mut rho = 0.0f64;
-                        for (a_idx, &(mu, phi_mu)) in active_aos.iter().enumerate() {
-                            rho += density_matrix[mu * n_ao + mu] * phi_mu * phi_mu;
-                            for &(nu, phi_nu) in &active_aos[(a_idx + 1)..] {
-                                let p_sym =
-                                    density_matrix[mu * n_ao + nu] + density_matrix[nu * n_ao + mu];
-                                rho += p_sym * phi_mu * phi_nu;
-                            }
-                        }
-
-                        z_slice[row_off + ix] = rho as f32;
                     }
+
+                    let mut rho = 0.0f64;
+                    for (a_idx, &(mu, phi_mu)) in active_aos.iter().enumerate() {
+                        rho += density_matrix[mu * n_ao + mu] * phi_mu * phi_mu;
+                        for &(nu, phi_nu) in &active_aos[(a_idx + 1)..] {
+                            let p_sym =
+                                density_matrix[mu * n_ao + nu] + density_matrix[nu * n_ao + mu];
+                            rho += p_sym * phi_mu * phi_nu;
+                        }
+                    }
+
+                    z_slice[row_off + ix] = rho as f32;
                 }
-            },
-        );
+            }
+        },
+    );
 
     Ok(grid)
 }
@@ -483,7 +478,11 @@ pub fn format_gaussian_cube(
 
     // Preallocate ~15 bytes per scalar value + header.
     let mut out = String::with_capacity(256 + mol.atoms.len() * 64 + total_pts * 15);
-    let _ = writeln!(out, "{}", clean_line(comment1, "Generated by CalChem Rust Core"));
+    let _ = writeln!(
+        out,
+        "{}",
+        clean_line(comment1, "Generated by CalChem Rust Core")
+    );
     let _ = writeln!(
         out,
         "{}",
@@ -497,9 +496,21 @@ pub fn format_gaussian_cube(
         origin_bohr[1],
         origin_bohr[2]
     );
-    let _ = writeln!(out, "{:5} {:12.6} {:12.6} {:12.6}", nx, spacing_bohr[0], 0.0, 0.0);
-    let _ = writeln!(out, "{:5} {:12.6} {:12.6} {:12.6}", ny, 0.0, spacing_bohr[1], 0.0);
-    let _ = writeln!(out, "{:5} {:12.6} {:12.6} {:12.6}", nz, 0.0, 0.0, spacing_bohr[2]);
+    let _ = writeln!(
+        out,
+        "{:5} {:12.6} {:12.6} {:12.6}",
+        nx, spacing_bohr[0], 0.0, 0.0
+    );
+    let _ = writeln!(
+        out,
+        "{:5} {:12.6} {:12.6} {:12.6}",
+        ny, 0.0, spacing_bohr[1], 0.0
+    );
+    let _ = writeln!(
+        out,
+        "{:5} {:12.6} {:12.6} {:12.6}",
+        nz, 0.0, 0.0, spacing_bohr[2]
+    );
 
     for (idx, atom) in mol.atoms.iter().enumerate() {
         let z_charge = basis
@@ -572,13 +583,17 @@ pub fn parse_gaussian_cube(cube_text: &str) -> Result<(Molecule, GridSpec, Vec<f
             .ok_or_else(|| CalcError::InvalidMolecule("Missing cube axis line".into()))?;
         let pa: Vec<&str> = ax_line.split_whitespace().collect();
         if pa.len() < 4 {
-            return Err(CalcError::InvalidMolecule("Malformed cube axis line".into()));
+            return Err(CalcError::InvalidMolecule(
+                "Malformed cube axis line".into(),
+            ));
         }
         let n_signed: isize = pa[0]
             .parse()
             .map_err(|_| CalcError::InvalidMolecule("Invalid grid count in cube".into()))?;
         if n_signed == 0 {
-            return Err(CalcError::InvalidMolecule("Cube grid count cannot be 0".into()));
+            return Err(CalcError::InvalidMolecule(
+                "Cube grid count cannot be 0".into(),
+            ));
         }
         if n_signed < 0 {
             axis_in_angstrom = true;
@@ -607,7 +622,9 @@ pub fn parse_gaussian_cube(cube_text: &str) -> Result<(Molecule, GridSpec, Vec<f
             .ok_or_else(|| CalcError::InvalidMolecule("Truncated atom list in cube".into()))?;
         let pa: Vec<&str> = aline.split_whitespace().collect();
         if pa.len() < 5 {
-            return Err(CalcError::InvalidMolecule("Malformed atom line in cube".into()));
+            return Err(CalcError::InvalidMolecule(
+                "Malformed atom line in cube".into(),
+            ));
         }
         let z: u8 = pa[0]
             .parse()
@@ -615,9 +632,9 @@ pub fn parse_gaussian_cube(cube_text: &str) -> Result<(Molecule, GridSpec, Vec<f
         let sym = calchem_model::symbol_from_atomic_number(z)?;
         let mut pos = [0.0f64; 3];
         for q in 0..3 {
-            pos[q] = pa[q + 2]
-                .parse()
-                .map_err(|_| CalcError::InvalidMolecule("Invalid atom coordinate in cube".into()))?;
+            pos[q] = pa[q + 2].parse().map_err(|_| {
+                CalcError::InvalidMolecule("Invalid atom coordinate in cube".into())
+            })?;
             if axis_in_angstrom {
                 pos[q] *= ANGSTROM_TO_BOHR;
             }
@@ -648,9 +665,9 @@ pub fn parse_gaussian_cube(cube_text: &str) -> Result<(Molecule, GridSpec, Vec<f
     let mut vals_xyz = Vec::with_capacity(total_pts);
     for line in lines {
         for tok in line.split_whitespace() {
-            let v: f32 = tok
-                .parse()
-                .map_err(|_| CalcError::InvalidMolecule(format!("Invalid float '{tok}' in cube")))?;
+            let v: f32 = tok.parse().map_err(|_| {
+                CalcError::InvalidMolecule(format!("Invalid float '{tok}' in cube"))
+            })?;
             vals_xyz.push(v);
         }
     }
