@@ -544,3 +544,168 @@ pub fn eri_derivative_quartet_with_omega(
 
     out
 }
+
+/// Evaluates and contracts the 4-center ERI nuclear derivatives for all 4 shell centers (A, B, C, D)
+/// and all 3 Cartesian axes in a SINGLE primitive + Boys + VRR pass, using translational invariance
+/// `dD = -(dA + dB + dC)`. Returns `[[d/dx, d/dy, d/dz]; 4]` for shells `[A, B, C, D]`.
+pub fn contract_eri_derivative_quartet_all_centers(
+    shells: [&Shell; 4],
+    ao_weights: &[f64],
+    omega: Option<f64>,
+) -> [[f64; 3]; 4] {
+    let [sh_a, sh_b, sh_c, sh_d] = shells;
+    let atom_a = sh_a.atom_index;
+    let atom_b = sh_b.atom_index;
+    let atom_c = sh_c.atom_index;
+    let atom_d = sh_d.atom_index;
+    if atom_a == atom_b && atom_b == atom_c && atom_c == atom_d {
+        return [[0.0; 3]; 4];
+    }
+
+    let comps_a = sh_a.components();
+    let comps_b = sh_b.components();
+    let comps_c = sh_c.components();
+    let comps_d = sh_d.components();
+    let na = comps_a.len();
+    let nb = comps_b.len();
+    let nc = comps_c.len();
+    let nd = comps_d.len();
+
+    // Only differentiate centers distinct from D; D is recovered via translational invariance!
+    let need_a = atom_a != atom_d;
+    let need_b = atom_b != atom_d;
+    let need_c = atom_c != atom_d;
+
+    let max_ab = (sh_a.shell_type.angular_momentum() + sh_b.shell_type.angular_momentum()) as usize
+        + if need_a || need_b { 1 } else { 0 };
+    let max_cd = (sh_c.shell_type.angular_momentum() + sh_d.shell_type.angular_momentum()) as usize
+        + if need_c { 1 } else { 0 };
+
+    let r_ab2 = (sh_a.center[0] - sh_b.center[0]).powi(2)
+        + (sh_a.center[1] - sh_b.center[1]).powi(2)
+        + (sh_a.center[2] - sh_b.center[2]).powi(2);
+    let r_cd2 = (sh_c.center[0] - sh_d.center[0]).powi(2)
+        + (sh_c.center[1] - sh_d.center[1]).powi(2)
+        + (sh_c.center[2] - sh_d.center[2]).powi(2);
+
+    // Precompute active AO quartet entries (skip exact zeros in ao_weights)
+    let mut active_indices: Vec<(usize, usize, usize, usize, f64)> = Vec::new();
+    for ia in 0..na {
+        for ib in 0..nb {
+            for ic in 0..nc {
+                for id in 0..nd {
+                    let w = ao_weights[((ia * nb + ib) * nc + ic) * nd + id];
+                    if w.abs() > 1e-18 {
+                        active_indices.push((ia, ib, ic, id, w));
+                    }
+                }
+            }
+        }
+    }
+    if active_indices.is_empty() {
+        return [[0.0; 3]; 4];
+    }
+
+    let mut grad_a = [0.0f64; 3];
+    let mut grad_b = [0.0f64; 3];
+    let mut grad_c = [0.0f64; 3];
+
+    for (pa_idx, pa) in sh_a.primitives.iter().enumerate() {
+        let two_ea = 2.0 * pa.exponent;
+        for (pb_idx, pb) in sh_b.primitives.iter().enumerate() {
+            let p_ab = pa.exponent + pb.exponent;
+            let k_ab = (-pa.exponent * pb.exponent / p_ab * r_ab2).exp();
+            if k_ab < 1e-16 {
+                continue;
+            }
+            let two_eb = 2.0 * pb.exponent;
+            let c_ab = pa.coeff * pb.coeff;
+            for (pc_idx, pc) in sh_c.primitives.iter().enumerate() {
+                let two_ec = 2.0 * pc.exponent;
+                for (pd_idx, pd) in sh_d.primitives.iter().enumerate() {
+                    let p_cd = pc.exponent + pd.exponent;
+                    let k_cd = (-pc.exponent * pd.exponent / p_cd * r_cd2).exp();
+                    if k_ab * k_cd < 1e-18 {
+                        continue;
+                    }
+                    let c_abcd = c_ab * pc.coeff * pd.coeff;
+                    let mut rec = EriPairData::new_with_omega(
+                        pa.exponent,
+                        sh_a.center,
+                        pb.exponent,
+                        sh_b.center,
+                        pc.exponent,
+                        sh_c.center,
+                        pd.exponent,
+                        sh_d.center,
+                        max_ab,
+                        max_cd,
+                        omega,
+                    );
+
+                    for &(ia, ib, ic, id, w_ao) in &active_indices {
+                        let ca = comps_a[ia];
+                        let cb = comps_b[ib];
+                        let cc = comps_c[ic];
+                        let cd = comps_d[id];
+                        let weight = w_ao
+                            * c_abcd
+                            * sh_a.primitive_norm_for(pa_idx, ca)
+                            * sh_b.primitive_norm_for(pb_idx, cb)
+                            * sh_c.primitive_norm_for(pc_idx, cc)
+                            * sh_d.primitive_norm_for(pd_idx, cd);
+
+                        if need_a {
+                            for axis in 0..3 {
+                                let mut ca_p = ca;
+                                ca_p[axis] += 1;
+                                let mut d_val = two_ea * rec.hrr_bra(ca_p, cb, cc, cd);
+                                if ca[axis] > 0 {
+                                    let mut ca_m = ca;
+                                    ca_m[axis] -= 1;
+                                    d_val -= (ca[axis] as f64) * rec.hrr_bra(ca_m, cb, cc, cd);
+                                }
+                                grad_a[axis] += weight * d_val;
+                            }
+                        }
+
+                        if need_b {
+                            for axis in 0..3 {
+                                let mut cb_p = cb;
+                                cb_p[axis] += 1;
+                                let mut d_val = two_eb * rec.hrr_bra(ca, cb_p, cc, cd);
+                                if cb[axis] > 0 {
+                                    let mut cb_m = cb;
+                                    cb_m[axis] -= 1;
+                                    d_val -= (cb[axis] as f64) * rec.hrr_bra(ca, cb_m, cc, cd);
+                                }
+                                grad_b[axis] += weight * d_val;
+                            }
+                        }
+
+                        if need_c {
+                            for axis in 0..3 {
+                                let mut cc_p = cc;
+                                cc_p[axis] += 1;
+                                let mut d_val = two_ec * rec.hrr_bra(ca, cb, cc_p, cd);
+                                if cc[axis] > 0 {
+                                    let mut cc_m = cc;
+                                    cc_m[axis] -= 1;
+                                    d_val -= (cc[axis] as f64) * rec.hrr_bra(ca, cb, cc_m, cd);
+                                }
+                                grad_c[axis] += weight * d_val;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let grad_d = [
+        -(grad_a[0] + grad_b[0] + grad_c[0]),
+        -(grad_a[1] + grad_b[1] + grad_c[1]),
+        -(grad_a[2] + grad_b[2] + grad_c[2]),
+    ];
+    [grad_a, grad_b, grad_c, grad_d]
+}

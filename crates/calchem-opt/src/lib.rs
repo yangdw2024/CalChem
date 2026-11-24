@@ -1,8 +1,6 @@
 use calchem_basis::BasisSet;
-use calchem_dft::{GridLevel, MolecularGrid, XcFunctional};
-use calchem_grad::{rhf_gradient, rks_gradient_with_grid, uhf_gradient, uks_gradient_with_grid};
+use calchem_dft::{GridLevel, XcFunctional};
 use calchem_model::{CalcError, Molecule, ScfOptions};
-use calchem_scf::{rhf, rks_with_grid, uhf, uks_with_grid};
 use calchem_tensor::Matrix2D;
 use serde::{Deserialize, Serialize};
 
@@ -69,56 +67,16 @@ impl Reference {
     }
 }
 
-pub(crate) fn scf_energy(
-    mol: &Molecule,
-    bs: &BasisSet,
-    r: Reference,
-    grid_level: GridLevel,
-    o: &ScfOptions,
-) -> Result<f64, CalcError> {
-    match r.resolve(mol) {
-        Reference::Uhf => Ok(uhf(mol, bs, o)?.total_energy_hartree),
-        Reference::Rhf | Reference::Auto => Ok(rhf(mol, bs, o)?.total_energy_hartree),
-        Reference::Rks(xc) => {
-            let grid = MolecularGrid::build_for_basis(mol, bs, grid_level);
-            Ok(rks_with_grid(mol, bs, xc, &grid, o)?.total_energy_hartree)
-        }
-        Reference::Uks(xc) | Reference::DftAuto(xc) => {
-            let grid = MolecularGrid::build_for_basis(mol, bs, grid_level);
-            Ok(uks_with_grid(mol, bs, xc, &grid, o)?.total_energy_hartree)
-        }
-    }
+mod point;
+pub use point::GasPoint;
+
+pub(crate) fn scf_energy(mol: &Molecule, bs: &BasisSet, r: Reference, grid: GridLevel, opts: &ScfOptions) -> Result<f64, CalcError> {
+    Ok(GasPoint::solve(mol, bs, r, grid, opts)?.energy())
 }
 
-pub fn scf_energy_gradient(
-    mol: &Molecule,
-    bs: &BasisSet,
-    r: Reference,
-    grid_level: GridLevel,
-    o: &ScfOptions,
-) -> Result<(f64, Vec<[f64; 3]>), CalcError> {
-    match r.resolve(mol) {
-        Reference::Uhf => {
-            let wf = uhf(mol, bs, o)?;
-            Ok((wf.total_energy_hartree, uhf_gradient(mol, bs, &wf)?))
-        }
-        Reference::Rhf | Reference::Auto => {
-            let wf = rhf(mol, bs, o)?;
-            Ok((wf.total_energy_hartree, rhf_gradient(mol, bs, &wf)?))
-        }
-        Reference::Rks(xc) => {
-            let grid = MolecularGrid::build_for_basis(mol, bs, grid_level);
-            let wf = rks_with_grid(mol, bs, xc, &grid, o)?;
-            let g = rks_gradient_with_grid(mol, bs, xc, &grid, &wf)?;
-            Ok((wf.total_energy_hartree, g))
-        }
-        Reference::Uks(xc) | Reference::DftAuto(xc) => {
-            let grid = MolecularGrid::build_for_basis(mol, bs, grid_level);
-            let wf = uks_with_grid(mol, bs, xc, &grid, o)?;
-            let g = uks_gradient_with_grid(mol, bs, xc, &grid, &wf)?;
-            Ok((wf.total_energy_hartree, g))
-        }
-    }
+pub fn scf_energy_gradient(mol: &Molecule, bs: &BasisSet, r: Reference, grid: GridLevel, opts: &ScfOptions) -> Result<(f64, Vec<[f64; 3]>), CalcError> {
+    let point = GasPoint::solve(mol, bs, r, grid, opts)?;
+    Ok((point.energy(), point.gradient(mol, bs)?))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -232,20 +190,7 @@ fn dispersion_model(opts: &OptOptions) -> Result<calchem_dft::D3Model, CalcError
         Reference::Rks(xc) | Reference::Uks(xc) | Reference::DftAuto(xc) => xc.canonical_name(),
         _ => "hf",
     };
-    match opts
-        .dispersion
-        .as_deref()
-        .unwrap_or("")
-        .trim()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "bj" | "d3bj" | "d3(bj)" => calchem_dft::D3Model::d3bj(functional),
-        "zero" | "d3zero" | "d3(0)" => calchem_dft::D3Model::d3zero(functional),
-        _ => Err(CalcError::UnsupportedMethod(
-            "Unknown D3 damping scheme".into(),
-        )),
-    }
+    calchem_dft::D3Model::from_scheme(opts.dispersion.as_deref().unwrap_or(""), functional)
 }
 
 fn solvent_total_energy(
@@ -286,10 +231,18 @@ pub struct OptStep {
     pub max_force: f64,
     pub rms_force: f64,
     pub max_displacement: f64,
+    #[serde(default)]
+    pub scf_iterations: usize,
+    #[serde(default)]
+    pub line_search_trials: usize,
+    #[serde(default)]
+    pub step_alpha: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptResult {
+    #[serde(default)]
+    pub final_scf: Option<calchem_model::ScfSummary>,
     pub molecule: Molecule,
     pub energy_hartree: f64,
     pub gradient: Vec<[f64; 3]>,
@@ -347,57 +300,114 @@ pub fn optimize_geometry(
     Ok(res.molecule)
 }
 
-/// Optimizes molecular geometry with custom optimizer options.
-pub fn optimize_geometry_with_options(
-    mol: &Molecule,
-    basis_name: &str,
-    opts: &OptOptions,
-) -> Result<OptResult, CalcError> {
-    let n_atoms = mol.atoms.len();
-    if n_atoms == 0 {
-        return Err(CalcError::InvalidMolecule("No atoms in molecule".into()));
+/// Restart state immediately after an accepted step, before evaluating the next direction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptCheckpoint {
+    pub molecule: Molecule,
+    pub inverse_hessian: Vec<f64>,
+    pub history: Vec<OptStep>,
+    pub gradient: Vec<[f64; 3]>,
+    pub final_scf: Option<calchem_model::ScfSummary>,
+}
+
+pub trait OptObserver {
+    fn step(&mut self, _mol: &Molecule, _h: &Matrix2D, _history: &[OptStep], _gradient: &[[f64; 3]], _scf: Option<&calchem_model::ScfSummary>) -> Result<(), CalcError> { Ok(()) }
+    fn trial(&mut self, _step: usize, _attempt: usize, _alpha: f64, _energy: Result<f64, &CalcError>, _accepted: bool) {}
+}
+impl OptObserver for () {}
+
+struct TrialPoint {
+    basis: BasisSet,
+    gas: Option<GasPoint>,
+    energy: f64,
+}
+
+impl TrialPoint {
+    fn solve(
+        mol: &Molecule,
+        basis_name: &str,
+        opts: &OptOptions,
+        guess: Option<&calchem_scf::InitialGuess>,
+    ) -> Result<Self, CalcError> {
+        let basis = BasisSet::from_name(basis_name, mol)?;
+        let gas = if opts.solvent.is_none() {
+            Some(GasPoint::solve_with_guess(mol, &basis, opts.reference, opts.grid_level, &opts.scf_options, guess)?)
+        } else { None };
+        let mut energy = match &gas {
+            Some(g) => g.energy(),
+            None => solvent_total_energy(mol, &basis, opts)?,
+        };
+        if opts.dispersion.is_some() { energy += dispersion_model(opts)?.energy(&mol.atoms)?; }
+        Ok(Self { basis, gas, energy })
     }
 
-    if n_atoms == 1 {
-        let bs = BasisSet::from_name(basis_name, mol)?;
-        let e = scf_energy(mol, &bs, opts.reference, opts.grid_level, &opts.scf_options)?;
-        return Ok(OptResult {
-            molecule: mol.clone(),
-            energy_hartree: e,
-            gradient: vec![[0.0, 0.0, 0.0]],
-            steps: 0,
-            converged: true,
-            history: vec![OptStep {
-                step: 0,
-                energy_hartree: e,
-                max_force: 0.0,
-                rms_force: 0.0,
-                max_displacement: 0.0,
-            }],
-        });
+    fn derivatives(self, mol: &Molecule, opts: &OptOptions) -> Result<(f64, Vec<[f64; 3]>, Option<calchem_model::ScfSummary>, Option<calchem_scf::InitialGuess>), CalcError> {
+        if let Some(gas) = self.gas {
+            let guess = Some(gas.mo_guess());
+            let mut g = gas.gradient(mol, &self.basis)?;
+            if opts.dispersion.is_some() { dispersion_model(opts)?.add_gradient(&mol.atoms, &mut g)?; }
+            Ok((self.energy, g, Some(gas.summary()), guess))
+        } else {
+            let (e, g) = scf_energy_gradient_with_options(mol, &self.basis, opts)?;
+            Ok((e, g, None, None))
+        }
+    }
+}
+
+pub fn optimize_geometry_with_options(mol: &Molecule, basis_name: &str, opts: &OptOptions) -> Result<OptResult, CalcError> {
+    optimize_geometry_observed(mol, basis_name, opts, None, &mut ())
+}
+
+pub fn optimize_geometry_observed(
+    mol: &Molecule, basis_name: &str, opts: &OptOptions, resume: Option<OptCheckpoint>, observer: &mut impl OptObserver,
+) -> Result<OptResult, CalcError> {
+    let n_atoms = mol.atoms.len();
+    if n_atoms == 0 { return Err(CalcError::InvalidMolecule("No atoms in molecule".into())); }
+    if [opts.max_force, opts.rms_force, opts.max_displacement, opts.max_step_bohr].iter().any(|v| !v.is_finite() || *v <= 0.0)
+        || !(0.0 < opts.c1 && opts.c1 < 1.0 && 0.0 < opts.backtrack_factor && opts.backtrack_factor < 1.0)
+        || opts.max_line_searches == 0 {
+        return Err(CalcError::InvalidMolecule("Invalid optimizer thresholds or line search limits".into()));
     }
 
     let dim = n_atoms * 3;
     let mut x = coords_from_mol(mol);
-
     let mut h_inv = Matrix2D::zeros(dim, dim);
-    for i in 0..dim {
-        h_inv.set(i, i, 0.7);
-    }
-
+    for i in 0..dim { h_inv.set(i, i, 0.7); }
     let mut history = Vec::new();
     let mut last_displacement = 0.0;
-    let mut cached_eg: Option<(f64, Vec<[f64; 3]>)> = None;
-
-    for step in 0..=opts.max_steps {
+    let mut last_ls_trials = 0usize;
+    let mut last_alpha = 0.0f64;
+    let mut cached_eg = None;
+    let mut prev_guess: Option<calchem_scf::InitialGuess> = None;
+    let mut first_step = 0;
+    if let Some(restart) = resume {
+        let last = restart.history.last().ok_or_else(|| CalcError::InvalidMolecule("Empty optimizer checkpoint".into()))?;
+        if restart.molecule.atoms.len() != n_atoms || restart.gradient.len() != n_atoms || restart.inverse_hessian.len() != dim * dim
+            || restart.molecule.charge != mol.charge || restart.molecule.multiplicity != mol.multiplicity
+            || !restart.molecule.atoms.iter().zip(&mol.atoms).all(|(a,b)| a.z == b.z && a.symbol == b.symbol && a.position_bohr.iter().all(|x| x.is_finite()))
+            || restart.gradient.iter().flatten().chain(&restart.inverse_hessian).any(|v| !v.is_finite())
+            || !last.energy_hartree.is_finite() || last.step > opts.max_steps || last.step != restart.history.len() - 1 {
+            return Err(CalcError::InvalidMolecule("Incompatible optimizer checkpoint".into()));
+        }
+        first_step = last.step;
+        last_displacement = last.max_displacement;
+        last_ls_trials = last.line_search_trials;
+        last_alpha = last.step_alpha;
+        cached_eg = Some((last.energy_hartree, restart.gradient, restart.final_scf, None));
+        history = restart.history;
+        history.pop();
+        x = coords_from_mol(&restart.molecule);
+        h_inv.data = restart.inverse_hessian;
+    }
+    for step in first_step..=opts.max_steps {
         let cur_mol = mol_with_coords(mol, &x);
-        let (current_e, current_g_3d) = if let Some(eg) = cached_eg.take() {
-            eg
-        } else {
-            let cur_basis = BasisSet::from_name(basis_name, &cur_mol)?;
-            scf_energy_gradient_with_options(&cur_mol, &cur_basis, opts)?
+        let (current_e, current_g_3d, final_scf, step_guess) = match cached_eg.take() {
+            Some(eg) => eg,
+            None => TrialPoint::solve(&cur_mol, basis_name, opts, prev_guess.as_ref())?.derivatives(&cur_mol, opts)?,
         };
-
+        if step_guess.is_some() {
+            prev_guess = step_guess;
+        }
         let mut g = Vec::with_capacity(dim);
         for atom_g in &current_g_3d {
             g.extend_from_slice(atom_g);
@@ -413,24 +423,16 @@ pub fn optimize_geometry_with_options(
             max_force,
             rms_force,
             max_displacement: last_displacement,
+            scf_iterations: final_scf.as_ref().map(|s| s.iterations).unwrap_or(0),
+            line_search_trials: last_ls_trials,
+            step_alpha: last_alpha,
         });
 
-        if step == 0 {
-            if max_force < opts.max_force && rms_force < opts.rms_force {
-                return Ok(OptResult {
-                    molecule: cur_mol,
-                    energy_hartree: current_e,
-                    gradient: current_g_3d,
-                    steps: step,
-                    converged: true,
-                    history,
-                });
-            }
-        } else if max_force < opts.max_force
-            && rms_force < opts.rms_force
-            && last_displacement < opts.max_displacement
-        {
+        observer.step(&cur_mol, &h_inv, &history, &current_g_3d, final_scf.as_ref())?;
+        if max_force < opts.max_force && rms_force < opts.rms_force
+            && (step == 0 || last_displacement < opts.max_displacement) {
             return Ok(OptResult {
+                final_scf,
                 molecule: cur_mol,
                 energy_hartree: current_e,
                 gradient: current_g_3d,
@@ -441,7 +443,7 @@ pub fn optimize_geometry_with_options(
         }
 
         if step == opts.max_steps {
-            break;
+            return Err(CalcError::Internal(format!("Geometry optimization reached step limit {step} (max_force={max_force:.6e}, rms_force={rms_force:.6e}, displacement={last_displacement:.6e})")));
         }
 
         let mut p = mat_vec_mul(&h_inv, &g);
@@ -470,27 +472,34 @@ pub fn optimize_geometry_with_options(
         }
 
         let mut alpha = 1.0;
-        let mut accepted = false;
+        let mut accepted = None;
+        let mut ls_trials_used = 0usize;
+        let mut accepted_alpha = 0.0f64;
         let mut x_new = x.clone();
 
-        for _ls in 0..opts.max_line_searches {
+        for ls in 0..opts.max_line_searches {
+            ls_trials_used = ls + 1;
             for i in 0..dim {
                 x_new[i] = x[i] + alpha * p[i];
             }
 
             let trial_mol = mol_with_coords(mol, &x_new);
-            if let Ok(trial_bs) = BasisSet::from_name(basis_name, &trial_mol) {
-                if let Ok(e_trial) = scf_energy_with_options(&trial_mol, &trial_bs, opts) {
-                    if e_trial <= current_e + opts.c1 * alpha * g_dot_p {
-                        accepted = true;
-                        break;
-                    }
+            let trial = TrialPoint::solve(&trial_mol, basis_name, opts, prev_guess.as_ref());
+            let ok = trial.as_ref().is_ok_and(|t| t.energy <= current_e + opts.c1 * alpha * g_dot_p);
+            observer.trial(step, ls + 1, alpha, trial.as_ref().map(|p| p.energy), ok);
+            match trial {
+                Ok(t) if ok => {
+                    accepted_alpha = alpha;
+                    accepted = Some(t);
+                    break;
                 }
+                Ok(_) | Err(CalcError::NotConverged { .. }) => {}
+                Err(e) => return Err(e),
             }
             alpha *= opts.backtrack_factor;
         }
 
-        if !accepted {
+        if accepted.is_none() {
             let mut is_diagonal = true;
             for i in 0..dim {
                 for j in 0..dim {
@@ -511,20 +520,25 @@ pub fn optimize_geometry_with_options(
                     }
                 }
                 let small_step = 0.05;
+                ls_trials_used = opts.max_line_searches + 1;
                 for i in 0..dim {
                     x_new[i] = x[i] - small_step * g[i];
                 }
                 let trial_mol = mol_with_coords(mol, &x_new);
-                if let Ok(trial_bs) = BasisSet::from_name(basis_name, &trial_mol) {
-                    if let Ok(e_trial) = scf_energy_with_options(&trial_mol, &trial_bs, opts) {
-                        if e_trial <= current_e {
-                            accepted = true;
-                        }
+                let trial = TrialPoint::solve(&trial_mol, basis_name, opts, prev_guess.as_ref());
+                let ok = trial.as_ref().is_ok_and(|p| p.energy <= current_e);
+                observer.trial(step, ls_trials_used, small_step, trial.as_ref().map(|p| p.energy), ok);
+                match trial {
+                    Ok(t) if ok => {
+                        accepted_alpha = small_step;
+                        accepted = Some(t);
                     }
+                    Ok(_) | Err(CalcError::NotConverged { .. }) => {}
+                    Err(e) => return Err(e),
                 }
             }
 
-            if !accepted {
+            if accepted.is_none() {
                 return Err(CalcError::Internal(format!(
                     "Geometry optimization line search stalled at step {step}"
                 )));
@@ -547,15 +561,16 @@ pub fn optimize_geometry_with_options(
             }
         }
         last_displacement = max_atom_disp;
+        last_ls_trials = ls_trials_used;
+        last_alpha = accepted_alpha;
 
         let new_mol = mol_with_coords(mol, &x_new);
-        let new_bs = BasisSet::from_name(basis_name, &new_mol)?;
-        let (new_e, new_g_3d) = scf_energy_gradient_with_options(&new_mol, &new_bs, opts)?;
+        let (new_e, new_g_3d, scf, new_guess) = accepted.ok_or_else(|| CalcError::Internal("Missing accepted trial".into()))?.derivatives(&new_mol, opts)?;
         let mut g_new = Vec::with_capacity(dim);
         for ag in &new_g_3d {
             g_new.extend_from_slice(ag);
         }
-        cached_eg = Some((new_e, new_g_3d));
+        cached_eg = Some((new_e, new_g_3d, scf, new_guess));
 
         let mut y = vec![0.0; dim];
         for i in 0..dim {
@@ -566,36 +581,16 @@ pub fn optimize_geometry_with_options(
         if s_dot_y > 1e-10 {
             let rho = 1.0 / s_dot_y;
 
-            let mut v = Matrix2D::zeros(dim, dim);
+            // Symmetric rank-two inverse BFGS update, O((3N)^2).
+            let hy = mat_vec_mul(&h_inv, &y);
+            let coeff = rho * (1.0 + rho * dot_prod(&y, &hy));
             for i in 0..dim {
-                for j in 0..dim {
-                    let delta_ij = if i == j { 1.0 } else { 0.0 };
-                    v.set(i, j, delta_ij - rho * s[i] * y[j]);
+                for j in 0..=i {
+                    let next = h_inv.get(i,j) + coeff * s[i] * s[j] - rho * (hy[i]*s[j] + s[i]*hy[j]);
+                    h_inv.set(i,j,next);
+                    h_inv.set(j,i,next);
                 }
             }
-
-            let mut temp = Matrix2D::zeros(dim, dim);
-            for i in 0..dim {
-                for j in 0..dim {
-                    let mut sum = 0.0;
-                    for k in 0..dim {
-                        sum += v.get(i, k) * h_inv.get(k, j);
-                    }
-                    temp.set(i, j, sum);
-                }
-            }
-
-            let mut h_next = Matrix2D::zeros(dim, dim);
-            for i in 0..dim {
-                for j in 0..dim {
-                    let mut sum = 0.0;
-                    for k in 0..dim {
-                        sum += temp.get(i, k) * v.get(j, k);
-                    }
-                    h_next.set(i, j, sum + rho * s[i] * s[j]);
-                }
-            }
-            h_inv = h_next;
         } else {
             for i in 0..dim {
                 for j in 0..dim {

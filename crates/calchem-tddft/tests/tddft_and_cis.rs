@@ -577,3 +577,47 @@ fn test_spectroscopy_benchmarks_ethylene_formaldehyde_ecp_and_uv_vis() {
         expected_peak_nm
     );
 }
+
+#[test]
+fn test_direct_tddft_matches_stored_tda_and_rpa_b3lyp_and_camb3lyp() {
+    let mol = water_mol([0.0, 0.0, 0.0]);
+    let bs = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+
+    for (xc, tda, manifold) in [
+        (XcFunctional::B3lyp, true, SpinManifold::Both),
+        (XcFunctional::B3lyp, false, SpinManifold::Singlet),
+        (XcFunctional::CamB3lyp, true, SpinManifold::Singlet),
+        (XcFunctional::CamB3lyp, false, SpinManifold::Singlet),
+    ] {
+        let mut opts_stored = TddftOptions {
+            n_states: 3,
+            tda,
+            manifold,
+            grid_level: GridLevel::Coarse,
+            ..TddftOptions::default()
+        };
+        opts_stored.scf_options.direct = Some(false);
+        let res_stored = run_tddft(&mol, &bs, Some(xc), &opts_stored).unwrap();
+
+        let mut opts_direct = opts_stored.clone();
+        opts_direct.scf_options.direct = Some(true);
+        let res_direct = run_tddft(&mol, &bs, Some(xc), &opts_direct).unwrap();
+
+        assert_eq!(res_stored.states.len(), res_direct.states.len());
+        for (s, d) in res_stored.states.iter().zip(&res_direct.states) {
+            assert_eq!(s.label, d.label);
+            let de = (s.excitation_energy_ev - d.excitation_energy_ev).abs();
+            let df = (s.oscillator_strength - d.oscillator_strength).abs();
+            assert!(
+                de < 1e-6,
+                "Direct vs stored TD mismatch ({xc:?}, tda={tda}): {} dE={de:.3e} eV",
+                s.label
+            );
+            assert!(
+                df < 1e-6,
+                "Direct vs stored osc mismatch ({xc:?}, tda={tda}): {} df={df:.3e}",
+                s.label
+            );
+        }
+    }
+}

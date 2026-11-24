@@ -45,7 +45,31 @@ pub fn compute_frequencies_and_thermo(
     method: VibMethod,
     opts: &FreqOptions,
 ) -> Result<FrequencyResult, CalcError> {
-    let (cart_hess, apt, e0) = compute_cartesian_hessian_and_apt(mol, basis_name, method, opts)?;
+    Ok(compute_frequencies_with_model(mol, basis_name, method, opts, None, 1)?.0)
+}
+
+pub fn compute_frequencies_with_model(
+    mol: &Molecule, basis_name: &str, method: VibMethod, opts: &FreqOptions,
+    dispersion: Option<&calchem_dft::D3Model>, displacement_jobs: usize,
+) -> Result<(FrequencyResult, calchem_model::ScfSummary, f64), CalcError> {
+    compute_frequencies_with_checkpoint(mol, basis_name, method, opts, dispersion, displacement_jobs, None, None)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_frequencies_with_checkpoint(
+    mol: &Molecule,
+    basis_name: &str,
+    method: VibMethod,
+    opts: &FreqOptions,
+    dispersion: Option<&calchem_dft::D3Model>,
+    displacement_jobs: usize,
+    checkpoint_dir: Option<&std::path::Path>,
+    model_fingerprint: Option<&str>,
+) -> Result<(FrequencyResult, calchem_model::ScfSummary, f64), CalcError> {
+    let (cart_hess, apt, center, correction) = hessian::compute_hessian_with_checkpoint(
+        mol, basis_name, method, opts, dispersion, displacement_jobs, checkpoint_dir, model_fingerprint,
+    )?;
+    let e0 = center.total_energy_hartree + correction;
     let vib = analyze_vibrations(mol, &cart_hess, &apt)?;
     let thermo = compute_thermochemistry(
         mol,
@@ -55,11 +79,11 @@ pub fn compute_frequencies_and_thermo(
         opts.pressure_pa,
         opts.symmetry_number,
     );
-    Ok(FrequencyResult {
+    Ok((FrequencyResult {
         energy_hartree: e0,
         cartesian_hessian: cart_hess,
         apt,
         vibrational_analysis: vib,
         thermochemistry: thermo,
-    })
+    }, center, correction))
 }

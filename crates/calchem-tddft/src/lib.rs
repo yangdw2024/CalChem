@@ -14,7 +14,7 @@ pub mod davidson;
 use calchem_basis::BasisSet;
 use calchem_dft::{FxcKernel, GridLevel, MolecularGrid, XcFunctional};
 use calchem_int::primitive::{overlap_primitive, GaussianPair};
-use calchem_int::{compute_sparse_eri, SparseSymmetricEri};
+use calchem_int::{compute_sparse_eri, DirectFockEngine, SparseSymmetricEri};
 use calchem_model::{CalcError, Molecule, ScfOptions, ScfWavefunction};
 use calchem_scf::{rhf, rks_with_grid};
 use calchem_tensor::{matmul, transpose, Matrix2D};
@@ -118,6 +118,8 @@ pub struct ExcitedState {
     pub multiplicity: usize,
     /// Vertical excitation energy $\omega_k$ in Hartree.
     pub excitation_energy_hartree: f64,
+    #[serde(default)]
+    pub residual_norm_hartree: Option<f64>,
     /// Vertical excitation energy $\omega_k$ in eV.
     pub excitation_energy_ev: f64,
     /// Excited-state total vertical energy $E_0 + \omega_k$ in Hartree.
@@ -391,6 +393,7 @@ fn build_excited_state(
         label,
         multiplicity,
         excitation_energy_hartree: omega_eh,
+        residual_norm_hartree: Some(mode.residual_norm),
         excitation_energy_ev: omega_ev,
         total_energy_hartree: ground_energy_hartree + omega_eh,
         wavelength_nm,
@@ -433,7 +436,7 @@ pub fn run_tddft(
             run_tddft_from_scf(mol, basis, &wfn, None, opts)
         }
         Some(func) => {
-            let grid = MolecularGrid::build(mol, opts.grid_level);
+            let grid = MolecularGrid::build_for_basis(mol, basis, opts.grid_level);
             let wfn = rks_with_grid(mol, basis, func, &grid, &opts.scf_options)?;
             run_tddft_from_scf_with_grid(mol, basis, &wfn, Some((func, &grid)), opts)
         }
@@ -456,7 +459,7 @@ pub fn run_tddft_from_scf(
     match xc {
         None => run_tddft_from_scf_with_grid(mol, basis, wfn, None, opts),
         Some(func) => {
-            let grid = MolecularGrid::build(mol, opts.grid_level);
+            let grid = MolecularGrid::build_for_basis(mol, basis, opts.grid_level);
             run_tddft_from_scf_with_grid(mol, basis, wfn, Some((func, &grid)), opts)
         }
     }
@@ -489,11 +492,12 @@ fn run_tddft_from_scf_with_grid(
             "TD-DFT requires a converged, dimensionally consistent SCF wavefunction".into(),
         ));
     }
-    // This response implementation precomputes stored ERIs even after Direct SCF.
+    let use_direct = calchem_scf::should_use_direct(basis, &opts.scf_options);
     calchem_scf::validate_resources_and_options(
         basis,
         &calchem_model::ScfOptions {
-            direct: Some(false),
+            direct: Some(use_direct),
+            density_fitting: false,
             ..opts.scf_options.clone()
         },
     )?;
@@ -548,28 +552,68 @@ fn run_tddft_from_scf_with_grid(
         }
     };
 
-    // Precompute 2e ERI tensor and adiabatic f_xc kernel once
+    // Precompute 2e ERI engine (either stored SparseSymmetricEri or AO-Direct DirectFockEngine)
     let need_singlet = matches!(opts.manifold, SpinManifold::Singlet | SpinManifold::Both);
     let need_triplet = matches!(opts.manifold, SpinManifold::Triplet | SpinManifold::Both);
     let need_eri = need_singlet || c_hf.abs() > 1e-15;
-    let eri_opt: Option<SparseSymmetricEri> = if need_eri {
+    let need_lr_eri = lr_omega.is_some() && lr_beta.abs() > 1e-15;
+
+    let eri_opt: Option<SparseSymmetricEri> = if !use_direct && need_eri {
         Some(compute_sparse_eri(basis))
     } else {
         None
     };
-
-    let eri_lr_opt: Option<SparseSymmetricEri> = if let Some(w) = lr_omega {
-        if lr_beta.abs() > 1e-15 {
-            Some(calchem_int::compute_sparse_eri_with_omega(
-                basis,
-                &calchem_int::IntegralOptions::default(),
-                Some(w),
-            ))
-        } else {
-            None
-        }
+    let eri_lr_opt: Option<SparseSymmetricEri> = if !use_direct && need_lr_eri {
+        Some(calchem_int::compute_sparse_eri_with_omega(
+            basis,
+            &calchem_int::IntegralOptions::default(),
+            lr_omega,
+        ))
     } else {
         None
+    };
+    let direct_opt: Option<DirectFockEngine> = if use_direct && (need_eri || need_lr_eri) {
+        Some(DirectFockEngine::new(basis, 1e-12))
+    } else {
+        None
+    };
+    let direct_thresh = 1e-12;
+
+    let eval_j_sym = |d_sym: &Matrix2D| -> Matrix2D {
+        if let Some(ref eri) = eri_opt {
+            contract_j_sym(eri, d_sym)
+        } else {
+            let direct = direct_opt.as_ref().expect("DirectFockEngine needed for J");
+            Matrix2D {
+                rows: n_ao,
+                cols: n_ao,
+                data: direct.build_rks(basis, &d_sym.data, 0.0, direct_thresh),
+            }
+        }
+    };
+    let eval_k_gen = |x_ao: &Matrix2D| -> Matrix2D {
+        if let Some(ref eri) = eri_opt {
+            contract_k_gen(eri, x_ao)
+        } else {
+            let direct = direct_opt.as_ref().expect("DirectFockEngine needed for K");
+            Matrix2D {
+                rows: n_ao,
+                cols: n_ao,
+                data: direct.build_k_general_with_omega(basis, &x_ao.data, None, direct_thresh),
+            }
+        }
+    };
+    let eval_k_lr_gen = |x_ao: &Matrix2D| -> Matrix2D {
+        if let Some(ref eri_lr) = eri_lr_opt {
+            contract_k_gen(eri_lr, x_ao)
+        } else {
+            let direct = direct_opt.as_ref().expect("DirectFockEngine needed for LR-K");
+            Matrix2D {
+                rows: n_ao,
+                cols: n_ao,
+                data: direct.build_k_general_with_omega(basis, &x_ao.data, lr_omega, direct_thresh),
+            }
+        }
     };
 
     let fxc_opt: Option<FxcKernel> = xc_and_grid.map(|(func, grid)| {
@@ -590,25 +634,19 @@ fn run_tddft_from_scf_with_grid(
                         let mut g_ao = Matrix2D::zeros(n_ao, n_ao);
 
                         if !triplet {
-                            let j_mat = contract_j_sym(
-                                eri_opt.as_ref().expect("ERI needed for singlet J"),
-                                &d_sym,
-                            );
+                            let j_mat = eval_j_sym(&d_sym);
                             for idx in 0..(n_ao * n_ao) {
                                 g_ao.data[idx] += 2.0 * j_mat.data[idx];
                             }
                         }
                         if c_hf.abs() > 1e-15 {
-                            let k_mat = contract_k_gen(
-                                eri_opt.as_ref().expect("ERI needed for hybrid/HF K"),
-                                &d_gen,
-                            );
+                            let k_mat = eval_k_gen(&d_gen);
                             for idx in 0..(n_ao * n_ao) {
                                 g_ao.data[idx] -= c_hf * k_mat.data[idx];
                             }
                         }
-                        if let Some(ref eri_lr) = eri_lr_opt {
-                            let k_mat_lr = contract_k_gen(eri_lr, &d_gen);
+                        if need_lr_eri {
+                            let k_mat_lr = eval_k_lr_gen(&d_gen);
                             for idx in 0..(n_ao * n_ao) {
                                 g_ao.data[idx] -= lr_beta * k_mat_lr.data[idx];
                             }
@@ -649,25 +687,19 @@ fn run_tddft_from_scf_with_grid(
                     // (A + B) * u: symmetric transition density response
                     let mut gp_ao = Matrix2D::zeros(n_ao, n_ao);
                     if !triplet {
-                        let j_mat = contract_j_sym(
-                            eri_opt.as_ref().expect("ERI needed for singlet J"),
-                            &d_sym,
-                        );
+                        let j_mat = eval_j_sym(&d_sym);
                         for idx in 0..(n_ao * n_ao) {
                             gp_ao.data[idx] += 4.0 * j_mat.data[idx];
                         }
                     }
                     if c_hf.abs() > 1e-15 {
-                        let k_sym = contract_k_gen(
-                            eri_opt.as_ref().expect("ERI needed for hybrid/HF K"),
-                            &d_sym,
-                        );
+                        let k_sym = eval_k_gen(&d_sym);
                         for idx in 0..(n_ao * n_ao) {
                             gp_ao.data[idx] -= 2.0 * c_hf * k_sym.data[idx];
                         }
                     }
-                    if let Some(ref eri_lr) = eri_lr_opt {
-                        let k_sym_lr = contract_k_gen(eri_lr, &d_sym);
+                    if need_lr_eri {
+                        let k_sym_lr = eval_k_lr_gen(&d_sym);
                         for idx in 0..(n_ao * n_ao) {
                             gp_ao.data[idx] -= 2.0 * lr_beta * k_sym_lr.data[idx];
                         }
@@ -688,16 +720,13 @@ fn run_tddft_from_scf_with_grid(
                     let amb_u = if has_exx {
                         let mut gm_ao = Matrix2D::zeros(n_ao, n_ao);
                         if c_hf.abs() > 1e-15 {
-                            let k_anti = contract_k_gen(
-                                eri_opt.as_ref().expect("ERI needed for hybrid/HF K"),
-                                &d_anti,
-                            );
+                            let k_anti = eval_k_gen(&d_anti);
                             for idx in 0..(n_ao * n_ao) {
                                 gm_ao.data[idx] -= 2.0 * c_hf * k_anti.data[idx];
                             }
                         }
-                        if let Some(ref eri_lr) = eri_lr_opt {
-                            let k_anti_lr = contract_k_gen(eri_lr, &d_anti);
+                        if need_lr_eri {
+                            let k_anti_lr = eval_k_lr_gen(&d_anti);
                             for idx in 0..(n_ao * n_ao) {
                                 gm_ao.data[idx] -= 2.0 * lr_beta * k_anti_lr.data[idx];
                             }

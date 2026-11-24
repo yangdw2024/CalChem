@@ -12,6 +12,7 @@ const PRECOND_SHIFT_MIN: f64 = 1e-4;
 #[derive(Debug, Clone)]
 pub struct EigenMode {
     pub omega: f64,
+    pub residual_norm: f64,
     /// Excitation vector $X$ (`n_ov`).
     pub x: Vec<f64>,
     /// De-excitation vector $Y$ (`n_ov`; all zeros in TDA/CIS).
@@ -26,6 +27,21 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 #[inline]
 fn norm2(a: &[f64]) -> f64 {
     dot(a, a).sqrt()
+}
+
+fn column_residual(cols: &[Vec<f64>], input: &[f64], target: &[f64], omega: f64) -> f64 {
+    let mut residual: Vec<f64> = target.iter().map(|v| -omega * v).collect();
+    for (column, &coefficient) in cols.iter().zip(input) {
+        for (r, &v) in residual.iter_mut().zip(column) { *r += coefficient * v; }
+    }
+    norm2(&residual)
+}
+
+fn checked_dense_modes(modes: Vec<EigenMode>, tolerance: f64) -> Result<(Vec<EigenMode>,usize),CalcError> {
+    if let Some(m) = modes.iter().find(|m| !m.residual_norm.is_finite() || m.residual_norm > tolerance) {
+        return Err(CalcError::LinearAlgebra(format!("Dense response residual {} exceeds tolerance {tolerance}",m.residual_norm)));
+    }
+    Ok((modes, 1))
 }
 
 /// Appends `cand` to orthonormal basis `basis` using two-pass Modified Gram-Schmidt.
@@ -123,11 +139,12 @@ where
             }
             modes.push(EigenMode {
                 omega: evals[r],
+                residual_norm: column_residual(&cols,&x,&x,evals[r]),
                 x,
                 y: vec![0.0; dim],
             });
         }
-        return Ok((modes, 1));
+        return checked_dense_modes(modes, conv_tol);
     }
 
     let n_track = (k_roots + 4).min(dim);
@@ -150,6 +167,7 @@ where
 
         let (evals, evecs) = eigh_sym(&sub_a, 120, 1e-13)?;
         let mut max_res = 0.0f64;
+        let mut residuals = Vec::with_capacity(active_roots);
         let mut ritz_vecs: Vec<Vec<f64>> = Vec::with_capacity(active_roots);
         let mut new_cands: Vec<Vec<f64>> = Vec::new();
 
@@ -175,6 +193,7 @@ where
             if r < k_roots {
                 max_res = max_res.max(r_norm);
             }
+            residuals.push(r_norm);
             ritz_vecs.push(x_full);
 
             if r_norm > conv_tol {
@@ -201,6 +220,7 @@ where
             let modes = (0..k_roots)
                 .map(|r| EigenMode {
                     omega: evals[r],
+                    residual_norm: residuals[r],
                     x: ritz_vecs[r].clone(),
                     y: vec![0.0; dim],
                 })
@@ -375,10 +395,12 @@ where
                     x[i] = 0.5 * (xpy[i] + xmy[i]);
                     y[i] = 0.5 * (xpy[i] - xmy[i]);
                 }
-                EigenMode { omega, x, y }
+                let plus = column_residual(&apb_cols, &xpy, &xmy, omega);
+                let minus = column_residual(&amb_cols, &xmy, &xpy, omega);
+                EigenMode { omega, x, y, residual_norm: plus.max(minus) }
             })
-            .collect();
-        return Ok((modes, 1));
+            .collect::<Vec<_>>();
+        return checked_dense_modes(modes, conv_tol);
     }
 
     let n_track = (k_roots + 4).min(dim);
@@ -450,6 +472,7 @@ where
             }
             full_modes.push(EigenMode {
                 omega: *omega,
+                residual_norm: r_norm,
                 x,
                 y,
             });

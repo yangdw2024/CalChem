@@ -288,6 +288,9 @@ pub fn search_transition_state(
             max_force,
             rms_force,
             max_displacement: last_displacement,
+            scf_iterations: 0,
+            line_search_trials: 0,
+            step_alpha: 0.0,
         });
 
         // Diagonalize current Hessian
