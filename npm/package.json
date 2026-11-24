@@ -1,7 +1,7 @@
 {
   "name": "@yangdw2024/calchem",
   "version": "0.2.2",
-  "description": "Cross-platform CLI & Node.js wrapper for CalChem: Unified quantum chemistry computational engine (HF, DFT, TD-DFT, Range-Separated Hybrids, PCM/SMD, Opt, Freq).",
+  "description": "Cross-platform Node.js CLI wrapper for the native Rust/CUDA CalChem quantum chemistry engine (calchem_cli).",
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",

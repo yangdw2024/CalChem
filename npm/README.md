@@ -1,65 +1,66 @@
 # @yangdw2024/calchem
 
-> Cross-platform CLI & Node.js wrapper for **CalChem**: Unified quantum chemistry computational engine with Rust numerical core.
+> Cross-platform Node.js CLI wrapper for **CalChem**, a pure Rust (+ optional CUDA) quantum chemistry engine (`calchem_cli`).
 
 [![npm version](https://img.shields.io/npm/v/@yangdw2024/calchem.svg)](https://www.npmjs.com/package/@yangdw2024/calchem)
-[![PyPI version](https://img.shields.io/pypi/v/calchem-qc.svg)](https://pypi.org/project/calchem-qc/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-`@yangdw2024/calchem` allows developers, automated CI pipelines, and computational workflows to invoke **CalChem** directly from the terminal or Node.js without manual environment configuration.
+`@yangdw2024/calchem` locates and invokes the native `calchem_cli` binary (`calchem_cli.exe` on Windows) with zero Python dependency.
 
-If the underlying `calchem-qc` Python engine is not installed, the wrapper automatically installs it from PyPI.
+Binary lookup order:
+1. `process.env.CALCHEM_BIN`
+2. `./bin/calchem_cli[.exe]`, `../build_target/release/calchem_cli[.exe]`, `../target/release/calchem_cli[.exe]`
+3. `calchem_cli[.exe]` on `PATH`
+
+## Prerequisites
+
+Build the native CLI binary from the repository root (or provide `CALCHEM_BIN`):
+
+```bash
+cargo build --release -p calchem-cli
+```
 
 ## Quick Start
 
-### Run directly with `npx` (No installation needed)
-
 ```bash
-# View help
+# Show CLI help
 npx @yangdw2024/calchem --help
 
-# Check environment & backends
-npx @yangdw2024/calchem doctor
-npx @yangdw2024/calchem backends
-
-# Run calculation
-npx @yangdw2024/calchem run input.json
-```
-
-### Global Installation
-
-```bash
-npm install -g @yangdw2024/calchem
-
-calchem doctor
-calchem run input.json
+# Run a single-point calculation with structured JSON output
+npx @yangdw2024/calchem molecule.xyz --task energy --method rks --xc b3lyp --basis "6-31g(d,p)" --grid fine --disp d3bj --json --out result.json
 ```
 
 ### Node.js API Usage
 
 ```javascript
-import { runCalChem, isInstalled } from '@yangdw2024/calchem';
+import { findBinary, isInstalled, runCalChem } from '@yangdw2024/calchem';
 
-console.log('CalChem installed:', isInstalled());
+console.log('Binary path:', findBinary(), 'installed:', isInstalled());
 
-const child = runCalChem(['run', 'water.json']);
+const child = runCalChem([
+  'water.xyz',
+  '--task', 'energy',
+  '--method', 'rks',
+  '--xc', 'b3lyp',
+  '--basis', '6-31g(d,p)',
+  '--json',
+]);
 child.on('exit', (code) => {
   console.log('Process exited with code:', code);
 });
 ```
 
-## Features
+## Implemented Native Capabilities & Boundaries
 
-- **Hartree-Fock (RHF / UHF)**: Obara-Saika recurrence integrals, Schwarz screening, DIIS convergence.
-- **Density Functional Theory (DFT)**: LDA, GGA (PBE, BLYP), Hybrids (B3LYP, PBE0), Range-Separated Hybrids (CAM-B3LYP, ωB97X-D).
-- **Dispersion Corrections**: Standard Grimme D3(BJ) with fractional coordination number interpolation.
-- **Solvation Models**: CPCM / SMD self-consistent reaction field with analytic gradients.
-- **Geometry Optimization & Frequencies**: BFGS / RFO optimization, TS search, IRC verification, IR vibrational intensities.
+- **SCF**: RHF, UHF, RKS, UKS (`SVWN5`, `BLYP`, `PBE`, `B3LYP`, `B3LYP5`, `PBE0`, `CAM-B3LYP`, `wB97X`, `wB97X-D`), Stored/Direct/RI-J (`auto-jfit` / `def2-jfit-f`).
+- **GPU**: Optional CUDA acceleration covers 3-center RI-J integrals (`L <= 2`, falling back to CPU when polarized auxiliary F-shells are present), RI-J contractions, and DFT XC grid quadrature. Hybrid exact exchange `K` and analytical gradients run on CPU.
+- **Properties & Solvation**: Gas-phase analytic gradients, Cartesian BFGS optimization, numerical harmonic frequencies, AO-Direct TDA/Full-LR TD-DFT, and SCRF single-point solvation (`C-PCM`, `IEF-PCM`, `COSMO`, `SMD`) using `Bondi (alpha=1.20)` defaults for PCM.
+
+See the root [README.md](../README.md) and [docs/NATIVE_METHOD_BOUNDARIES.md](../docs/NATIVE_METHOD_BOUNDARIES.md) for verified benchmark accuracy and method boundaries.
 
 ## Links
 
 - **GitHub Repository**: [https://github.com/yangdw2024/CalChem](https://github.com/yangdw2024/CalChem)
-- **PyPI Package**: [https://pypi.org/project/calchem-qc/](https://pypi.org/project/calchem-qc/)
 - **License**: MIT
