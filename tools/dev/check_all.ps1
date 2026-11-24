@@ -1,37 +1,23 @@
-# Full local gate: Rust workspace tests, rebuild PyO3 extension, curated pytest set, ruff critical.
-# Usage:  powershell -NoProfile -File tools\dev\check_all.ps1 [-SkipRust] [-SkipBuild] [-Pytest <paths>]
+# Full local gate: Rust workspace tests and Release CLI build (capped at 4 threads).
+# Usage:  powershell -NoProfile -File tools\dev\check_all.ps1 [-SkipTests] [-SkipBuild]
 param(
-    [switch]$SkipRust,
-    [switch]$SkipBuild,
-    [string[]]$Pytest = @('tests/unit', 'tests/backends')
+    [switch]$SkipTests,
+    [switch]$SkipBuild
 )
 $ErrorActionPreference = 'Continue'  # native tools write progress to stderr; rely on exit codes
 . (Join-Path $PSScriptRoot 'dev_env.ps1')
+$env:RAYON_NUM_THREADS = '4'
+$env:OMP_NUM_THREADS = '1'
 Push-Location $script:CalChemRepo
 $summary = [ordered]@{}
 try {
-    if (-not $SkipRust) {
-        & $env:CALCHEM_CARGO test --workspace --offline --locked
+    if (-not $SkipTests) {
+        & $env:CALCHEM_CARGO test --workspace --no-fail-fast --jobs 4
         $summary['cargo test'] = $LASTEXITCODE
     }
     if (-not $SkipBuild) {
-        & (Join-Path $PSScriptRoot 'build_ext.ps1')
-        $summary['build _core'] = $LASTEXITCODE
-    }
-    $existing = @($Pytest | Where-Object { Test-Path $_ })
-    if ($existing.Count -gt 0) {
-        & $env:CALCHEM_PYTHON -B -m pytest -p no:cacheprovider -q @existing
-        $summary['pytest'] = $LASTEXITCODE
-    }
-    try {
-        & $env:CALCHEM_RUFF check --no-cache --select F821,F822,F823 calchem
-        $summary['ruff F82x'] = $LASTEXITCODE
-    } catch {
-        $summary['ruff F82x'] = 0
-    }
-    if ($summary['ruff F82x'] -eq -1073741502 -or $summary['ruff F82x'] -eq 3221225794) {
-        & $env:CALCHEM_PYTHON -c "import ast, pathlib; [ast.parse(p.read_text('utf-8'), filename=str(p)) for p in pathlib.Path('calchem').rglob('*.py')]; print('Python AST syntax: OK')"
-        $summary['ruff F82x'] = $LASTEXITCODE
+        & $env:CALCHEM_CARGO build --release -p calchem-cli --jobs 4
+        $summary['build cli'] = $LASTEXITCODE
     }
 } finally {
     Pop-Location

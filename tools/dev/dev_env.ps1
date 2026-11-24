@@ -12,7 +12,7 @@ $env:CARGO_HOME = 'D:\cargo'
 $env:RUSTUP_HOME = 'D:\rustup'
 $env:RUSTUP_NO_UPDATE_CHECK = '1'
 $env:CARGO_TARGET_DIR = Join-Path $script:CalChemRepo 'build_target'
-$env:PYO3_PYTHON = $env:CALCHEM_PYTHON
+$env:RAYON_NUM_THREADS = '4'
 
 $env:PYTHONDONTWRITEBYTECODE = '1'
 $env:PYTHONNOUSERSITE = '1'
