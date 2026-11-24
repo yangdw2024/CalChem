@@ -99,3 +99,83 @@ fn water_b3lyp_631gd_rij_vs_exact_probe() {
     assert!(j_max_diff < 2e-4, "max|J_RI - J_exact|={j_max_diff:.3e}");
     assert!(j_rms_diff < 5e-5, "rms|J_RI - J_exact|={j_rms_diff:.3e}");
 }
+
+#[test]
+fn sulfur_631gd_auto_jfit_full_rank_and_accurate() {
+    // Regression for 3rd-row element (Sulfur) conditioning and accuracy under per-L AutoAux:
+    // Must stay full-rank (metric_truncated_modes == 0, required for analytical RI-J gradients)
+    // and match exact 4c B3LYP/6-31G(d) within 1.5e-4 Eh.
+    let h2s = Molecule::new(
+        vec![
+            Atom::from_angstrom("S", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_angstrom("H", [0.0, 0.96, 0.92]).unwrap(),
+            Atom::from_angstrom("H", [0.0, -0.96, 0.92]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let basis = BasisSet::from_name("6-31g(d)", &h2s).unwrap();
+    let engine = RiJEngine::new(&h2s, &basis).unwrap();
+    assert_eq!(
+        engine.metric_truncated_modes, 0,
+        "H2S / 6-31G(d) auto-jfit must be full-rank (trunc == 0), got {}",
+        engine.metric_truncated_modes
+    );
+    let opts = ScfOptions {
+        conv_energy: 1e-8,
+        conv_density: 1e-7,
+        ..Default::default()
+    };
+    let exact = rks(&h2s, &basis, XcFunctional::B3lyp, GridLevel::Coarse, &opts).unwrap();
+    let fitted = rks(
+        &h2s,
+        &basis,
+        XcFunctional::B3lyp,
+        GridLevel::Coarse,
+        &ScfOptions {
+            density_fitting: true,
+            ..opts
+        },
+    )
+    .unwrap();
+    let de = (fitted.total_energy_hartree - exact.total_energy_hartree).abs();
+    assert!(
+        de < 1.5e-4,
+        "H2S / 6-31G(d) auto-jfit |dE| = {de:.3e} Eh exceeds 1.5e-4 Eh"
+    );
+}
+
+#[test]
+fn gpu_rij_polarized_aux_f_shell_records_cpu_fallback() {
+    let h2o = Molecule::new(
+        vec![
+            Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("H", [0.0, 1.432, 0.0]).unwrap(),
+            Atom::from_bohr("H", [1.112, -0.716, 0.0]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let basis = BasisSet::from_name("6-31g(d)", &h2o).unwrap();
+    for choice in [
+        calchem_model::JFitBasis::Auto,
+        calchem_model::JFitBasis::Def2UpToF,
+    ] {
+        let engine = RiJEngine::with_basis(&h2o, &basis, true, choice).unwrap();
+        assert!(
+            engine
+                .aux_basis
+                .shells
+                .iter()
+                .any(|s| s.shell_type.angular_momentum() > 2),
+            "Expected polarized 6-31G(d) auxiliary basis ({choice:?}) to contain F-shells (L > 2)"
+        );
+        let fb = engine
+            .gpu_fallback_invocations
+            .load(std::sync::atomic::Ordering::Relaxed);
+        assert!(
+            fb >= 1,
+            "Expected --rij --gpu with L_aux > 2 to record CPU fallback for 3c build under {choice:?}, got {fb}"
+        );
+    }
+}

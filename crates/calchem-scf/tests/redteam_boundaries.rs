@@ -52,10 +52,12 @@ fn memory_and_invalid_scf_options_are_rejected_before_integrals() {
         1,
     );
     let bs = BasisSet::from_name("sto-3g", &mol).unwrap();
-    let error = calchem_scf::validate_resources_and_options(&bs, &ScfOptions::default())
-        .unwrap_err()
-        .to_string();
-    assert!(error.contains("memory estimate"), "{error}");
+    let auto = ScfOptions::default();
+    assert!(calchem_scf::should_use_direct(&bs, &auto));
+    assert!(calchem_scf::validate_resources_and_options(&bs, &auto).is_ok());
+    let stored = ScfOptions { direct: Some(false), ..auto };
+    let error = calchem_scf::validate_resources_and_options(&bs, &stored).unwrap_err();
+    assert!(matches!(error, calchem_model::CalcError::ResourceLimit(_)), "{error}");
     let invalid = ScfOptions {
         conv_energy: f64::INFINITY,
         ..Default::default()

@@ -6,7 +6,89 @@
 
 use calchem_basis::{BasisSet, ShellType};
 use calchem_model::{CalcError, Molecule};
-use calchem_tensor::Matrix2D;
+use calchem_tensor::{eigh_sym, matmul, transpose, Matrix2D};
+
+/// Optional converged orbital coefficients from a nearby geometry used to warm-start SCF.
+#[derive(Debug, Clone)]
+pub enum InitialGuess {
+    /// Restricted MO coefficients (row-major `n_ao x n_mo`, occupied orbitals in columns `0..n_occ`).
+    Restricted {
+        n_ao: usize,
+        mo_coefficients: Vec<f64>,
+    },
+    /// Unrestricted alpha and beta MO coefficients (each row-major `n_ao x n_mo`).
+    Unrestricted {
+        n_ao: usize,
+        mo_alpha: Vec<f64>,
+        mo_beta: Vec<f64>,
+    },
+}
+
+/// Projects occupied orbitals `C_old[:, 0..n_occ]` onto the new geometry's overlap matrix `s_new`
+/// via symmetric Löwdin orthogonalization: `C_proj = C_old * (C_old^T S_new C_old)^(-1/2)`,
+/// returning `P = scale * C_proj C_proj^T` (`scale = 2.0` for restricted, `1.0` for unrestricted).
+///
+/// Validates positive-definiteness of the projected metric and electron count conservation
+/// `|Tr(P S_new) - scale * n_occ| < 1e-6`, returning `None` so the caller safely falls back to SAD.
+pub fn project_occupied_density(
+    c_old: &[f64],
+    n_ao: usize,
+    n_occ: usize,
+    s_new: &Matrix2D,
+    scale: f64,
+) -> Option<Matrix2D> {
+    if n_ao == 0 || n_occ == 0 || n_occ > n_ao || s_new.rows != n_ao || s_new.cols != n_ao {
+        return None;
+    }
+    if c_old.len() != n_ao * n_ao || c_old.iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+
+    // Extract C_occ (n_ao x n_occ)
+    let mut c_occ = Matrix2D::zeros(n_ao, n_occ);
+    for mu in 0..n_ao {
+        let row = &c_old[mu * n_ao..(mu + 1) * n_ao];
+        for i in 0..n_occ {
+            c_occ.set(mu, i, row[i]);
+        }
+    }
+
+    // Occupied subspace metric M = C_occ^T S_new C_occ (n_occ x n_occ)
+    let sc = matmul(s_new, &c_occ);
+    let m = matmul(&transpose(&c_occ), &sc);
+    let (evals, evecs) = eigh_sym(&m, 100, 1e-13).ok()?;
+    if evals.iter().any(|&v| !v.is_finite() || v <= 1e-8) {
+        return None;
+    }
+
+    let mut inv_sqrt = Matrix2D::zeros(n_occ, n_occ);
+    for (i, &val) in evals.iter().enumerate() {
+        inv_sqrt.set(i, i, 1.0 / val.sqrt());
+    }
+    let m_inv_sqrt = matmul(&matmul(&evecs, &inv_sqrt), &transpose(&evecs));
+    let c_proj = matmul(&c_occ, &m_inv_sqrt);
+
+    let mut p = matmul(&c_proj, &transpose(&c_proj));
+    for v in &mut p.data {
+        *v *= scale;
+        if !v.is_finite() {
+            return None;
+        }
+    }
+
+    // Verify exact electron count conservation Tr(P * S_new) == scale * n_occ
+    let mut tr_ps = 0.0;
+    for mu in 0..n_ao {
+        for nu in 0..n_ao {
+            tr_ps += p.get(mu, nu) * s_new.get(nu, mu);
+        }
+    }
+    let target = scale * (n_occ as f64);
+    if !tr_ps.is_finite() || (tr_ps - target).abs() > 1e-6 {
+        return None;
+    }
+    Some(p)
+}
 
 /// Returns standard ground-state Aufbau neutral-atom subshell electron counts for $Z \in [1, 86]$.
 /// Returns `(s_subshells, p_subshells, d_subshells, f_subshells)` where:

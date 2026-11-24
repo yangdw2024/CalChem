@@ -28,7 +28,9 @@ pub enum XcFunctional {
     Pbe0,
     /// CAM-B3LYP with ITYH short-range B88 exchange and attenuated exact exchange.
     CamB3lyp,
-    /// Legacy incomplete approximation; rejected by validate_native().
+    /// Chai and Head-Gordon range-separated hybrid without atom-pair dispersion.
+    Wb97x,
+    /// Reoptimized dispersion-corrected range-separated hybrid.
     Wb97xd,
 }
 
@@ -43,7 +45,7 @@ impl XcFunctional {
         "b3lyp5",
         "pbe0",
         "camb3lyp",
-        "cam-b3lyp",
+        "cam-b3lyp", "wb97x", "wb97x-d",
     ];
 
     pub fn from_name(name: &str) -> Result<Self, CalcError> {
@@ -61,7 +63,8 @@ impl XcFunctional {
             "b3lyp5" => Ok(Self::B3lyp5),
             "pbe0" | "pbe1pbe" => Ok(Self::Pbe0),
             "camb3lyp" => Ok(Self::CamB3lyp),
-            "wb97xd" | "wb97x" => Ok(Self::Wb97xd),
+            "wb97x" => Ok(Self::Wb97x),
+            "wb97xd" => Ok(Self::Wb97xd),
             _ => Err(CalcError::UnsupportedMethod(format!(
                 "Unsupported DFT XC functional '{name}' (supported: SVWN5, BLYP, PBE, B3LYP, B3LYP5, PBE0, CAM-B3LYP, wB97X-D)"
             ))),
@@ -77,6 +80,7 @@ impl XcFunctional {
             Self::B3lyp5 => "b3lyp5",
             Self::Pbe0 => "pbe0",
             Self::CamB3lyp => "cam-b3lyp",
+            Self::Wb97x => "wb97x",
             Self::Wb97xd => "wb97x-d",
         }
     }
@@ -89,7 +93,7 @@ impl XcFunctional {
     /// Whether this functional employs range-separated exchange (CAM-B3LYP, wB97X-D).
     #[inline]
     pub fn is_range_separated(self) -> bool {
-        matches!(self, Self::CamB3lyp | Self::Wb97xd)
+        matches!(self, Self::CamB3lyp | Self::Wb97x | Self::Wb97xd)
     }
 
     /// Returns range-separation parameters `(alpha, beta, omega)` if range-separated.
@@ -101,6 +105,7 @@ impl XcFunctional {
     pub fn range_separated_params(self) -> Option<(f64, f64, f64)> {
         match self {
             Self::CamB3lyp => Some((0.19, 0.46, 0.33)),
+            Self::Wb97x => Some((0.157706, 0.842294, 0.30)),
             Self::Wb97xd => Some((0.222036, 0.777964, 0.20)),
             _ => None,
         }
@@ -114,6 +119,7 @@ impl XcFunctional {
             Self::B3lyp | Self::B3lyp5 => 0.20,
             Self::Pbe0 => 0.25,
             Self::CamB3lyp => 0.19,
+            Self::Wb97x => 0.157706,
             Self::Wb97xd => 0.222036,
         }
     }
@@ -211,7 +217,8 @@ pub fn eval_xc_spin(
             out.add_scaled(0.81, lyp_c(ra, rb, gaa, gamma_ab, gbb));
             out
         }
-        XcFunctional::Wb97xd => wb97xd_xc(ra, rb, gaa, gamma_ab, gbb),
+        XcFunctional::Wb97x => wb97_xc(ra, rb, gaa, gbb, &WB97X),
+        XcFunctional::Wb97xd => wb97_xc(ra, rb, gaa, gbb, &WB97XD),
     }
 }
 
@@ -998,8 +1005,19 @@ fn pw92_lsda_c(ra: f64, rb: f64) -> (f64, f64, f64) {
     (rho * ec, v_ra, v_rb)
 }
 
+struct Wb97Parameters { omega: f64, exchange: [f64;5], same_spin: [f64;5], opposite_spin: [f64;5] }
+// Chai & Head-Gordon, JCP 128, 084106, Table I; PCCP 10, 6615, Table I.
+const WB97X: Wb97Parameters = Wb97Parameters { omega: 0.30,
+    exchange: [0.842294,0.726479,1.04760,-5.70635,13.2794],
+    same_spin: [1.0,-4.33879,18.2308,-31.7430,17.2901],
+    opposite_spin: [1.0,2.37031,-11.3995,6.58405,-3.78132] };
+const WB97XD: Wb97Parameters = Wb97Parameters { omega: 0.20,
+    exchange: [0.777964,0.661160,0.574541,-5.25671,11.6386],
+    same_spin: [1.0,-6.90539,31.3343,-51.0533,26.4423],
+    opposite_spin: [1.0,1.79413,-12.0477,14.0847,-8.50809] };
+
 #[inline]
-fn wb97xd_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
+fn wb97_x_one_spin(rho_s: f64, gamma_ss: f64, params: &Wb97Parameters) -> (f64, f64, f64) {
     if rho_s < RHO_CUTOFF {
         return (0.0, 0.0, 0.0);
     }
@@ -1008,9 +1026,9 @@ fn wb97xd_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
     let r43 = rho_s * r13;
     let r83 = r43 * r43;
 
-    // LDA short-range attenuation F(a) with omega = 0.20, a = omega / (2 * k_F)
+    // LDA short-range attenuation F(a) with a = omega / (2 * k_F)
     let k_f = (6.0 * PI * PI * rho_s).cbrt();
-    let a = 0.20 / (2.0 * k_f);
+    let a = params.omega / (2.0 * k_f);
     let (f_atten, df_da) = camb3lyp_attenuation(a);
     let da_drho = -a / (3.0 * rho_s);
     let f_sr_lda = f_slater * f_atten;
@@ -1018,9 +1036,7 @@ fn wb97xd_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
 
     let g = gamma_ss.max(0.0);
     let x2 = g / r83;
-    // Chai & Head-Gordon (2008) wB97X-D exchange coefficients (LibXC par_wb97x_d)
-    const CX: [f64; 5] = [0.777964, 0.661160, 0.574541, -5.25671, 11.6386];
-    let (gx, dgx_dx2) = b97_poly_and_deriv(0.004, &CX, x2);
+    let (gx, dgx_dx2) = b97_poly_and_deriv(0.004, &params.exchange, x2);
 
     let dx2_drho = -(8.0 / 3.0) * x2 / rho_s;
     let dx2_dgam = 1.0 / r83;
@@ -1033,13 +1049,9 @@ fn wb97xd_x_one_spin(rho_s: f64, gamma_ss: f64) -> (f64, f64, f64) {
 }
 
 #[inline]
-fn wb97xd_xc(ra: f64, rb: f64, gaa: f64, _gab: f64, gbb: f64) -> XcPointOut {
-    let (fx_a, vrx_a, vgaa_x) = wb97xd_x_one_spin(ra, gaa);
-    let (fx_b, vrx_b, vgbb_x) = wb97xd_x_one_spin(rb, gbb);
-
-    // Chai & Head-Gordon (2008) wB97X-D correlation coefficients (LibXC par_wb97x_d)
-    const CSS: [f64; 5] = [1.0, -6.90539, 31.3343, -51.0533, 26.4423];
-    const CAB: [f64; 5] = [1.0, 1.79413, -12.0477, 14.0847, -8.50809];
+fn wb97_xc(ra: f64, rb: f64, gaa: f64, gbb: f64, params: &Wb97Parameters) -> XcPointOut {
+    let (fx_a, vrx_a, vgaa_x) = wb97_x_one_spin(ra, gaa, params);
+    let (fx_b, vrx_b, vgbb_x) = wb97_x_one_spin(rb, gbb, params);
 
     let (fc_tot, v_tot_a, v_tot_b) = pw92_lsda_c(ra, rb);
     let (fc_pa, v_pa, _) = pw92_lsda_c(ra, 0.0);
@@ -1063,10 +1075,10 @@ fn wb97xd_xc(ra: f64, rb: f64, gaa: f64, _gab: f64, gbb: f64) -> XcPointOut {
         (0.0, 0.0, 0.0)
     };
 
-    let (g_ssa, dg_ssa) = b97_poly_and_deriv(0.2, &CSS, xa2);
-    let (g_ssb, dg_ssb) = b97_poly_and_deriv(0.2, &CSS, xb2);
+    let (g_ssa, dg_ssa) = b97_poly_and_deriv(0.2, &params.same_spin, xa2);
+    let (g_ssb, dg_ssb) = b97_poly_and_deriv(0.2, &params.same_spin, xb2);
     let xab2 = 0.5 * (xa2 + xb2);
-    let (g_ab, dg_ab) = b97_poly_and_deriv(0.006, &CAB, xab2);
+    let (g_ab, dg_ab) = b97_poly_and_deriv(0.006, &params.opposite_spin, xab2);
 
     let fc = fc_pa * g_ssa + fc_pb * g_ssb + fc_perp * g_ab;
     let vrc_a = v_pa * g_ssa
@@ -1208,6 +1220,7 @@ mod tests {
             XcFunctional::Pbe0,
             XcFunctional::CamB3lyp,
             XcFunctional::Wb97xd,
+            XcFunctional::Wb97x,
         ];
 
         for func in all_funcs {

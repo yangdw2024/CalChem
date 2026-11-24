@@ -58,8 +58,43 @@ impl AuxiliaryBasisSet {
     /// Angular coverage uses the explicit valence/steep heuristics below;
     /// it is not a complete product basis and has no universal fitting error bound.
     pub fn build_auto_jfit(mol: &Molecule, primary: &BasisSet) -> Self {
+        let aux_max_l_cap: u8 = std::env::var("CALCHEM_AUTO_AUX_MAX_L")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(3);
+        Self::build_auto_jfit_with_max_l(mol, primary, aux_max_l_cap)
+    }
+
+    /// Constructs an uncontracted per-angular-momentum even-tempered RI-J auxiliary basis
+    /// (AutoAux-style) with an explicit maximum auxiliary angular momentum cap (`aux_max_l_cap`,
+    /// e.g. `3` for up to Cartesian F-shells, `2` for S/P/D-only GPU ERI3C kernels).
+    pub fn build_auto_jfit_with_max_l(mol: &Molecule, primary: &BasisSet, aux_max_l_cap: u8) -> Self {
         let mut shells = Vec::new();
         let mut ao_offset = 0;
+
+        let mut push_ladder = |atom_idx: usize,
+                               center: [f64; 3],
+                               st: ShellType,
+                               lo: f64,
+                               hi: f64,
+                               ratio: f64| {
+            if !(lo.is_finite() && hi.is_finite() && lo > 0.0 && hi >= lo && ratio > 1.05) {
+                return;
+            }
+            let mut cur = lo;
+            while cur <= hi * 1.0001 {
+                shells.push(AuxiliaryShell {
+                    atom_index: atom_idx,
+                    center,
+                    shell_type: st,
+                    exponents: vec![cur],
+                    coeffs: vec![1.0],
+                    ao_offset,
+                });
+                ao_offset += st.n_ao();
+                cur *= ratio;
+            }
+        };
 
         for (atom_idx, _atom) in mol.atoms.iter().enumerate() {
             let atom_shells: Vec<&Shell> = primary
@@ -75,18 +110,27 @@ impl AuxiliaryBasisSet {
             let mut min_exp = f64::INFINITY;
             let mut max_exp = 0.0_f64;
             let mut max_l: u8 = 0;
+            let mut l_min = [f64::INFINITY; 4];
+            let mut l_max = [0.0_f64; 4];
 
             for s in &atom_shells {
                 let l = s.shell_type.angular_momentum();
                 if l > max_l {
                     max_l = l;
                 }
+                let l_idx = (l as usize).min(3);
                 for p in &s.primitives {
                     if p.exponent < min_exp {
                         min_exp = p.exponent;
                     }
                     if p.exponent > max_exp {
                         max_exp = p.exponent;
+                    }
+                    if p.exponent < l_min[l_idx] {
+                        l_min[l_idx] = p.exponent;
+                    }
+                    if p.exponent > l_max[l_idx] {
+                        l_max[l_idx] = p.exponent;
                     }
                 }
             }
@@ -98,75 +142,69 @@ impl AuxiliaryBasisSet {
                 max_exp = min_exp * 5.0;
             }
 
-            // Target exponent span for auxiliary fitting functions:
-            // Orbital products phi_mu * phi_nu have exponents alpha_mu + alpha_nu in [2*min_exp, 2*max_exp].
-            // Include the diffuse tail of inter-center products. The metric eigensolver
-            // removes near-dependent directions if needed.
-            let fit_min = min_exp * 1.5;
-            let fit_max = max_exp * 2.0;
+            // Compact stride for >30-atom unpolarized S/P molecules keeps N_aux bounded for GPU ERI3C.
+            let compact_large = mol.atoms.len() > 30 && max_l <= 1;
 
-            // Generate geometric progression of exponents:
-            // Compact stride for large molecules with S/P primary bases keeps N_aux bounded.
-            let compact_large = mol.atoms.len() > 30;
-            let ratio = if compact_large {
-                2.45_f64.max((fit_max / fit_min).powf(1.0 / 9.0))
+            // L = 0 (S): spans full orbital-product exponent range [1.55*min_exp, 2.0*max_exp].
+            let s_lo = min_exp * 1.55;
+            let s_hi = max_exp * 2.0;
+            let ratio_s = if compact_large {
+                2.45_f64.max((s_hi / s_lo).powf(1.0 / 9.0))
             } else {
-                1.95_f64.max((fit_max / fit_min).powf(1.0 / 13.0))
+                2.08_f64
             };
-            let mut exps = Vec::new();
-            let mut cur = fit_min;
-            while cur <= fit_max * 1.0001 {
-                exps.push(cur);
-                cur *= ratio;
-            }
-            if exps.len() < 3 {
-                exps = vec![fit_min, (fit_min * fit_max).sqrt(), fit_max];
-            }
+            push_ladder(atom_idx, center, ShellType::S, s_lo, s_hi, ratio_s);
 
-            // Angular momentum coverage:
-            // Core s-only above 80.0; P covers 2p/3p and 1s*2p up to 80.0;
-            // Cartesian D covers 2p*2p and polarization products in [0.25, 45.0] ([0.4, 8.0] for large SP);
-            // Default cap L_aux <= 2 guarantees 100% GPU kernel residence on CUDA devices.
-            let aux_max_l_cap: u8 = std::env::var("CALCHEM_AUTO_AUX_MAX_L")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(2);
-
-            for &exp in &exps {
-                let max_l_raw = if exp > 80.0 {
-                    0
-                } else if compact_large {
-                    if max_l >= 1 && (0.4..=8.0).contains(&exp) {
-                        2
-                    } else {
-                        1.min(max_l + 1)
-                    }
-                } else if max_l >= 2 && (0.5..=8.0).contains(&exp) {
-                    3
-                } else if max_l >= 1 && (0.25..=45.0).contains(&exp) {
-                    2
+            // L = 1 (P): fits s*p and p*d products (plus compact valence P on pure-S atoms like H).
+            if aux_max_l_cap >= 1 {
+                if max_l == 0 {
+                    let p_lo = (min_exp * 1.80).max(0.35);
+                    let p_hi = (max_exp * 1.50).min(15.0).max(p_lo);
+                    let ratio_p = if compact_large { 2.80 } else { 2.45 };
+                    push_ladder(atom_idx, center, ShellType::P, p_lo, p_hi, ratio_p);
                 } else {
-                    1.min(max_l + 1)
-                };
-                let max_l_for_exp = max_l_raw.min(aux_max_l_cap);
-
-                for l in 0..=max_l_for_exp {
-                    let (st, l_exp) = match l {
-                        0 => (ShellType::S, exp),
-                        1 => (ShellType::P, exp * 1.25),
-                        2 => (ShellType::D, exp * 1.65),
-                        _ => (ShellType::F, exp * 1.65),
-                    };
-                    shells.push(AuxiliaryShell {
-                        atom_index: atom_idx,
-                        center,
-                        shell_type: st,
-                        exponents: vec![l_exp],
-                        coeffs: vec![1.0],
-                        ao_offset,
-                    });
-                    ao_offset += st.n_ao();
+                    let p_min_prim = l_min[1].min(min_exp);
+                    let p_lo = (p_min_prim * 1.85).max(0.35);
+                    let p_hi_raw = (l_max[1] * 2.2).max(l_max[1] + l_max[0].min(60.0));
+                    let p_hi = if compact_large {
+                        p_hi_raw.min(45.0)
+                    } else {
+                        p_hi_raw.min(160.0)
+                    }
+                    .max(p_lo);
+                    let ratio_p = if compact_large { 2.80 } else { 2.35 };
+                    push_ladder(atom_idx, center, ShellType::P, p_lo, p_hi, ratio_p);
                 }
+            }
+
+            // L = 2 (Cartesian D): fits p*p and s*d products. Geometric ratio 2.55, floor >= 0.42,
+            // and cap <= 120.0 prevent Cartesian r^2 S-trace linear dependence against the S ladder
+            // (keeping trunc == 0 on 3rd-row elements like S and on 48-atom pi-stacked dimers).
+            if max_l >= 1 && aux_max_l_cap >= 2 && l_min[1].is_finite() {
+                let d_lo = (l_min[1] * 1.90).max(0.42);
+                let d_hi_raw = if l_max[2] > 0.0 {
+                    (l_max[1] * 2.0).max(l_max[2] * 2.5)
+                } else {
+                    l_max[1] * 2.0
+                };
+                let d_hi = if compact_large {
+                    d_hi_raw.min(12.0)
+                } else {
+                    d_hi_raw.min(120.0)
+                }
+                .max(d_lo);
+                let ratio_d = if compact_large { 2.90 } else { 2.55 };
+                push_ladder(atom_idx, center, ShellType::D, d_lo, d_hi, ratio_d);
+            }
+
+            // L = 3 (Cartesian F): fits p*d polarization products whenever primary has d-shells.
+            // Unpolarized S/P bases (max_l <= 1) automatically stay at L_aux <= 2 for GPU ERI3C.
+            if max_l >= 2 && aux_max_l_cap >= 3 && l_min[2].is_finite() {
+                let p_min_eff = if l_min[1].is_finite() { l_min[1] } else { min_exp };
+                let p_max_eff = if l_max[1] > 0.0 { l_max[1].min(12.0) } else { 4.0 };
+                let f_lo = (p_min_eff + l_min[2]).max(0.75);
+                let f_hi = ((p_max_eff + l_max[2]) * 1.20).max(f_lo * 2.50);
+                push_ladder(atom_idx, center, ShellType::F, f_lo, f_hi, 2.60);
             }
         }
 
@@ -1069,11 +1107,15 @@ impl RiJEngine {
         primary: &BasisSet,
         use_gpu: bool,
     ) -> Result<Self, CalcError> {
+        Self::with_basis(mol, primary, use_gpu, calchem_model::JFitBasis::Auto)
+    }
+
+    pub fn with_basis(mol: &Molecule, primary: &BasisSet, use_gpu: bool, choice: calchem_model::JFitBasis) -> Result<Self,CalcError> {
         let cache_limit = std::env::var("CALCHEM_MAX_DF_BYTES")
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(4usize << 30);
-        Self::with_cache_limit_gpu(mol, primary, cache_limit, use_gpu)
+        Self::build(mol, primary, cache_limit, use_gpu, choice)
     }
 
     #[allow(dead_code)]
@@ -1087,7 +1129,20 @@ impl RiJEngine {
         cache_limit: usize,
         use_gpu: bool,
     ) -> Result<Self, CalcError> {
-        let aux_basis = AuxiliaryBasisSet::build_auto_jfit(mol, primary);
+        Self::build(mol, primary, cache_limit, use_gpu, calchem_model::JFitBasis::Auto)
+    }
+
+    fn build(mol: &Molecule, primary: &BasisSet, cache_limit: usize, use_gpu: bool, choice: calchem_model::JFitBasis) -> Result<Self, CalcError> {
+        let aux_basis = match choice {
+            calchem_model::JFitBasis::Auto => AuxiliaryBasisSet::build_auto_jfit(mol, primary),
+            calchem_model::JFitBasis::Def2UpToF => {
+                let aux = AuxiliaryBasisSet::build_def2_jfit(mol, primary);
+                if aux.name.ends_with("-hybrid") {
+                    return Err(CalcError::UnsupportedBasis("Requested def2-jfit-f has missing elements".into()));
+                }
+                aux
+            }
+        };
         let budget = std::env::var("CALCHEM_MAX_MEMORY_BYTES")
             .ok()
             .and_then(|v| v.parse::<u128>().ok())
@@ -1095,7 +1150,7 @@ impl RiJEngine {
         // Dense metric Cholesky/eigensolver working estimate in N_aux^2 f64s.
         let metric_bytes = 6 * (aux_basis.n_aux as u128).pow(2) * 8;
         if metric_bytes > budget {
-            return Err(CalcError::UnsupportedBasis(format!(
+            return Err(CalcError::ResourceLimit(format!(
                 "RI-J metric workspace estimate {metric_bytes} bytes exceeds budget {budget}"
             )));
         }
@@ -1176,19 +1231,20 @@ impl RiJEngine {
             );
         }
         let t_3c0 = std::time::Instant::now();
+        let has_unsupported_gpu_l = aux_basis
+            .shells
+            .iter()
+            .any(|s| s.shell_type.angular_momentum() > 2)
+            || primary
+                .shells
+                .iter()
+                .any(|s| s.shell_type.angular_momentum() > 2);
         let gpu_eligible = use_gpu
             && packed
             && width > 0
             && bytes <= max_df_bytes as u128
             && calchem_cuda::is_cuda_available()
-            && aux_basis
-                .shells
-                .iter()
-                .all(|s| s.shell_type.angular_momentum() <= 2)
-            && primary
-                .shells
-                .iter()
-                .all(|s| s.shell_type.angular_momentum() <= 2);
+            && !has_unsupported_gpu_l;
 
         let mut gpu_packed_b: Option<calchem_cuda::ResidentRijTensor> = None;
         if gpu_eligible {
@@ -1257,96 +1313,113 @@ impl RiJEngine {
             );
         }
 
-        let (cached_b, packed_b) = if let Some(tensor) = gpu_packed_b {
-            if profile {
-                eprintln!("[rij] eri_3c_build_gpu={:.3}s", t_3c0.elapsed().as_secs_f64());
-            }
-            (None, Some(tensor))
-        } else {
-            let cache = if width > 0 && bytes <= max_df_bytes as u128 {
-                let mut b_flat = vec![0.0; n_aux * width];
-                let mut remainder = b_flat.as_mut_slice();
-                let mut slices = Vec::with_capacity(aux_basis.shells.len());
-                for shell in &aux_basis.shells {
-                    let (rows, rest) = remainder.split_at_mut(shell.n_functions() * width);
-                    slices.push(rows);
-                    remainder = rest;
+        let (cached_b, packed_b, initial_gpu_kernels, initial_gpu_fallbacks) =
+            if let Some(tensor) = gpu_packed_b {
+                if profile {
+                    eprintln!("[rij] eri_3c_build_gpu={:.3}s", t_3c0.elapsed().as_secs_f64());
                 }
-                aux_basis
-                    .shells
-                    .par_iter()
-                    .zip(slices.into_par_iter())
-                    .enumerate()
-                    .for_each_init(
-                        || (Vec::<f64>::new(), Vec::<f64>::new()),
-                        |(blk, vrr_cache), (p_idx, (p_shell, shell_rows))| {
-                            let np = p_shell.n_functions();
-                            let p_b = aux_diag_bounds[p_idx];
+                (None, Some(tensor), 1usize, 0usize)
+            } else {
+                let cache = if width > 0 && bytes <= max_df_bytes as u128 {
+                    let mut b_flat = vec![0.0; n_aux * width];
+                    let mut remainder = b_flat.as_mut_slice();
+                    let mut slices = Vec::with_capacity(aux_basis.shells.len());
+                    for shell in &aux_basis.shells {
+                        let (rows, rest) = remainder.split_at_mut(shell.n_functions() * width);
+                        slices.push(rows);
+                        remainder = rest;
+                    }
+                    aux_basis
+                        .shells
+                        .par_iter()
+                        .zip(slices.into_par_iter())
+                        .enumerate()
+                        .for_each_init(
+                            || (Vec::<f64>::new(), Vec::<f64>::new()),
+                            |(blk, vrr_cache), (p_idx, (p_shell, shell_rows))| {
+                                let np = p_shell.n_functions();
+                                let p_b = aux_diag_bounds[p_idx];
 
-                            for &(i_idx, j_idx, q_ij, shell_off, ref pps) in &sig_ij_list {
-                                if p_b * q_ij < 1e-12 {
-                                    continue;
-                                }
-                                let i_shell = &primary.shells[i_idx];
-                                let j_shell = &primary.shells[j_idx];
-                                let i_off = i_shell.ao_offset;
-                                let j_off = j_shell.ao_offset;
-                                let ni = i_shell.n_functions();
-                                let nj = j_shell.n_functions();
+                                for &(i_idx, j_idx, q_ij, shell_off, ref pps) in &sig_ij_list {
+                                    if p_b * q_ij < 1e-12 {
+                                        continue;
+                                    }
+                                    let i_shell = &primary.shells[i_idx];
+                                    let j_shell = &primary.shells[j_idx];
+                                    let i_off = i_shell.ao_offset;
+                                    let j_off = j_shell.ao_offset;
+                                    let ni = i_shell.n_functions();
+                                    let nj = j_shell.n_functions();
 
-                                shell_3center_block_precomputed(
-                                    p_shell, i_shell, j_shell, pps, blk, vrr_cache,
-                                );
-                                if packed {
-                                    for p_fn in 0..np {
-                                        let base = p_fn * width + shell_off;
-                                        let p_blk = p_fn * ni * nj;
-                                        if i_idx == j_idx {
-                                            let mut pos = 0;
+                                    shell_3center_block_precomputed(
+                                        p_shell, i_shell, j_shell, pps, blk, vrr_cache,
+                                    );
+                                    if packed {
+                                        for p_fn in 0..np {
+                                            let base = p_fn * width + shell_off;
+                                            let p_blk = p_fn * ni * nj;
+                                            if i_idx == j_idx {
+                                                let mut pos = 0;
+                                                for mu in 0..ni {
+                                                    for nu in 0..=mu {
+                                                        shell_rows[base + pos] = blk[p_blk + mu * nj + nu];
+                                                        pos += 1;
+                                                    }
+                                                }
+                                            } else {
+                                                let len = ni * nj;
+                                                shell_rows[base..base + len]
+                                                    .copy_from_slice(&blk[p_blk..p_blk + len]);
+                                            }
+                                        }
+                                    } else {
+                                        for p_fn in 0..np {
+                                            let p_row_offset = p_fn * width;
+                                            let p_blk = p_fn * ni * nj;
                                             for mu in 0..ni {
-                                                for nu in 0..=mu {
-                                                    shell_rows[base + pos] = blk[p_blk + mu * nj + nu];
-                                                    pos += 1;
+                                                let r_mu = i_off + mu;
+                                                for nu in 0..nj {
+                                                    let c_nu = j_off + nu;
+                                                    let val = blk[p_blk + mu * nj + nu];
+                                                    shell_rows[p_row_offset + r_mu * n_ao + c_nu] = val;
+                                                    shell_rows[p_row_offset + c_nu * n_ao + r_mu] = val;
                                                 }
                                             }
-                                        } else {
-                                            let len = ni * nj;
-                                            shell_rows[base..base + len]
-                                                .copy_from_slice(&blk[p_blk..p_blk + len]);
-                                        }
-                                    }
-                                } else {
-                                    for p_fn in 0..np {
-                                        let p_row_offset = p_fn * width;
-                                        let p_blk = p_fn * ni * nj;
-                                        for mu in 0..ni {
-                                            let r_mu = i_off + mu;
-                                            for nu in 0..nj {
-                                                let c_nu = j_off + nu;
-                                                let val = blk[p_blk + mu * nj + nu];
-                                                shell_rows[p_row_offset + r_mu * n_ao + c_nu] = val;
-                                                shell_rows[p_row_offset + c_nu * n_ao + r_mu] = val;
-                                            }
                                         }
                                     }
                                 }
-                            }
-                        },
-                    );
+                            },
+                        );
 
-                Some(b_flat)
-            } else {
-                None
+                    Some(b_flat)
+                } else {
+                    None
+                };
+                if profile {
+                    eprintln!("[rij] eri_3c_build_cpu={:.3}s", t_3c0.elapsed().as_secs_f64());
+                }
+                let fallback_inc = if use_gpu
+                    && width > 0
+                    && bytes <= max_df_bytes as u128
+                    && (has_unsupported_gpu_l
+                        || gpu_eligible
+                        || (packed && !calchem_cuda::is_cuda_available()))
+                {
+                    1usize
+                } else {
+                    0usize
+                };
+                if packed {
+                    (
+                        None,
+                        cache.map(calchem_cuda::ResidentRijTensor::new),
+                        0usize,
+                        fallback_inc,
+                    )
+                } else {
+                    (cache, None, 0usize, fallback_inc)
+                }
             };
-            if profile {
-                eprintln!("[rij] eri_3c_build_cpu={:.3}s", t_3c0.elapsed().as_secs_f64());
-            }
-            if packed {
-                (None, cache.map(calchem_cuda::ResidentRijTensor::new))
-            } else {
-                (cache, None)
-            }
-        };
         Ok(Self {
             use_gpu,
             aux_basis,
@@ -1355,8 +1428,8 @@ impl RiJEngine {
             cached_b, packed_b, packed_pairs,
             n_ao,
             aux_diag_bounds,
-            gpu_kernel_invocations: AtomicUsize::new(0),
-            gpu_fallback_invocations: AtomicUsize::new(0),
+            gpu_kernel_invocations: AtomicUsize::new(initial_gpu_kernels),
+            gpu_fallback_invocations: AtomicUsize::new(initial_gpu_fallbacks),
         })
     }
 
@@ -2264,7 +2337,8 @@ mod tests {
         // Verify primary basis contains D-shells
         assert!(bs.shells.iter().any(|s| s.shell_type.angular_momentum() == 2));
 
-        let cpu = RiJEngine::with_cache_limit_gpu(&mol, &bs, 4usize << 30, false).unwrap();
+        let aux_l2 = AuxiliaryBasisSet::build_auto_jfit_with_max_l(&mol, &bs, 2);
+        let cpu = RiJEngine::with_auxiliary_basis(&bs, aux_l2).unwrap();
         let aux_basis = &cpu.aux_basis;
         let n_aux = aux_basis.n_aux;
         let n_ao = bs.n_ao;

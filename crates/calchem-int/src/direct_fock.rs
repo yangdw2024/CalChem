@@ -311,6 +311,121 @@ pub fn contract_quartet_k(
     }
 }
 
+/// Contracts a computed shell quartet block `(sh_a sh_b | sh_c sh_d)` into a general
+/// (possibly non-symmetric or antisymmetric) exact-exchange matrix
+/// `K_{mu,nu}[X] = sum_{lam,sig} (mu lam | nu sig) X_{lam,sig}`.
+#[allow(clippy::too_many_arguments)]
+#[inline]
+pub fn contract_quartet_k_general(
+    i: usize,
+    j: usize,
+    k: usize,
+    l: usize,
+    sh_a: &Shell,
+    sh_b: &Shell,
+    sh_c: &Shell,
+    sh_d: &Shell,
+    block: &[f64],
+    x: &[f64],
+    n: usize,
+    k_mat: &mut [f64],
+) {
+    let na = sh_a.n_functions();
+    let nb = sh_b.n_functions();
+    let nc = sh_c.n_functions();
+    let nd = sh_d.n_functions();
+
+    if i != j && k != l && (i != k || j != l) {
+        let ao_a = sh_a.ao_offset;
+        let ao_b = sh_b.ao_offset;
+        let ao_c = sh_c.ao_offset;
+        let ao_d = sh_d.ao_offset;
+        for ia in 0..na {
+            let mu = ao_a + ia;
+            let mu_n = mu * n;
+            let ia_nb = ia * nb;
+            for ib in 0..nb {
+                let nu = ao_b + ib;
+                let nu_n = nu * n;
+                let ab_nc = (ia_nb + ib) * nc;
+                for ic in 0..nc {
+                    let lam = ao_c + ic;
+                    let lam_n = lam * n;
+                    let x_nu_lam = x[nu_n + lam];
+                    let x_mu_lam = x[mu_n + lam];
+                    let x_lam_nu = x[lam_n + nu];
+                    let x_lam_mu = x[lam_n + mu];
+                    let abc_nd = (ab_nc + ic) * nd;
+                    let mut acc_mu_lam = 0.0;
+                    let mut acc_nu_lam = 0.0;
+                    let mut acc_lam_mu = 0.0;
+                    let mut acc_lam_nu = 0.0;
+                    for id in 0..nd {
+                        let v = block[abc_nd + id];
+                        if v != 0.0 {
+                            let sig = ao_d + id;
+                            let sig_n = sig * n;
+                            acc_mu_lam += v * x[nu_n + sig];
+                            acc_nu_lam += v * x[mu_n + sig];
+                            k_mat[mu_n + sig] += v * x_nu_lam;
+                            k_mat[nu_n + sig] += v * x_mu_lam;
+                            acc_lam_mu += v * x[sig_n + nu];
+                            k_mat[sig_n + mu] += v * x_lam_nu;
+                            acc_lam_nu += v * x[sig_n + mu];
+                            k_mat[sig_n + nu] += v * x_lam_mu;
+                        }
+                    }
+                    k_mat[mu_n + lam] += acc_mu_lam;
+                    k_mat[nu_n + lam] += acc_nu_lam;
+                    k_mat[lam_n + mu] += acc_lam_mu;
+                    k_mat[lam_n + nu] += acc_lam_nu;
+                }
+            }
+        }
+        return;
+    }
+
+    for ia in 0..na {
+        let ib_end = if i == j { ia + 1 } else { nb };
+        let mu0 = sh_a.ao_offset + ia;
+        for ib in 0..ib_end {
+            let nu0 = sh_b.ao_offset + ib;
+            let (mu, nu) = if mu0 <= nu0 { (mu0, nu0) } else { (nu0, mu0) };
+            for ic in 0..nc {
+                let id_end = if k == l { ic + 1 } else { nd };
+                let lam0 = sh_c.ao_offset + ic;
+                for id in 0..id_end {
+                    let sig0 = sh_d.ao_offset + id;
+                    let (lam, sig) = if lam0 <= sig0 {
+                        (lam0, sig0)
+                    } else {
+                        (sig0, lam0)
+                    };
+                    if i == k && j == l && (ia, ib) < (ic, id) {
+                        continue;
+                    }
+                    let val = block[((ia * nb + ib) * nc + ic) * nd + id];
+                    if val != 0.0 {
+                        let s1 = if mu == nu { 2.0 } else { 1.0 };
+                        let s2 = if lam == sig { 2.0 } else { 1.0 };
+                        let s3 = if mu == lam && nu == sig { 2.0 } else { 1.0 };
+                        let v = val / (s1 * s2 * s3);
+
+                        k_mat[mu * n + lam] += v * x[nu * n + sig];
+                        k_mat[nu * n + lam] += v * x[mu * n + sig];
+                        k_mat[mu * n + sig] += v * x[nu * n + lam];
+                        k_mat[nu * n + sig] += v * x[mu * n + lam];
+                        k_mat[lam * n + mu] += v * x[sig * n + nu];
+                        k_mat[sig * n + mu] += v * x[lam * n + nu];
+                        k_mat[lam * n + nu] += v * x[sig * n + mu];
+                        k_mat[sig * n + nu] += v * x[lam * n + mu];
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Contracts a computed shell quartet block `(sh_a sh_b | sh_c sh_d)` on-the-fly into
 /// open-shell two-electron Fock matrices `G_alpha = J[P^t] - exx * K[P^\alpha]` and
 /// `G_beta = J[P^t] - exx * K[P^\beta]`.
@@ -527,7 +642,7 @@ impl DirectFockEngine {
             return (vec![0.0f64; n * n], DirectFockStats::default());
         }
 
-        let k_workers = num_workers.max(1);
+        let k_workers = self.determine_worker_count(false, Some(num_workers)).min(num_pairs);
         let total_candidates = num_pairs * (num_pairs + 1) / 2;
 
         let mut worker_buffers: Vec<Vec<f64>> =
@@ -601,19 +716,13 @@ impl DirectFockEngine {
                 }
             }
         } else {
-            let next_pair = std::sync::atomic::AtomicUsize::new(0);
             let d_ref = &d;
             rayon::scope(|s| {
-                for (local_g, local_stats) in worker_buffers.iter_mut().zip(worker_stats.iter_mut())
+                for (worker, (local_g, local_stats)) in worker_buffers.iter_mut().zip(worker_stats.iter_mut()).enumerate()
                 {
-                    let next_pair = &next_pair;
                     s.spawn(move |_| {
                         let mut block = Vec::with_capacity(1296);
-                        loop {
-                        let p_idx = next_pair.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        if p_idx >= num_pairs {
-                            break;
-                        }
+                        for p_idx in (worker..num_pairs).step_by(k_workers) {
                         let pair_p = &self.sig_pairs[p_idx];
                         let i = pair_p.shell_i;
                         let j = pair_p.shell_j;
@@ -752,7 +861,7 @@ impl DirectFockEngine {
             return vec![0.0f64; n * n];
         }
 
-        let k_workers = num_workers.max(1);
+        let k_workers = self.determine_worker_count(false, Some(num_workers)).min(num_pairs);
         let mut worker_buffers: Vec<Vec<f64>> =
             (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
 
@@ -764,12 +873,9 @@ impl DirectFockEngine {
             collect_egp_pairs(&basis.shells[p.shell_i], &basis.shells[p.shell_j])).collect();
         let row_max: Vec<_> = d.chunks_exact(n_shells).map(|row|
             row.iter().copied().fold(0.0_f64,f64::max)).collect();
-        let next = std::sync::atomic::AtomicUsize::new(0);
-        worker_buffers.par_iter_mut().for_each(|local_k| {
+        worker_buffers.par_iter_mut().enumerate().for_each(|(worker, local_k)| {
             let mut block = Vec::new();
-            loop {
-                let pi = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                if pi >= num_pairs { break; }
+            for pi in (worker..num_pairs).step_by(k_workers) {
                 let bra = &self.sig_pairs[pi];
                 let (i,j) = (bra.shell_i,bra.shell_j);
                 let (a,b) = (&basis.shells[i], &basis.shells[j]);
@@ -840,6 +946,164 @@ impl DirectFockEngine {
         self.build_k_with_omega_bounded(basis, p, omega, thresh, workers)
     }
 
+    /// Evaluates general (non-symmetric, symmetric, or antisymmetric) exact exchange matrix
+    /// `K_{mu,nu}[X] = sum_{lam,sig} (mu lam | nu sig)_omega X_{lam,sig}` on-the-fly with
+    /// optional range-separation parameter `omega`, for AO-direct TD-DFT/TDA response.
+    pub fn build_k_general_with_omega(
+        &self,
+        basis: &BasisSet,
+        x: &[f64],
+        omega: Option<f64>,
+        threshold: f64,
+    ) -> Vec<f64> {
+        let n = self.n_ao;
+        let n_shells = self.n_shells;
+        // Symmetrized L1 shell-pair bound max(|X_ab|, |X_ba|) guarantees rigorous screening for general X.
+        let mut d = vec![0.0f64; n_shells * n_shells];
+        for (i, sh_i) in basis.shells.iter().enumerate() {
+            let off_i = sh_i.ao_offset;
+            let ni = sh_i.n_functions();
+            for (j, sh_j) in basis.shells.iter().enumerate().skip(i) {
+                let off_j = sh_j.ao_offset;
+                let nj = sh_j.n_functions();
+                let mut l1 = 0.0f64;
+                for a in 0..ni {
+                    let mu = off_i + a;
+                    for b in 0..nj {
+                        let nu = off_j + b;
+                        let m = x[mu * n + nu].abs().max(x[nu * n + mu].abs());
+                        l1 += m;
+                    }
+                }
+                d[i * n_shells + j] = l1;
+                d[j * n_shells + i] = l1;
+            }
+        }
+        let num_pairs = self.sig_pairs.len();
+        if num_pairs == 0 {
+            return vec![0.0f64; n * n];
+        }
+
+        let workers = self.determine_worker_count(false, None);
+        let k_workers = workers.min(num_pairs).max(1);
+        let mut worker_buffers: Vec<Vec<f64>> =
+            (0..k_workers).map(|_| vec![0.0f64; n * n]).collect();
+
+        let max_density = d.iter().copied().fold(0.0_f64, f64::max);
+        if max_density == 0.0 {
+            return vec![0.0f64; n * n];
+        }
+        let largest = self.sig_pairs[0].bound;
+        let active_pairs = self.sig_pairs.partition_point(|q| {
+            threshold <= 0.0 || 4.0 * (largest * q.bound) * max_density >= threshold
+        });
+        if active_pairs == 0 {
+            return vec![0.0f64; n * n];
+        }
+        let primitive_pairs: Vec<_> = self.sig_pairs[..active_pairs]
+            .iter()
+            .map(|p| collect_egp_pairs(&basis.shells[p.shell_i], &basis.shells[p.shell_j]))
+            .collect();
+        let row_max: Vec<_> = d
+            .chunks_exact(n_shells)
+            .map(|row| row.iter().copied().fold(0.0_f64, f64::max))
+            .collect();
+
+        worker_buffers
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(worker, local_k)| {
+                let mut block = Vec::new();
+                for pi in (worker..active_pairs).step_by(k_workers) {
+                    let bra = &self.sig_pairs[pi];
+                    let (i, j) = (bra.shell_i, bra.shell_j);
+                    let (a, b) = (&basis.shells[i], &basis.shells[j]);
+                    let candidates = &self.sig_pairs[..=pi];
+                    let end = candidates.partition_point(|q| {
+                        threshold <= 0.0
+                            || 4.0 * (bra.bound * q.bound) * row_max[i].max(row_max[j]) >= threshold
+                    });
+                    let bra_width = a.n_functions() * b.n_functions();
+                    let count = if omega.is_none() { self.cached_kets[pi] } else { 0 };
+                    let mut cache = if count > 0 && end > 0 {
+                        Some(
+                            self.exchange_rows[pi]
+                                .get_or_init(|| {
+                                    Mutex::new(vec![f64::NAN; bra_width * self.pair_prefix[count]])
+                                })
+                                .lock()
+                                .unwrap(),
+                        )
+                    } else {
+                        None
+                    };
+                    for (qi, q) in candidates[..end].iter().enumerate() {
+                        let (k, l) = (q.shell_i, q.shell_j);
+                        let dm = d[i * n_shells + k]
+                            .max(d[i * n_shells + l])
+                            .max(d[j * n_shells + k])
+                            .max(d[j * n_shells + l]);
+                        if threshold > 0.0 && 4.0 * (bra.bound * q.bound) * dm < threshold {
+                            continue;
+                        }
+                        let vals = if qi < count {
+                            let start = self.pair_prefix[qi] * bra_width;
+                            let stop = self.pair_prefix[qi + 1] * bra_width;
+                            let slot = &mut cache.as_mut().unwrap()[start..stop];
+                            if slot[0].is_nan() {
+                                eri_from_pairs(
+                                    a,
+                                    b,
+                                    &basis.shells[k],
+                                    &basis.shells[l],
+                                    &primitive_pairs[pi],
+                                    &primitive_pairs[qi],
+                                    omega,
+                                    &mut block,
+                                );
+                                slot.copy_from_slice(&block);
+                            }
+                            &slot[..]
+                        } else {
+                            eri_from_pairs(
+                                a,
+                                b,
+                                &basis.shells[k],
+                                &basis.shells[l],
+                                &primitive_pairs[pi],
+                                &primitive_pairs[qi],
+                                omega,
+                                &mut block,
+                            );
+                            &block[..]
+                        };
+                        contract_quartet_k_general(
+                            i,
+                            j,
+                            k,
+                            l,
+                            a,
+                            b,
+                            &basis.shells[k],
+                            &basis.shells[l],
+                            vals,
+                            x,
+                            n,
+                            local_k,
+                        );
+                    }
+                }
+            });
+
+        let mut final_k = worker_buffers.remove(0);
+        for w_buf in worker_buffers {
+            for idx in 0..n * n {
+                final_k[idx] += w_buf[idx];
+            }
+        }
+        final_k
+    }
+
     pub fn build_k(&self, basis: &BasisSet, p: &[f64]) -> Vec<f64> {
         self.build_k_with_omega(basis, p, None)
     }
@@ -877,7 +1141,7 @@ impl DirectFockEngine {
             );
         }
 
-        let k_workers = num_workers.max(1);
+        let k_workers = self.determine_worker_count(true, Some(num_workers)).min(num_pairs);
         let total_candidates = num_pairs * (num_pairs + 1) / 2;
 
         let mut worker_buffers_a: Vec<Vec<f64>> =
@@ -961,25 +1225,19 @@ impl DirectFockEngine {
                 }
             }
         } else {
-            let next_pair = std::sync::atomic::AtomicUsize::new(0);
             let dt_ref = &dt;
             let da_ref = &da;
             let db_ref = &db;
             let pt_ref = &pt;
             rayon::scope(|s| {
-                for ((local_ga, local_gb), local_stats) in worker_buffers_a
+                for (worker, ((local_ga, local_gb), local_stats)) in worker_buffers_a
                     .iter_mut()
                     .zip(worker_buffers_b.iter_mut())
-                    .zip(worker_stats.iter_mut())
+                    .zip(worker_stats.iter_mut()).enumerate()
                 {
-                    let next_pair = &next_pair;
                     s.spawn(move |_| {
                         let mut block = Vec::with_capacity(1296);
-                        loop {
-                        let p_idx = next_pair.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        if p_idx >= num_pairs {
-                            break;
-                        }
+                        for p_idx in (worker..num_pairs).step_by(k_workers) {
                         let pair_p = &self.sig_pairs[p_idx];
                         let i = pair_p.shell_i;
                         let j = pair_p.shell_j;

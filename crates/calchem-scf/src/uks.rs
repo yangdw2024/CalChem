@@ -112,6 +112,19 @@ pub fn uks_with_grid(
     grid: &MolecularGrid,
     opts: &ScfOptions,
 ) -> Result<UhfWavefunction, CalcError> {
+    uks_with_grid_and_guess(mol, basis, xc, grid, opts, None)
+}
+
+/// Runs an Unrestricted Kohn-Sham (UKS) DFT calculation on a prebuilt [`MolecularGrid`]
+/// with an optional adjacent-geometry orbital projection guess.
+pub fn uks_with_grid_and_guess(
+    mol: &Molecule,
+    basis: &BasisSet,
+    xc: XcFunctional,
+    grid: &MolecularGrid,
+    opts: &ScfOptions,
+    guess: Option<&crate::guess::InitialGuess>,
+) -> Result<UhfWavefunction, CalcError> {
     let use_direct = crate::should_use_direct(basis, opts);
     if use_direct {
         crate::validate_direct_resources_for_method(basis, opts, true)?;
@@ -135,13 +148,14 @@ pub fn uks_with_grid(
     for i in 0..n * n {
         h_core.data[i] = t.data[i] + v.data[i] + v_ecp.data[i];
     }
-    let fock_builder = UksFockBuilder::new_with_options(
+    let fock_builder = UksFockBuilder::with_jfit_basis(
         mol,
         basis,
         use_direct,
         opts.density_fitting,
         opts.use_gpu,
         xc.range_separated_params(),
+        opts.jfit_basis,
     )?;
     let e_nuc = basis.nuclear_repulsion_energy(mol);
     let e_disp = if xc == XcFunctional::Wb97xd {
@@ -165,8 +179,29 @@ pub fn uks_with_grid(
     let x = matmul(&matmul(&s_vecs, &s_inv_sqrt), &transpose(&s_vecs));
     let xt = transpose(&x);
 
-    let (_, _, mut pa) = diagonalize_spin(&h_core, &x, &xt, n_alpha)?;
-    let (_, _, mut pb) = diagonalize_spin(&h_core, &x, &xt, n_beta)?;
+    let projected = match guess {
+        Some(crate::guess::InitialGuess::Unrestricted {
+            n_ao,
+            mo_alpha,
+            mo_beta,
+        }) if *n_ao == n => {
+            let pa_opt = crate::guess::project_occupied_density(mo_alpha, n, n_alpha, &s, 1.0);
+            let pb_opt = if n_beta == 0 {
+                Some(Matrix2D::zeros(n, n))
+            } else {
+                crate::guess::project_occupied_density(mo_beta, n, n_beta, &s, 1.0)
+            };
+            pa_opt.zip(pb_opt)
+        }
+        _ => None,
+    };
+    let (mut pa, mut pb) = if let Some((pa_proj, pb_proj)) = projected {
+        (pa_proj, pb_proj)
+    } else {
+        let (_, _, pa_h) = diagonalize_spin(&h_core, &x, &xt, n_alpha)?;
+        let (_, _, pb_h) = diagonalize_spin(&h_core, &x, &xt, n_beta)?;
+        (pa_h, pb_h)
+    };
 
     let mut diis = DiisState::from_scf_options(opts);
     let mut energy_history = Vec::new();
@@ -405,6 +440,7 @@ pub fn uks_with_grid(
             gpu_fallback_invocations,
             diis_disk_backed,
             rij_metric_truncated_modes,
+            jfit_basis: opts.jfit_basis,
         },
     })
 }

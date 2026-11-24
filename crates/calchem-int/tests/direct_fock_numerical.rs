@@ -253,3 +253,43 @@ fn test_screening_distance_scaling_he_dimer() {
         );
     }
 }
+
+#[test]
+fn test_direct_k_general_matches_sparse_sym_anti_and_asymmetric() {
+    let (_mol, bs) = make_water_631gd();
+    let n = bs.n_ao;
+    let mut x_sym = vec![0.0; n * n];
+    let mut x_anti = vec![0.0; n * n];
+    let mut x_gen = vec![0.0; n * n];
+    for i in 0..n {
+        for j in 0..n {
+            let v_ij = ((i as f64 + 1.3) * 0.37 + (j as f64 + 0.7) * 0.19).sin() * 0.25;
+            let v_ji = ((j as f64 + 1.3) * 0.37 + (i as f64 + 0.7) * 0.19).sin() * 0.25;
+            x_sym[i * n + j] = 0.5 * (v_ij + v_ji);
+            x_anti[i * n + j] = 0.5 * (v_ij - v_ji);
+            x_gen[i * n + j] = v_ij;
+        }
+    }
+
+    let engine = DirectFockEngine::new(&bs, 1e-13);
+    for omega in [None, Some(0.33)] {
+        let eri_sparse = calchem_int::compute_sparse_eri_with_omega(
+            &bs,
+            &calchem_int::IntegralOptions::default(),
+            omega,
+        );
+        for (label, x) in [("sym", &x_sym), ("anti", &x_anti), ("gen", &x_gen)] {
+            let k_ref = eri_sparse.contract_k_gen(x);
+            let k_dir = engine.build_k_general_with_omega(&bs, x, omega, 1e-13);
+            let max_diff = k_ref
+                .iter()
+                .zip(&k_dir)
+                .map(|(a, b)| (a - b).abs())
+                .fold(0.0f64, f64::max);
+            assert!(
+                max_diff < 1e-11,
+                "Direct K general mismatch for {label} (omega={omega:?}): max_diff={max_diff:.3e}"
+            );
+        }
+    }
+}

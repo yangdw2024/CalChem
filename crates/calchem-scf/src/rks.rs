@@ -121,6 +121,19 @@ pub fn rks_with_grid(
     grid: &MolecularGrid,
     opts: &ScfOptions,
 ) -> Result<ScfWavefunction, CalcError> {
+    rks_with_grid_and_guess(mol, basis, xc, grid, opts, None)
+}
+
+/// Runs a closed-shell Restricted Kohn-Sham (RKS) DFT calculation on a prebuilt [`MolecularGrid`]
+/// with an optional adjacent-geometry orbital projection guess (falls back to SAD if invalid).
+pub fn rks_with_grid_and_guess(
+    mol: &Molecule,
+    basis: &BasisSet,
+    xc: XcFunctional,
+    grid: &MolecularGrid,
+    opts: &ScfOptions,
+    guess: Option<&crate::guess::InitialGuess>,
+) -> Result<ScfWavefunction, CalcError> {
     let use_direct = crate::should_use_direct(basis, opts);
     if use_direct {
         crate::validate_direct_resources_and_options(basis, opts)?;
@@ -155,13 +168,14 @@ pub fn rks_with_grid(
     let d_1e = t_start.elapsed();
 
     let t_b0 = Instant::now();
-    let fock_builder = RksFockBuilder::new_with_options(
+    let fock_builder = RksFockBuilder::with_jfit_basis(
         mol,
         basis,
         use_direct,
         opts.density_fitting,
         opts.use_gpu,
         xc.range_separated_params(),
+        opts.jfit_basis,
     )?;
     let d_builder = t_b0.elapsed();
     let t_vxc_init = Instant::now();
@@ -195,11 +209,22 @@ pub fn rks_with_grid(
     let x = matmul(&matmul(&s_vecs, &s_inv_sqrt), &transpose(&s_vecs));
     let xt = transpose(&x);
 
-    let (mut p, used_sad_guess, mut cp_prev) = match crate::guess::sad_guess(mol, basis, &s, n_occ) {
-        Ok(p_sad) => (p_sad, true, None),
-        Err(_) => {
-            let (_, _, p_h, cp_h) = diagonalize_fock_with_shift(&h_core, &x, &xt, n_occ, None, 0.0)?;
-            (p_h, false, Some(cp_h))
+    let projected = match guess {
+        Some(crate::guess::InitialGuess::Restricted {
+            n_ao,
+            mo_coefficients,
+        }) if *n_ao == n => crate::guess::project_occupied_density(mo_coefficients, n, n_occ, &s, 2.0),
+        _ => None,
+    };
+    let (mut p, used_sad_guess, mut cp_prev) = if let Some(p_proj) = projected {
+        (p_proj, false, None)
+    } else {
+        match crate::guess::sad_guess(mol, basis, &s, n_occ) {
+            Ok(p_sad) => (p_sad, true, None),
+            Err(_) => {
+                let (_, _, p_h, cp_h) = diagonalize_fock_with_shift(&h_core, &x, &xt, n_occ, None, 0.0)?;
+                (p_h, false, Some(cp_h))
+            }
         }
     };
     let d_orth = t_o0.elapsed();
@@ -513,6 +538,7 @@ pub fn rks_with_grid(
             gpu_fallback_invocations,
             diis_disk_backed,
             rij_metric_truncated_modes,
+            jfit_basis: opts.jfit_basis,
         },
     })
 }

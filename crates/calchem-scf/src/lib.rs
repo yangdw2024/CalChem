@@ -8,19 +8,24 @@ pub mod uks;
 
 pub use diis::DiisState;
 pub use fock_builder::{RksFockBuilder, UksFockBuilder};
-pub use rhf::rhf;
-pub use rks::{rks, rks_with_grid};
-pub use uhf::{uhf, uhf_s_squared};
-pub use uks::{uks, uks_with_grid};
+pub use guess::InitialGuess;
+pub use rhf::{rhf, rhf_with_guess};
+pub use rks::{rks, rks_with_grid, rks_with_grid_and_guess};
+pub use uhf::{uhf, uhf_s_squared, uhf_with_guess};
+pub use uks::{uks, uks_with_grid, uks_with_grid_and_guess};
 
 /// Determines whether Direct SCF (on-the-fly contraction) should be used.
 pub fn should_use_direct(
-    _basis: &calchem_basis::BasisSet,
+    basis: &calchem_basis::BasisSet,
     opts: &calchem_model::ScfOptions,
 ) -> bool {
     match opts.direct {
         Some(d) => d,
-        None => opts.density_fitting,
+        None => {
+            let budget = std::env::var("CALCHEM_MAX_ERI_BYTES").ok()
+                .and_then(|v| v.parse::<u128>().ok()).unwrap_or(4 << 30);
+            opts.density_fitting || stored_eri_estimate(basis).max((basis.n_ao as u128).pow(4) * 8) > budget
+        }
     }
 }
 
@@ -80,7 +85,7 @@ pub fn validate_direct_resources_for_method(
     };
 
     if estimated_bytes > budget_bytes {
-        return Err(CalcError::UnsupportedBasis(format!(
+        return Err(CalcError::ResourceLimit(format!(
                 "Direct-SCF estimated memory requirement ({:.2} MB) exceeds budget ({:.2} MB). \
                  Reduce RAYON_NUM_THREADS / DIIS or system size; no total-process memory lock is implemented for N_AO={n}.",
                 estimated_bytes as f64 / (1024.0 * 1024.0),
@@ -90,6 +95,18 @@ pub fn validate_direct_resources_for_method(
     Ok(())
 }
 
+fn stored_eri_estimate(basis: &calchem_basis::BasisSet) -> u128 {
+    let n = basis.n_ao as u128;
+    let pair = n * (n + 1) / 2;
+    let shells = basis.shells.len() as u128;
+    let sp = shells * (shells + 1) / 2;
+    if n <= 64 {
+        n.pow(4) * 16
+    } else {
+        pair * (pair + 1) / 2 * 16 + sp * (sp + 1) / 2 * 32
+    }
+}
+
 /// Conservative admission bound before stored ERIs are allocated. This is not a
 /// runtime allocator quota; callers may choose a larger explicit E/D-host budget.
 pub fn validate_resources_and_options(
@@ -97,7 +114,7 @@ pub fn validate_resources_and_options(
     opts: &calchem_model::ScfOptions,
 ) -> Result<(), calchem_model::CalcError> {
     use calchem_model::CalcError;
-    if opts.direct == Some(true) || (opts.direct.is_none() && opts.density_fitting) {
+    if should_use_direct(basis, opts) {
         return validate_direct_resources_and_options(basis, opts);
     }
     if opts.max_iter == 0
@@ -119,14 +136,7 @@ pub fn validate_resources_and_options(
             "AO indices exceed the stored ERI index range".into(),
         ));
     }
-    let pair = n * (n + 1) / 2;
-    let shells = basis.shells.len() as u128;
-    let sp = shells * (shells + 1) / 2;
-    let estimated = if n <= 64 {
-        n.pow(4) * 16
-    } else {
-        pair * (pair + 1) / 2 * 16 + sp * (sp + 1) / 2 * 32
-    };
+    let estimated = stored_eri_estimate(basis);
     let budget = match std::env::var("CALCHEM_MAX_ERI_BYTES") {
         Ok(v) => v.parse::<u128>().ok().filter(|v| *v > 0).ok_or_else(|| {
             CalcError::InvalidMolecule("CALCHEM_MAX_ERI_BYTES must be a positive integer".into())
@@ -134,7 +144,7 @@ pub fn validate_resources_and_options(
         Err(_) => 4 * 1024 * 1024 * 1024,
     };
     if estimated > budget {
-        return Err(CalcError::UnsupportedBasis(format!(
+        return Err(CalcError::ResourceLimit(format!(
             "Stored-ERI conservative memory estimate {estimated} bytes exceeds budget {budget}; reduce basis/system or request Direct SCF explicitly."
         )));
     }
@@ -153,7 +163,7 @@ pub fn validate_open_shell_stored_resources(
     let budget = std::env::var("CALCHEM_MAX_ERI_BYTES").ok()
         .and_then(|v| v.parse::<u128>().ok()).unwrap_or(4 * 1024 * 1024 * 1024);
     if estimated > budget {
-        return Err(calchem_model::CalcError::UnsupportedBasis(format!(
+        return Err(calchem_model::CalcError::ResourceLimit(format!(
             "Open-shell dense stored-ERI memory estimate {estimated} bytes exceeds budget {budget}; request Direct SCF"
         )));
     }

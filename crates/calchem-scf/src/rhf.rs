@@ -45,6 +45,15 @@ pub fn rhf(
     basis: &BasisSet,
     opts: &ScfOptions,
 ) -> Result<ScfWavefunction, CalcError> {
+    rhf_with_guess(mol, basis, opts, None)
+}
+
+pub fn rhf_with_guess(
+    mol: &Molecule,
+    basis: &BasisSet,
+    opts: &ScfOptions,
+    guess: Option<&crate::guess::InitialGuess>,
+) -> Result<ScfWavefunction, CalcError> {
     let use_direct = crate::should_use_direct(basis, opts);
     if use_direct {
         crate::validate_direct_resources_and_options(basis, opts)?;
@@ -75,13 +84,14 @@ pub fn rhf(
         h_core.data[i] = t.data[i] + v.data[i] + v_ecp.data[i];
     }
 
-    let fock_builder = RksFockBuilder::new_with_options(
+    let fock_builder = RksFockBuilder::with_jfit_basis(
         mol,
         basis,
         use_direct,
         opts.density_fitting,
         opts.use_gpu,
         None,
+        opts.jfit_basis,
     )?;
     let e_nuc = basis.nuclear_repulsion_energy(mol);
 
@@ -102,10 +112,21 @@ pub fn rhf(
     let x = matmul(&matmul(&s_vecs, &s_inv_sqrt), &transpose(&s_vecs));
     let xt = transpose(&x);
 
-    // SAD initial guess
-    let mut p = match crate::guess::sad_guess(mol, basis, &s, n_occ) {
-        Ok(p_sad) => p_sad,
-        Err(_) => diagonalize_fock(&h_core, &x, &xt, n_occ)?.2,
+    // Projected adjacent-geometry orbital guess (falls back to SAD, then H_core)
+    let projected = match guess {
+        Some(crate::guess::InitialGuess::Restricted {
+            n_ao,
+            mo_coefficients,
+        }) if *n_ao == n => crate::guess::project_occupied_density(mo_coefficients, n, n_occ, &s, 2.0),
+        _ => None,
+    };
+    let mut p = if let Some(p_proj) = projected {
+        p_proj
+    } else {
+        match crate::guess::sad_guess(mol, basis, &s, n_occ) {
+            Ok(p_sad) => p_sad,
+            Err(_) => diagonalize_fock(&h_core, &x, &xt, n_occ)?.2,
+        }
     };
     let mut f;
 
@@ -351,6 +372,7 @@ pub fn rhf(
             gpu_fallback_invocations,
             diis_disk_backed,
             rij_metric_truncated_modes,
+            jfit_basis: opts.jfit_basis,
         },
     })
 }

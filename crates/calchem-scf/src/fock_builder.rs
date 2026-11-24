@@ -13,7 +13,7 @@ fn direct_k_thresh(scale: f64) -> f64 {
     let base = std::env::var("CALCHEM_DIRECT_THRESH")
         .ok()
         .and_then(|s| s.parse::<f64>().ok())
-        .unwrap_or(1e-10);
+        .unwrap_or(1e-11);
     base / scale.abs().max(0.05)
 }
 
@@ -45,13 +45,17 @@ impl RksFockBuilder {
         use_gpu: bool,
         range_sep: Option<(f64, f64, f64)>,
     ) -> Result<Self, CalcError> {
+        Self::with_jfit_basis(mol,basis,use_direct,use_df,use_gpu,range_sep,calchem_model::JFitBasis::Auto)
+    }
+
+    pub fn with_jfit_basis(mol: &Molecule, basis: &BasisSet, use_direct: bool, use_df: bool, use_gpu: bool, range_sep: Option<(f64,f64,f64)>, jfit: calchem_model::JFitBasis) -> Result<Self, CalcError> {
         if use_df {
-            let rij = RiJEngine::new_with_gpu(mol, basis, use_gpu)?;
+            let rij = RiJEngine::with_basis(mol,basis,use_gpu,jfit)?;
             let rij = Arc::new(rij);
             let engine = Arc::new(OnceLock::new());
             Ok(Self::DensityFitting(rij, engine))
         } else if use_direct {
-            Ok(Self::Direct(DirectFockEngine::new(basis, 1e-11)))
+            Ok(Self::Direct(DirectFockEngine::new(basis, 1e-12)))
         } else {
             let eri = compute_sparse_eri(basis);
             let lr_eri = if let Some((_, _, omega)) = range_sep {
@@ -117,7 +121,7 @@ impl RksFockBuilder {
                     let thresh = std::env::var("CALCHEM_DIRECT_THRESH")
                         .ok()
                         .and_then(|s| s.parse().ok())
-                        .unwrap_or(1e-10);
+                        .unwrap_or(1e-12);
                     let data = engine.build_rks(basis, &p.data, exx, thresh);
                     Matrix2D {
                         rows: n,
@@ -232,13 +236,17 @@ impl UksFockBuilder {
         use_gpu: bool,
         range_sep: Option<(f64, f64, f64)>,
     ) -> Result<Self, CalcError> {
+        Self::with_jfit_basis(mol,basis,use_direct,use_df,use_gpu,range_sep,calchem_model::JFitBasis::Auto)
+    }
+
+    pub fn with_jfit_basis(mol: &Molecule, basis: &BasisSet, use_direct: bool, use_df: bool, use_gpu: bool, range_sep: Option<(f64,f64,f64)>, jfit: calchem_model::JFitBasis) -> Result<Self, CalcError> {
         if use_df {
-            let rij = RiJEngine::new_with_gpu(mol, basis, use_gpu)?;
+            let rij = RiJEngine::with_basis(mol,basis,use_gpu,jfit)?;
             let rij = Arc::new(rij);
             let engine = Arc::new(OnceLock::new());
             Ok(Self::DensityFitting(rij, engine))
         } else if use_direct {
-            Ok(Self::Direct(DirectFockEngine::new(basis, 1e-11)))
+            Ok(Self::Direct(DirectFockEngine::new(basis, 1e-12)))
         } else {
             let eri = compute_eri(basis);
             let lr_eri = if let Some((_, _, omega)) = range_sep {
@@ -362,7 +370,7 @@ impl UksFockBuilder {
                     let thresh = std::env::var("CALCHEM_DIRECT_THRESH")
                         .ok()
                         .and_then(|s| s.parse().ok())
-                        .unwrap_or(1e-10);
+                        .unwrap_or(1e-12);
                     let (da, db) =
                         engine.build_uks(basis, &pa.data, &pb.data, exx_fraction, thresh);
                     (

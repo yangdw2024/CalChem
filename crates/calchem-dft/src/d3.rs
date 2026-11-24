@@ -105,6 +105,25 @@ fn pair_c6(a: u8, b: u8, wa: &([f64; 7], [f64; 7]), wb: &([f64; 7], [f64; 7])) -
     (v, da, db)
 }
 impl D3Model {
+    pub fn from_scheme(scheme: &str, functional: &str) -> Result<Self, CalcError> {
+        match scheme.trim().to_ascii_lowercase().as_str() {
+            "bj" | "d3bj" | "d3(bj)" => Self::d3bj(functional),
+            "zero" | "d3zero" | "d3(0)" => Self::d3zero(functional),
+            other => Err(CalcError::UnsupportedMethod(format!("Unknown D3 damping scheme '{other}'"))),
+        }
+    }
+
+    pub fn add_gradient(&self, atoms: &[Atom], gradient: &mut [[f64; 3]]) -> Result<f64, CalcError> {
+        if atoms.len() != gradient.len() {
+            return Err(CalcError::Internal("D3 gradient dimension mismatch".into()));
+        }
+        let (energy, correction) = self.energy_and_gradient(atoms, true)?;
+        for (g, d) in gradient.iter_mut().zip(correction) {
+            for axis in 0..3 { g[axis] += d[axis]; }
+        }
+        Ok(energy)
+    }
+
     pub fn d3bj(functional: &str) -> Result<Self, CalcError> {
         let f = functional.trim().to_ascii_lowercase();
         let damping = match f.as_str() {

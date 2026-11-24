@@ -12,6 +12,8 @@ pub enum CalcError {
     UnsupportedBasis(String),
     #[error("Unsupported method or spin state: {0}")]
     UnsupportedMethod(String),
+    #[error("Insufficient computational resources: {0}")]
+    ResourceLimit(String),
     #[error("Linear algebra failure: {0}")]
     LinearAlgebra(String),
     #[error(
@@ -252,6 +254,14 @@ pub struct ShellMeta {
     pub center_bohr: [f64; 3],
 }
 
+/// CalChem's built-in Cartesian auxiliary basis choices.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum JFitBasis {
+    #[default]
+    Auto,
+    Def2UpToF,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScfOptions {
     pub max_iter: usize,
@@ -271,6 +281,8 @@ pub struct ScfOptions {
     pub diis_disk: bool,
     #[serde(default)]
     pub diis_dir: Option<String>,
+    #[serde(default)]
+    pub jfit_basis: JFitBasis,
 }
 
 impl Default for ScfOptions {
@@ -288,6 +300,7 @@ impl Default for ScfOptions {
             use_gpu: false,
             diis_disk: false,
             diis_dir: None,
+            jfit_basis: JFitBasis::Auto,
         }
     }
 }
@@ -306,6 +319,8 @@ pub struct ScfDiagnostics {
     pub diis_disk_backed: bool,
     #[serde(default)]
     pub rij_metric_truncated_modes: usize,
+    #[serde(default)]
+    pub jfit_basis: JFitBasis,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -515,5 +530,42 @@ mod tests {
             1,
         );
         assert_eq!(h2o.validate_rhf().unwrap(), (5, 5));
+    }
+}
+
+/// Scalars and convergence diagnostics for a single converged geometry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScfSummary {
+    pub converged: bool,
+    pub iterations: usize,
+    pub total_energy_hartree: f64,
+    pub electronic_energy_hartree: f64,
+    pub nuclear_repulsion_hartree: f64,
+    pub homo_hartree: Option<f64>,
+    pub lumo_hartree: Option<f64>,
+    pub diagnostics: ScfDiagnostics,
+}
+
+impl From<&ScfWavefunction> for ScfSummary {
+    fn from(w: &ScfWavefunction) -> Self {
+        let occupied = w.mo_occupations.iter().take_while(|&&v| v > 0.0).count();
+        Self {
+            converged: w.converged, iterations: w.iterations,
+            total_energy_hartree: w.total_energy_hartree, electronic_energy_hartree: w.electronic_energy_hartree,
+            nuclear_repulsion_hartree: w.nuclear_repulsion_hartree,
+            homo_hartree: occupied.checked_sub(1).and_then(|i| w.mo_energies.get(i)).copied(),
+            lumo_hartree: w.mo_energies.get(occupied).copied(), diagnostics: w.diagnostics.clone(),
+        }
+    }
+}
+
+impl From<&UhfWavefunction> for ScfSummary {
+    fn from(w: &UhfWavefunction) -> Self {
+        Self {
+            converged: w.converged, iterations: w.iterations,
+            total_energy_hartree: w.total_energy_hartree, electronic_energy_hartree: w.electronic_energy_hartree,
+            nuclear_repulsion_hartree: w.nuclear_repulsion_hartree,
+            homo_hartree: w.homo_energy(), lumo_hartree: w.lumo_energy(), diagnostics: w.diagnostics.clone(),
+        }
     }
 }
