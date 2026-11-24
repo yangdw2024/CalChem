@@ -23,4 +23,5 @@ calchem-prop = { path = "../calchem-prop" }
 calchem-cuda = { path = "../calchem-cuda" }
 rayon = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+sha2 = { workspace = true }

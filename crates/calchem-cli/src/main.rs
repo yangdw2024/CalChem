@@ -1,7 +1,9 @@
 use calchem_basis::BasisSet;
-use calchem_dft::{GridLevel, MolecularGrid, XcFunctional};
-use calchem_model::{symbol_from_atomic_number, Atom, Molecule, ScfOptions, ScfWavefunction};
-use calchem_scf::{rhf, rks_with_grid, uhf, uks_with_grid};
+use calchem_dft::{D3Model, GridLevel, XcFunctional};
+use calchem_model::{symbol_from_atomic_number, Atom, Molecule, ScfOptions, ScfSummary};
+use calchem_opt::{GasPoint, OptOptions, Reference};
+use calchem_tddft::SpinManifold;
+mod checkpoint;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::time::Instant;
@@ -34,6 +36,7 @@ struct CliArgs {
     basis: String,
     grid: String,
     rij: bool,
+    jfit_basis: calchem_model::JFitBasis,
     direct: Option<bool>,
     gpu: bool,
     charge_override: Option<i32>,
@@ -45,6 +48,14 @@ struct CliArgs {
     solv_model: Option<String>,
     solvent: Option<String>,
     dispersion: Option<String>,
+    tda: bool,
+    spin: SpinManifold,
+    threads: Option<usize>,
+    freq_step: f64,
+    freq_jobs: usize,
+    checkpoint: Option<String>,
+    resume: Option<String>,
+    optimizer: OptOptions,
     nstates: usize,
     opt_max_cycles: usize,
     json: bool,
@@ -73,16 +84,28 @@ fn print_usage() {
          \t--conv-d <float>                     Density convergence threshold (default: 1e-8)\n\
          \t--diis-max-vecs <uint>               DIIS subspace size (default: 6)\n\n\
          Physical Environments & Properties:\n\
-         \t--solv <pcm|smd>                     Implicit continuum solvation model\n\
+         \t--solv <pcm|iefpcm|cpcm|smd>         Implicit continuum solvation model (SCRF)\n\
          \t--solvent <name>                     Solvent name (e.g. water, chloroform)\n\
          \t--disp <d3bj>                        Grimme D3(BJ) dispersion correction\n\
          \t--nstates <uint>                     Excited states count for TD-DFT (default: 3)\n\
          \t--opt-max-cycles <uint>              Max geometry optimization steps (default: 50)\n\n\
+         --aux-basis <auto-jfit|def2-jfit-f> (Cartesian auxiliary shells through f)\n\
+         --threads N  --td-mode <tda|lr>  --spin <singlet|triplet|both>\n\
+         --freq-step BOHR  --freq-jobs N (concurrent displacement SCFs, default 1)\n\
+         --max-force F  --rms-force F  --max-displacement BOHR  --max-step-bohr BOHR\n\
+         --max-line-searches N  --checkpoint FILE  --resume FILE\n\
          Output Formats:\n\
          \t--json                               Emit structured machine-readable JSON\n\
          \t--out <file>                         Write output to specified file\n\
          \t-h, --help                           Show this help message"
     );
+}
+
+fn positive_count(s: &str, flag: &str) -> Result<usize,String> {
+    s.parse::<usize>().ok().filter(|v| *v > 0).ok_or_else(||format!("{flag} needs a positive integer"))
+}
+fn positive_float(s: &str, flag: &str) -> Result<f64,String> {
+    s.parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0).ok_or_else(||format!("{flag} needs a positive number"))
 }
 
 fn parse_args() -> Result<CliArgs, String> {
@@ -98,6 +121,7 @@ fn parse_args() -> Result<CliArgs, String> {
     let mut xc = "b3lyp".to_string();
     let mut basis = "sto-3g".to_string();
     let mut grid = "coarse".to_string();
+    let mut jfit_basis = calchem_model::JFitBasis::Auto;
     let mut rij = false;
     let mut direct: Option<bool> = None;
     let mut gpu = false;
@@ -110,6 +134,14 @@ fn parse_args() -> Result<CliArgs, String> {
     let mut solv_model = None;
     let mut solvent = None;
     let mut dispersion = None;
+    let mut tda = true;
+    let mut spin = SpinManifold::Singlet;
+    let mut threads = None;
+    let mut freq_step = 0.001;
+    let mut freq_jobs = 1;
+    let mut checkpoint = None;
+    let mut resume = None;
+    let mut optimizer = OptOptions::default();
     let mut nstates = 3usize;
     let mut opt_max_cycles = 50usize;
     let mut json = false;
@@ -151,6 +183,14 @@ fn parse_args() -> Result<CliArgs, String> {
             "--basis" => basis = next_val(&mut i, "--basis")?,
             "--grid" => grid = next_val(&mut i, "--grid")?,
             "--rij" => rij = true,
+            "--aux-basis" => {
+                rij = true;
+                jfit_basis = match next_val(&mut i,arg)?.as_str() {
+                    "auto-jfit" => calchem_model::JFitBasis::Auto,
+                    "def2-jfit-f" => calchem_model::JFitBasis::Def2UpToF,
+                    v => return Err(format!("Unknown RI-J auxiliary basis '{v}'")),
+                }
+            }
             "--gpu" => gpu = true,
             "--direct" => direct = Some(true),
             "--stored" => direct = Some(false),
@@ -164,30 +204,42 @@ fn parse_args() -> Result<CliArgs, String> {
             }
             "--max-iter" => {
                 let v = next_val(&mut i, "--max-iter")?;
-                max_iter = v.parse::<usize>().map_err(|e| format!("Invalid --max-iter '{v}': {e}"))?;
+                max_iter = positive_count(&v, "--max-iter")?;
             }
             "--conv-e" => {
                 let v = next_val(&mut i, "--conv-e")?;
-                conv_energy = v.parse::<f64>().map_err(|e| format!("Invalid --conv-e '{v}': {e}"))?;
+                conv_energy = positive_float(&v, "--conv-e")?;
             }
             "--conv-d" => {
                 let v = next_val(&mut i, "--conv-d")?;
-                conv_density = v.parse::<f64>().map_err(|e| format!("Invalid --conv-d '{v}': {e}"))?;
+                conv_density = positive_float(&v, "--conv-d")?;
             }
             "--diis-max-vecs" => {
                 let v = next_val(&mut i, "--diis-max-vecs")?;
-                diis_max_vecs = v.parse::<usize>().map_err(|e| format!("Invalid --diis-max-vecs '{v}': {e}"))?;
+                diis_max_vecs = positive_count(&v, "--diis-max-vecs")?;
             }
             "--solv" => solv_model = Some(next_val(&mut i, "--solv")?.to_ascii_lowercase()),
             "--solvent" => solvent = Some(next_val(&mut i, "--solvent")?.to_ascii_lowercase()),
             "--disp" => dispersion = Some(next_val(&mut i, "--disp")?.to_ascii_lowercase()),
+            "--td-mode" => tda = match next_val(&mut i,arg)?.as_str() { "tda" => true, "lr" | "rpa" => false, v => return Err(format!("Invalid TD mode '{v}'")) },
+            "--spin" => spin = SpinManifold::from_name(&next_val(&mut i,arg)?).map_err(|e| e.to_string())?,
+            "--threads" => threads = Some(positive_count(&next_val(&mut i,arg)?,arg)?),
+            "--freq-jobs" => freq_jobs = positive_count(&next_val(&mut i,arg)?,arg)?,
+            "--freq-step" => freq_step = positive_float(&next_val(&mut i,arg)?,arg)?,
+            "--max-force" => optimizer.max_force = positive_float(&next_val(&mut i,arg)?,arg)?,
+            "--rms-force" => optimizer.rms_force = positive_float(&next_val(&mut i,arg)?,arg)?,
+            "--max-displacement" => optimizer.max_displacement = positive_float(&next_val(&mut i,arg)?,arg)?,
+            "--max-step-bohr" => optimizer.max_step_bohr = positive_float(&next_val(&mut i,arg)?,arg)?,
+            "--max-line-searches" => optimizer.max_line_searches = positive_count(&next_val(&mut i,arg)?,arg)?,
+            "--checkpoint" => checkpoint = Some(next_val(&mut i,arg)?),
+            "--resume" => resume = Some(next_val(&mut i,arg)?),
             "--nstates" => {
                 let v = next_val(&mut i, "--nstates")?;
-                nstates = v.parse::<usize>().map_err(|e| format!("Invalid --nstates '{v}': {e}"))?;
+                nstates = positive_count(&v, "--nstates")?;
             }
             "--opt-max-cycles" => {
                 let v = next_val(&mut i, "--opt-max-cycles")?;
-                opt_max_cycles = v.parse::<usize>().map_err(|e| format!("Invalid --opt-max-cycles '{v}': {e}"))?;
+                opt_max_cycles = positive_count(&v, "--opt-max-cycles")?;
             }
             "--json" => json = true,
             "--out" => out_path = Some(next_val(&mut i, "--out")?),
@@ -210,7 +262,7 @@ fn parse_args() -> Result<CliArgs, String> {
         xc,
         basis,
         grid,
-        rij,
+        rij, jfit_basis,
         direct,
         gpu,
         charge_override,
@@ -222,6 +274,7 @@ fn parse_args() -> Result<CliArgs, String> {
         solv_model,
         solvent,
         dispersion,
+        tda, spin, threads, freq_step, freq_jobs, optimizer, checkpoint, resume,
         nstates,
         opt_max_cycles,
         json,
@@ -262,16 +315,11 @@ fn load_molecule(path_str: &str) -> Result<Molecule, String> {
     let ext = p.extension().and_then(|s| s.to_str()).unwrap_or("").to_ascii_lowercase();
 
     if ext == "xyz" {
-        let mut lines = content.lines().map(|s| s.trim()).filter(|s| !s.is_empty());
-        let _natoms_line = lines.next().ok_or_else(|| "Empty XYZ file".to_string())?;
-        let _comment = lines.next();
-        let mut atoms = Vec::new();
-        for line in lines {
-            atoms.push(parse_atom_line(line, false)?);
-        }
-        if atoms.is_empty() {
-            return Err("No atoms found in XYZ file".to_string());
-        }
+        let mut lines = content.lines();
+        let count = positive_count(lines.next().unwrap_or("").trim(), "XYZ atom count")?;
+        lines.next().ok_or_else(|| "Missing XYZ comment line".to_string())?;
+        let atoms = lines.filter(|l| !l.trim().is_empty()).map(|l| parse_atom_line(l, false)).collect::<Result<Vec<_>,_>>()?;
+        if atoms.len() != count { return Err(format!("XYZ declared {count} atoms, parsed {}", atoms.len())); }
         return Ok(Molecule::new(atoms, 0, 1));
     }
 
@@ -334,6 +382,7 @@ fn load_molecule(path_str: &str) -> Result<Molecule, String> {
                 charge_mult = Some((c, m));
                 continue;
             }
+            return Err(format!("Invalid charge and multiplicity: {line}"));
         }
 
         if line.is_empty() {
@@ -347,15 +396,13 @@ fn load_molecule(path_str: &str) -> Result<Molecule, String> {
             continue;
         }
 
-        if let Ok(atom) = parse_atom_line(line, in_bohr) {
-            atoms.push(atom);
-        }
+        atoms.push(parse_atom_line(line, in_bohr)?);
     }
 
     if atoms.is_empty() {
         return Err(format!("No atom coordinates parsed from '{path_str}'"));
     }
-    let (charge, mult) = charge_mult.unwrap_or((0, 1));
+    let (charge, mult) = charge_mult.ok_or("Missing Gaussian charge/multiplicity")?;
     Ok(Molecule::new(atoms, charge, mult))
 }
 
@@ -370,7 +417,18 @@ fn parse_grid_level(s: &str) -> Result<GridLevel, String> {
 }
 
 #[derive(Serialize)]
+struct UnitsJson {
+    energy: &'static str,
+    coordinates: &'static str,
+    gradient: &'static str,
+    frequencies: &'static str,
+    excitation_energy: &'static str,
+    solvation_energy: &'static str,
+}
+
+#[derive(Serialize)]
 struct JsonReport {
+    status: &'static str,
     file: String,
     task: Task,
     method: Method,
@@ -379,9 +437,18 @@ struct JsonReport {
     n_atoms: usize,
     n_ao: usize,
     threads: usize,
+    initial_geometry_sha256: String,
+    final_geometry_sha256: String,
+    units: UnitsJson,
     timing_sec: TimingBreakdown,
     converged: bool,
     scf_iterations: usize,
+    grid: Option<GridLevel>,
+    direct_scf: bool,
+    density_fitting: bool,
+    gpu_requested: bool,
+    scf: ScfSummary,
+    task_settings: serde_json::Value,
     energy_hartree: f64,
     electronic_energy_hartree: f64,
     nuclear_repulsion_hartree: f64,
@@ -427,6 +494,10 @@ struct OptimizedAtomJson {
 
 #[derive(Serialize)]
 struct ExcitedStateJson {
+    label: String,
+    residual_norm_hartree: Option<f64>,
+    multiplicity: usize,
+    dominant_transitions: Vec<calchem_tddft::OrbitalTransition>,
     state: usize,
     energy_ev: f64,
     wavelength_nm: f64,
@@ -463,7 +534,7 @@ fn emit_output(report: &JsonReport, as_json: bool, out_file: Option<&str>) -> Re
             s.push_str("----------------------------------------------------------------------\n");
             s.push_str(" State     Energy (eV)     Wavelength (nm)     Oscillator Strength (f)\n");
             for st in states {
-                s.push_str(&format!("  S{:02}       {:.4}           {:.2}                 {:.6}\n", st.state, st.energy_ev, st.wavelength_nm, st.oscillator_strength));
+                s.push_str(&format!("  {:>3}       {:.4}           {:.2}                 {:.6}\n", st.label, st.energy_ev, st.wavelength_nm, st.oscillator_strength));
             }
         }
 
@@ -490,13 +561,40 @@ fn emit_output(report: &JsonReport, as_json: bool, out_file: Option<&str>) -> Re
 
     println!("{out_str}");
     if let Some(path) = out_file {
-        std::fs::write(path, out_str).map_err(|e| format!("Failed to write output to '{path}': {e}"))?;
+        let p = Path::new(path);
+        if let Some(parent) = p.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create output directory: {e}"))?;
+            }
+        }
+        let tmp = p.with_file_name(format!(
+            "{}.{}.tmp",
+            p.file_name().unwrap_or_default().to_string_lossy(),
+            std::process::id()
+        ));
+        std::fs::write(&tmp, out_str)
+            .map_err(|e| format!("Failed to write temp output '{path}': {e}"))?;
+        std::fs::rename(&tmp, p)
+            .map_err(|e| format!("Failed to atomically move output to '{path}': {e}"))?;
     }
     Ok(())
 }
 
 fn run() -> Result<(), String> {
     let cli = parse_args()?;
+    if cli.out_path.as_deref().is_some_and(|out| Path::new(out) == Path::new(&cli.input_path)) {
+        return Err("--out path must be separate from input file".into());
+    }
+    if cli.resume.is_some() && cli.task != Task::Opt {
+        return Err("--resume requires --task opt".into());
+    }
+    if cli.checkpoint.is_some() && !matches!(cli.task, Task::Opt | Task::Freq) {
+        return Err("--checkpoint requires --task opt or --task freq".into());
+    }
+    if let Some(n) = cli.threads {
+        rayon::ThreadPoolBuilder::new().num_threads(n).build_global().map_err(|e| e.to_string())?;
+    }
     let t_total_start = Instant::now();
 
     let t0 = Instant::now();
@@ -507,6 +605,8 @@ fn run() -> Result<(), String> {
     if let Some(m) = cli.mult_override {
         mol.multiplicity = m;
     }
+    let initial_geom_hash = checkpoint::geometry_sha256(&mol);
+    let mut final_geom_hash = initial_geom_hash.clone();
     let t_parse = t0.elapsed();
 
     let t1 = Instant::now();
@@ -526,11 +626,12 @@ fn run() -> Result<(), String> {
         use_gpu: cli.gpu,
         diis_disk: false,
         diis_dir: None,
+        jfit_basis: cli.jfit_basis,
     };
 
     let threads = rayon::current_num_threads();
-    println!(
-        "CalChem Native Industrial Engine | task={:?} file={} atoms={} charge={} mult={} method={:?} xc={} basis={} n_ao={} n_shells={} threads={}",
+    eprintln!(
+        "CalChem | task={:?} file={} atoms={} charge={} mult={} method={:?} xc={} basis={} n_ao={} n_shells={} threads={}",
         cli.task,
         cli.input_path,
         mol.atoms.len(),
@@ -547,70 +648,41 @@ fn run() -> Result<(), String> {
     let xc = XcFunctional::from_name(&cli.xc).map_err(|e| e.to_string())?;
     let grid_level = parse_grid_level(&cli.grid)?;
 
-    let t2 = Instant::now();
-    let grid = MolecularGrid::build_for_basis(&mol, &basis, grid_level);
-    let t_grid = t2.elapsed();
-
-    // 1. Core SCF Execution
-    let t3 = Instant::now();
-    let wfn: ScfWavefunction = match cli.method {
-        Method::Rks => rks_with_grid(&mol, &basis, xc, &grid, &opts).map_err(|e| e.to_string())?,
-        Method::Rhf => rhf(&mol, &basis, &opts).map_err(|e| e.to_string())?,
-        Method::Uks => {
-            let u_wfn = uks_with_grid(&mol, &basis, xc, &grid, &opts).map_err(|e| e.to_string())?;
-            let mut occ = vec![0.0; u_wfn.n_ao];
-            for i in 0..u_wfn.n_alpha { occ[i] += 1.0; }
-            for i in 0..u_wfn.n_beta { occ[i] += 1.0; }
-            ScfWavefunction {
-                density_fitting: u_wfn.density_fitting,
-                converged: u_wfn.converged,
-                iterations: u_wfn.iterations,
-                total_energy_hartree: u_wfn.total_energy_hartree,
-                electronic_energy_hartree: u_wfn.electronic_energy_hartree,
-                nuclear_repulsion_hartree: u_wfn.nuclear_repulsion_hartree,
-                n_ao: u_wfn.n_ao,
-                n_mo: u_wfn.n_ao,
-                mo_energies: u_wfn.mo_energies_alpha.clone(),
-                mo_occupations: occ,
-                mo_coefficients: u_wfn.mo_coefficients_alpha.clone(),
-                density_alpha: u_wfn.density_alpha.clone(),
-                density_beta: Some(u_wfn.density_beta.clone()),
-                fock_alpha: vec![0.0; u_wfn.n_ao * u_wfn.n_ao],
-                overlap_matrix: u_wfn.overlap_matrix.clone(),
-                h_core_matrix: vec![0.0; u_wfn.n_ao * u_wfn.n_ao],
-                diagnostics: u_wfn.diagnostics.clone(),
-            }
-        }
-        Method::Uhf => {
-            let u_wfn = uhf(&mol, &basis, &opts).map_err(|e| e.to_string())?;
-            let mut occ = vec![0.0; u_wfn.n_ao];
-            for i in 0..u_wfn.n_alpha { occ[i] += 1.0; }
-            for i in 0..u_wfn.n_beta { occ[i] += 1.0; }
-            ScfWavefunction {
-                density_fitting: u_wfn.density_fitting,
-                converged: u_wfn.converged,
-                iterations: u_wfn.iterations,
-                total_energy_hartree: u_wfn.total_energy_hartree,
-                electronic_energy_hartree: u_wfn.electronic_energy_hartree,
-                nuclear_repulsion_hartree: u_wfn.nuclear_repulsion_hartree,
-                n_ao: u_wfn.n_ao,
-                n_mo: u_wfn.n_ao,
-                mo_energies: u_wfn.mo_energies_alpha.clone(),
-                mo_occupations: occ,
-                mo_coefficients: u_wfn.mo_coefficients_alpha.clone(),
-                density_alpha: u_wfn.density_alpha.clone(),
-                density_beta: Some(u_wfn.density_beta.clone()),
-                fock_alpha: vec![0.0; u_wfn.n_ao * u_wfn.n_ao],
-                overlap_matrix: u_wfn.overlap_matrix.clone(),
-                h_core_matrix: vec![0.0; u_wfn.n_ao * u_wfn.n_ao],
-                diagnostics: u_wfn.diagnostics.clone(),
-            }
-        }
+    let reference = match cli.method {
+        Method::Rhf => Reference::Rhf, Method::Uhf => Reference::Uhf,
+        Method::Rks => Reference::Rks(xc), Method::Uks => Reference::Uks(xc),
     };
-    let t_scf = t3.elapsed();
-
-    // 2. Post-SCF Task Execution
+    let is_dft = matches!(cli.method, Method::Rks | Method::Uks);
+    let functional = if is_dft { xc.canonical_name() } else { "hf" };
+    if is_dft && xc == XcFunctional::Wb97xd && cli.dispersion.is_some() {
+        return Err("wB97X-D already includes built-in D2 dispersion; do not combine with --disp".into());
+    }
+    let d3 = cli.dispersion.as_deref().map(|scheme| D3Model::from_scheme(scheme, functional)).transpose().map_err(|e|e.to_string())?;
+    let solv = match cli.solv_model.as_deref() {
+        Some("pcm" | "iefpcm") => Some(calchem_solv::SolventModel::IefPcm),
+        Some("cpcm") => Some(calchem_solv::SolventModel::Cpcm),
+        Some("smd") => Some(calchem_solv::SolventModel::Smd),
+        Some(v) => return Err(format!("Unknown --solv model '{v}'")),
+        None if cli.solvent.is_some() => return Err("--solvent requires --solv".into()),
+        None => None,
+    };
+    let resolved_solvent = if solv.is_some() {
+        let name = cli.solvent.as_deref().unwrap_or("water");
+        let s = calchem_solv::Solvent::from_name(name)
+            .ok_or_else(|| format!("Unknown solvent '{name}'"))?;
+        Some((name.to_string(), s))
+    } else {
+        None
+    };
+    if solv.is_some() && cli.task != Task::Energy { return Err("CLI continuum solvation (SCRF) is supported for single-point energy only; derivatives and excited-state response require consistent solvent derivatives/response".into()); }
+    if cli.task == Task::TdDft && (cli.rij || matches!(cli.method,Method::Uhf|Method::Uks)) {
+        return Err("TD response requires a restricted exact-Coulomb reference".into());
+    }
+    let mut scf_time = std::time::Duration::ZERO;
+    let scf;
+    let mut task_converged = true;
     let t_post0 = Instant::now();
+    let mut settings = serde_json::json!({});
     let mut grad_out = None;
     let mut max_g_val = None;
     let mut rms_g_val = None;
@@ -620,44 +692,65 @@ fn run() -> Result<(), String> {
     let mut zpe_out = None;
     let mut gibbs_out = None;
     let mut excited_states_out = None;
-    let mut final_energy = wfn.total_energy_hartree;
-
-    // Optional dispersion
-    let mut e_disp = 0.0;
-    if cli.dispersion.as_deref() == Some("d3bj") {
-        if let Ok(d3_model) = calchem_dft::D3Model::d3bj(xc.canonical_name()) {
-            if let Ok((e_d3, _)) = d3_model.energy_and_gradient(&mol.atoms, true) {
-                e_disp = e_d3;
-                final_energy += e_disp;
-            }
-        }
-    }
-
-    // Optional Solvation
-    if let Some(ref s_model) = cli.solv_model {
-        if s_model == "pcm" || s_model == "smd" {
-            let solv_name = cli.solvent.as_deref().unwrap_or("water");
-            let s_obj = calchem_solv::Solvent::from_name(solv_name)
-                .ok_or_else(|| format!("Unknown solvent: {solv_name}"))?;
-            let s_opts = calchem_solv::SolvationOptions {
-                solvent: s_obj,
-                model: if s_model == "smd" { calchem_solv::SolventModel::Smd } else { calchem_solv::SolventModel::Cpcm },
+    let final_energy;
+    let e_disp;
+    match cli.task {
+        Task::Energy if solv.is_some() => {
+            let (Some(model), Some((name, solvent))) = (solv, resolved_solvent) else {
+                unreachable!("solv.is_some() guarantees resolved_solvent");
+            };
+            let method_str = match cli.method {
+                Method::Rhf => "rhf",
+                Method::Uhf => "uhf",
+                Method::Rks => "rks",
+                Method::Uks => "uks",
+            };
+            let solv_opts = calchem_solv::SolvationOptions {
+                solvent,
+                model,
                 ..Default::default()
             };
-            let s_res = calchem_solv::compute_pcm_solvation(&mol, &basis, &wfn, &s_opts).map_err(|e| e.to_string())?;
-            solv_energy_out = Some(s_res.delta_g_solv_kcal_mol);
-            final_energy += s_res.delta_g_solv;
+            let start = Instant::now();
+            let res = calchem_solv::run_scrf_with_grid(
+                &mol,
+                &basis,
+                &opts,
+                &solv_opts,
+                method_str,
+                is_dft.then_some(xc),
+                grid_level,
+            )
+            .map_err(|e| e.to_string())?;
+            scf_time = start.elapsed();
+            scf = (&res.wavefunction).into();
+            task_converged = res.converged;
+            e_disp = d3.as_ref().map(|d| d.energy(&mol.atoms)).transpose().map_err(|e| e.to_string())?;
+            let disp_val = e_disp.unwrap_or(0.0);
+            final_energy = res.solvated_energy + disp_val;
+            solv_energy_out = Some(res.delta_g_solv_kcal_mol);
+            settings = serde_json::json!({
+                "solvation": "scrf",
+                "model": model,
+                "solvent": name,
+                "gas_energy_hartree": res.gas_energy + disp_val,
+                "solvated_energy_hartree": final_energy,
+                "delta_g_solv_kcal_mol": res.delta_g_solv_kcal_mol,
+                "electrostatic_kcal_mol": res.delta_g_elec_kcal_mol,
+                "cds_kcal_mol": res.delta_g_cds_kcal_mol,
+                "cavity_surface_area_angstrom2": res.cavity_surface_area_angstrom2,
+                "total_surface_charge": res.total_surface_charge,
+            });
         }
-    }
-
-    match cli.task {
-        Task::Energy => {}
-        Task::Gradient => {
-            let g = match cli.method {
-                Method::Rks => calchem_grad::rks_gradient_with_grid(&mol, &basis, xc, &grid, &wfn).map_err(|e| e.to_string())?,
-                Method::Rhf => calchem_grad::rhf_gradient(&mol, &basis, &wfn).map_err(|e| e.to_string())?,
-                _ => return Err(format!("Gradient currently implemented for RKS and RHF")),
-            };
+        Task::Energy | Task::Gradient | Task::TdDft => {
+            let start = Instant::now();
+            let point = GasPoint::solve(&mol, &basis, reference, grid_level, &opts).map_err(|e|e.to_string())?;
+            scf_time = start.elapsed();
+            scf = point.summary();
+            e_disp = d3.as_ref().map(|d| d.energy(&mol.atoms)).transpose().map_err(|e|e.to_string())?;
+            final_energy = point.energy() + e_disp.unwrap_or(0.0);
+            if cli.task == Task::Gradient {
+                let mut g = point.gradient(&mol,&basis).map_err(|e|e.to_string())?;
+                if let Some(d) = &d3 { d.add_gradient(&mol.atoms,&mut g).map_err(|e|e.to_string())?; }
             let mut max_g: f64 = 0.0;
             let mut sum_g2: f64 = 0.0;
             for atom_g in &g {
@@ -671,19 +764,60 @@ fn run() -> Result<(), String> {
             max_g_val = Some(max_g);
             rms_g_val = Some(rms_g);
             grad_out = Some(g);
-        }
-        Task::Opt => {
-            let opt_opts = calchem_opt::OptOptions {
-                max_steps: cli.opt_max_cycles,
-                reference: calchem_opt::Reference::from_method_and_xc(
-                    match cli.method { Method::Rks => "rks", Method::Rhf => "rhf", Method::Uks => "uks", Method::Uhf => "uhf" },
-                    Some(&cli.xc)
-                ).map_err(|e| e.to_string())?,
+            }
+            if cli.task == Task::TdDft {
+            let td_opts = calchem_tddft::TddftOptions {
+                n_states: cli.nstates,
+                tda: cli.tda,
+                manifold: cli.spin,
                 grid_level,
                 scf_options: opts.clone(),
                 ..Default::default()
             };
-            let opt_res = calchem_opt::optimize_geometry_with_options(&mol, &cli.basis, &opt_opts).map_err(|e| e.to_string())?;
+            let GasPoint::Restricted(wfn,_) = &point else { return Err("TD requires restricted orbitals".into()); };
+            let td_res = calchem_tddft::run_tddft_from_scf(&mol, &basis, wfn, is_dft.then_some(xc), &td_opts).map_err(|e| e.to_string())?;
+            let required = if cli.spin == SpinManifold::Both { 2 } else { 1 };
+            if td_res.states.len() / required != cli.nstates { return Err(format!("Requested {} roots per manifold, obtained {} total roots",cli.nstates,td_res.states.len())); }
+            settings = serde_json::json!({"td_mode": if cli.tda {"tda"} else {"lr"}, "manifold":cli.spin, "roots_per_manifold":cli.nstates,"occupied":td_res.n_occ,"virtual":td_res.n_virt,"singlet_iterations":td_res.davidson_iterations_singlet,"triplet_iterations":td_res.davidson_iterations_triplet});
+            let mut states = Vec::new();
+            for state in &td_res.states {
+                states.push(ExcitedStateJson {
+                    state: state.state_index, label: state.label.clone(), residual_norm_hartree: state.residual_norm_hartree, multiplicity: state.multiplicity, dominant_transitions: state.dominant_transitions.clone(),
+                    energy_ev: state.excitation_energy_ev,
+                    wavelength_nm: state.wavelength_nm,
+                    oscillator_strength: state.oscillator_strength,
+                });
+            }
+            excited_states_out = Some(states);
+            }
+        }
+        Task::Opt => {
+            let opt_opts = calchem_opt::OptOptions {
+                max_steps: cli.opt_max_cycles,
+                reference, grid_level, dispersion: cli.dispersion.clone(),
+                scf_options: opts.clone(), ..cli.optimizer.clone()
+            };
+            let mut progress = checkpoint::Progress::new(&cli, &mol, &opt_opts)?;
+            let resume = progress.load(cli.resume.as_deref())?;
+            let opt_res = match calchem_opt::optimize_geometry_observed(&mol, &cli.basis, &opt_opts, resume, &mut progress) {
+                Ok(r) => r,
+                Err(e) => {
+                    if let (Some(cp), Some((step, energy, max_f))) = (progress.path(), progress.last_saved()) {
+                        eprintln!(
+                            "opt partial checkpoint preserved at {} (last_step={step} E={energy:.12} max_force={max_f:.4e})",
+                            cp.display()
+                        );
+                    }
+                    return Err(e.to_string());
+                }
+            };
+            task_converged = opt_res.converged;
+            final_geom_hash = checkpoint::geometry_sha256(&opt_res.molecule);
+            scf = opt_res.final_scf.ok_or("Missing final SCF diagnostics")?;
+            e_disp = d3.as_ref().map(|d| d.energy(&opt_res.molecule.atoms)).transpose().map_err(|e|e.to_string())?;
+            settings = serde_json::json!({"options":opt_opts,"steps":opt_res.steps,"history":opt_res.history,"checkpoint":progress.path().map(|p| p.display().to_string())});
+            if let Some(last) = opt_res.history.last() { max_g_val = Some(last.max_force); rms_g_val = Some(last.rms_force); }
+            grad_out = Some(opt_res.gradient);
             final_energy = opt_res.energy_hartree;
             let mut atoms_list = Vec::new();
             for a in &opt_res.molecule.atoms {
@@ -701,7 +835,7 @@ fn run() -> Result<(), String> {
         }
         Task::Freq => {
             let freq_opts = calchem_vib::FreqOptions {
-                step_bohr: 0.001,
+                step_bohr: cli.freq_step,
                 grid_level,
                 temperature_k: 298.15,
                 pressure_pa: 101325.0,
@@ -714,58 +848,72 @@ fn run() -> Result<(), String> {
                 Method::Uks => calchem_vib::VibMethod::Uks(xc),
                 Method::Uhf => calchem_vib::VibMethod::Uhf,
             };
-            let f_res = calchem_vib::compute_frequencies_and_thermo(&mol, &cli.basis, vib_method, &freq_opts).map_err(|e| e.to_string())?;
+            let freq_cp_dir = cli.checkpoint.as_deref().map(Path::new);
+            let freq_fp = if freq_cp_dir.is_some() {
+                Some(checkpoint::freq_fingerprint(&cli, &mol, &freq_opts)?)
+            } else {
+                None
+            };
+            let (f_res, center, correction) = calchem_vib::compute_frequencies_with_checkpoint(
+                &mol,
+                &cli.basis,
+                vib_method,
+                &freq_opts,
+                d3.as_ref(),
+                cli.freq_jobs,
+                freq_cp_dir,
+                freq_fp.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
+            final_energy = f_res.energy_hartree;
+            scf = center;
+            e_disp = d3.as_ref().map(|_|correction);
+            settings = serde_json::json!({"step_bohr":cli.freq_step,"displacement_jobs":cli.freq_jobs,"displaced_gradients":6 * mol.atoms.len(),"checkpoint_dir":cli.checkpoint});
             freqs_out = Some(f_res.vibrational_analysis.modes.iter().map(|m| m.frequency_cm).collect());
             zpe_out = Some(f_res.thermochemistry.zpve_hartree);
             gibbs_out = Some(f_res.thermochemistry.gibbs_free_energy_hartree);
         }
-        Task::TdDft => {
-            let td_opts = calchem_tddft::TddftOptions {
-                n_states: cli.nstates,
-                tda: true,
-                manifold: calchem_tddft::SpinManifold::Singlet,
-                grid_level,
-                scf_options: opts.clone(),
-                ..Default::default()
-            };
-            let td_res = calchem_tddft::run_tddft_from_scf(&mol, &basis, &wfn, Some(xc), &td_opts).map_err(|e| e.to_string())?;
-            let mut states = Vec::new();
-            for state in &td_res.states {
-                states.push(ExcitedStateJson {
-                    state: state.state_index,
-                    energy_ev: state.excitation_energy_ev,
-                    wavelength_nm: state.wavelength_nm,
-                    oscillator_strength: state.oscillator_strength,
-                });
-            }
-            excited_states_out = Some(states);
-        }
+
     }
     let t_post = t_post0.elapsed();
+    let all_converged = scf.converged && task_converged;
 
     let report = JsonReport {
+        status: if all_converged { "converged" } else { "not_converged" },
         file: cli.input_path.clone(),
         task: cli.task,
         method: cli.method,
-        xc: cli.xc.clone(),
+        xc: functional.to_string(),
         basis: cli.basis.clone(),
         n_atoms: mol.atoms.len(),
         n_ao: basis.n_ao,
         threads,
+        initial_geometry_sha256: initial_geom_hash,
+        final_geometry_sha256: final_geom_hash,
+        units: UnitsJson {
+            energy: "hartree",
+            coordinates: "angstrom",
+            gradient: "hartree/bohr",
+            frequencies: "cm^-1",
+            excitation_energy: "eV",
+            solvation_energy: "kcal/mol",
+        },
         timing_sec: TimingBreakdown {
             parse_sec: t_parse.as_secs_f64(),
             basis_sec: t_basis.as_secs_f64(),
-            grid_sec: t_grid.as_secs_f64(),
-            scf_sec: t_scf.as_secs_f64(),
-            post_scf_sec: t_post.as_secs_f64(),
+            grid_sec: 0.0,
+            scf_sec: scf_time.as_secs_f64(),
+            post_scf_sec: t_post.saturating_sub(scf_time).as_secs_f64(),
             total_wall_sec: t_total_start.elapsed().as_secs_f64(),
         },
-        converged: wfn.converged,
-        scf_iterations: wfn.iterations,
+        converged: all_converged,
+        scf_iterations: scf.iterations,
         energy_hartree: final_energy,
-        electronic_energy_hartree: wfn.electronic_energy_hartree,
-        nuclear_repulsion_hartree: wfn.nuclear_repulsion_hartree,
-        dispersion_energy_hartree: if e_disp != 0.0 { Some(e_disp) } else { None },
+        electronic_energy_hartree: scf.electronic_energy_hartree,
+        nuclear_repulsion_hartree: scf.nuclear_repulsion_hartree,
+        dispersion_energy_hartree: e_disp,
+        grid: is_dft.then_some(grid_level), direct_scf: calchem_scf::should_use_direct(&basis,&opts), density_fitting: opts.density_fitting, gpu_requested: opts.use_gpu,
+        scf, task_settings: settings,
         gradient_atomic_units: grad_out,
         max_gradient_atomic_units: max_g_val,
         rms_gradient_atomic_units: rms_g_val,
