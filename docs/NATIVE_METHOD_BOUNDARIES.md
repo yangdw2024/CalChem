@@ -1,13 +1,13 @@
 # Native Scientific Method Boundaries — 2026-11-24
 
-This document records the exact verified scope, approximations, defaults, and known limitations of the native pure Rust (+ optional CUDA) CalChem engine in the current working tree.
+This document records the exact verified scope, approximations, defaults, and known limitations of the native pure Rust (+ optional CUDA) CalChem engine in `v0.2.3`.
 
 ---
 
 ## 1. Architecture & Packaging
 
 - CalChem is a pure Rust workspace (`calchem-cli` native executable) with optional FP64 CUDA acceleration (`calchem-cuda`) and an optional zero-Python Node.js CLI wrapper (`npm/`).
-- `calchem-py` / PyO3 bindings and PyPI packaging have been removed (Plan A); `scripts/verify_calchem_job.py` and external benchmark/diagnostic drivers invoke `calchem_cli` directly via subprocess.
+- CalChem ships strictly as a native binary (`calchem_cli`) with no Python extension bindings; `scripts/verify_calchem_job.py` and external benchmark/diagnostic drivers invoke `calchem_cli` directly via subprocess.
 
 ---
 
@@ -59,7 +59,7 @@ This document records the exact verified scope, approximations, defaults, and kn
 
 - Native `calchem-tddft` supports restricted closed-shell references (`RHF` / `RKS`, including `B3LYP`, `PBE0`, `CAM-B3LYP`, `wB97X-D`) in both TDA (`--td-mode tda`) and Full-LR/RPA (`--td-mode lr`) for `singlet`, `triplet`, or `both`, via stored ERIs or **AO-Direct** contractions (`--direct`).
 - RI-J references, unrestricted (`UHF`/`UKS`) references, and excited-state nuclear gradients are rejected cleanly before SCF/TD-DFT.
-- **Performance boundary**: On 24-atom Caffeine (`B3LYP/6-31G(d,p)`, `Fine`, 260 AO, 8 CPU threads), AO-Direct Full-LR (5 singlet roots) matches Gaussian 16 within `0.0001–0.0002 eV`, but executes 3 unbatched 4c ERI sweeps per trial vector on CPU and required **`4998 s` (~83 min)** vs Gaussian 16's `192.2 s` (**~25× slower**).
+- **Performance boundary**: On 24-atom Caffeine (`B3LYP/6-31G(d,p)`, `Fine`, 260 AO, 8 CPU threads), AO-Direct Full-LR (5 singlet roots) matches Gaussian 16 within `0.00006–0.00025 eV` (`max |Δω| = 0.000246 eV`), but executes 3 unbatched 4c ERI sweeps per trial vector on CPU and required **`5119.84 s` (~85.3 min)** (`5119.86 s` manifest) vs Gaussian 16's `192.2 s` (**~26.6× slower**, verified on `C00AB91F`).
 
 ---
 
