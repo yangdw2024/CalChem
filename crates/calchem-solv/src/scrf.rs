@@ -44,8 +44,13 @@ impl Default for SolvationOptions {
             solvent: Solvent::water(),
             model: SolventModel::Cpcm,
             cavity_opts: CavityOptions::default(),
-            renormalize_charge: true,
-            include_cds: true,
+            // Matches Gaussian 16 default ("Charge compensation: None"): keeps q = Q_eff V
+            // strictly linear/variational and avoids artificial escaped-charge inflation on ions
+            // (especially anionic SMD cavities with tight intrinsic oxygen radii).
+            renormalize_charge: false,
+            // Standard C-PCM / IEF-PCM / COSMO energies are purely electrostatic by default
+            // (matching Gaussian/ORCA); SMD always includes its parameterized CDS term.
+            include_cds: false,
         }
     }
 }
@@ -81,12 +86,13 @@ pub struct SolvationResult {
     pub wavefunction: ScfWavefunction,
 }
 
-enum ReactionFieldSolver {
+pub(crate) enum ReactionFieldSolver {
     Boundary {
         cavity: MolecularCavity,
         boundary_matrix: BoundaryMatrix,
         potential_engine: CavityPotentialEngine,
         f_eps_scale: f64,
+        gauss_factor: f64,
         net_charge: Option<f64>,
     },
     Onsager {
@@ -100,7 +106,7 @@ enum ReactionFieldSolver {
 }
 
 impl ReactionFieldSolver {
-    fn build(mol: &Molecule, basis: &BasisSet, opts: &SolvationOptions) -> Result<Self, CalcError> {
+    pub(crate) fn build(mol: &Molecule, basis: &BasisSet, opts: &SolvationOptions) -> Result<Self, CalcError> {
         if opts.model == SolventModel::Onsager {
             // Spherical cavity centered at nuclear center of charge, radius = max(|r_A - origin| + R_vdW) + 0.5 A
             let mut sum_z = 0.0;
@@ -171,9 +177,10 @@ impl ReactionFieldSolver {
         let cavity = MolecularCavity::build(mol, &eff_cav_opts);
         let boundary_matrix = BoundaryMatrix::build_for_model(&cavity, opts.model, opts.solvent.epsilon)?;
         let potential_engine = CavityPotentialEngine::build(mol, basis, &cavity)?;
+        let gauss_factor = opts.model.dielectric_factor(opts.solvent.epsilon);
         let f_eps_scale = match opts.model {
             SolventModel::IefPcm | SolventModel::Smd => 1.0,
-            _ => opts.model.dielectric_factor(opts.solvent.epsilon),
+            _ => gauss_factor,
         };
         let net_charge = if opts.renormalize_charge {
             Some(mol.charge as f64)
@@ -185,22 +192,29 @@ impl ReactionFieldSolver {
             boundary_matrix,
             potential_engine,
             f_eps_scale,
+            gauss_factor,
             net_charge,
         })
     }
 
-    fn reaction_field(&self, density_total: &Matrix2D) -> Result<(f64, Matrix2D, Vec<f64>), CalcError> {
+    pub(crate) fn reaction_field(&self, density_total: &Matrix2D) -> Result<(f64, Matrix2D, Vec<f64>), CalcError> {
         let n = density_total.rows;
         match self {
             Self::Boundary {
                 boundary_matrix,
                 potential_engine,
                 f_eps_scale,
+                gauss_factor,
                 net_charge,
                 ..
             } => {
                 let v_solute = potential_engine.compute_solute_potential(density_total);
-                let q = boundary_matrix.solve_surface_charges(&v_solute, *f_eps_scale, *net_charge)?;
+                let q = boundary_matrix.solve_surface_charges_with_gauss(
+                    &v_solute,
+                    *f_eps_scale,
+                    *gauss_factor,
+                    *net_charge,
+                )?;
                 let v_rf = potential_engine.compute_reaction_field_matrix(&q);
                 let e_solv_elec: f64 = 0.5
                     * q.iter()
@@ -237,7 +251,7 @@ impl ReactionFieldSolver {
         }
     }
 
-    fn cavity_area_and_coords(&self) -> (f64, Vec<[f64; 3]>) {
+    pub(crate) fn cavity_area_and_coords(&self) -> (f64, Vec<[f64; 3]>) {
         match self {
             Self::Boundary { cavity, .. } => (
                 cavity.total_area_angstrom2,
@@ -248,7 +262,7 @@ impl ReactionFieldSolver {
     }
 }
 
-fn compute_cds_energy(
+pub(crate) fn compute_cds_energy(
     mol: &Molecule,
     opts: &SolvationOptions,
     cavity_area_a2: f64,
@@ -271,10 +285,6 @@ pub fn compute_pcm_solvation(
     gas_wf: &ScfWavefunction,
     opts: &SolvationOptions,
 ) -> Result<SolvationResult, CalcError> {
-    opts.model.validate_native()?;
-    let rf = ReactionFieldSolver::build(mol, basis, opts)?;
-
-    let n = basis.n_ao;
     let total_density: Vec<f64> = match &gas_wf.density_beta {
         Some(pb) => gas_wf
             .density_alpha
@@ -284,6 +294,40 @@ pub fn compute_pcm_solvation(
             .collect(),
         None => gas_wf.density_alpha.clone(),
     };
+    let rs = frozen_density_correction(mol, basis, total_density, opts)?;
+    Ok(SolvationResult {
+        solvated_energy: gas_wf.total_energy_hartree + rs.delta_g_solv,
+        gas_energy: gas_wf.total_energy_hartree,
+        delta_g_solv: rs.delta_g_solv,
+        delta_g_solv_kcal_mol: rs.delta_g_solv * HARTREE_TO_KCAL_MOL,
+        delta_g_elec_kcal_mol: rs.delta_g_elec_kcal_mol,
+        delta_g_cds_kcal_mol: rs.delta_g_cds_kcal_mol,
+        cavity_surface_area_angstrom2: rs.cavity_surface_area_angstrom2,
+        total_surface_charge: rs.total_surface_charge,
+        surface_charges: rs.surface_charges,
+        tessera_coords_bohr: rs.tessera_coords_bohr,
+        scf_iterations: gas_wf.diagnostics.iterations,
+        converged: gas_wf.converged,
+        wavefunction: gas_wf.clone(),
+    })
+}
+
+#[derive(Debug, Serialize)]
+pub struct FrozenDensityCorrection {
+    pub delta_g_solv: f64,
+    pub delta_g_elec_kcal_mol: f64,
+    pub delta_g_cds_kcal_mol: f64,
+    pub cavity_surface_area_angstrom2: f64,
+    pub total_surface_charge: f64,
+    pub surface_charges: Vec<f64>,
+    pub tessera_coords_bohr: Vec<[f64; 3]>,
+}
+
+pub fn frozen_density_correction(mol: &Molecule, basis: &BasisSet, total_density: Vec<f64>, opts: &SolvationOptions) -> Result<FrozenDensityCorrection, CalcError> {
+    let n = basis.n_ao;
+    if total_density.len() != n * n { return Err(CalcError::InvalidMolecule("Invalid PCM density dimensions".into())); }
+    opts.model.validate_native()?;
+    let rf = ReactionFieldSolver::build(mol, basis, opts)?;
     let density_mat = Matrix2D {
         rows: n,
         cols: n,
@@ -296,23 +340,16 @@ pub fn compute_pcm_solvation(
         compute_cds_energy(mol, opts, cav_area_a2);
 
     let delta_g_solv_hartree = e_elec_hartree + cds_hartree;
-    let solvated_energy = gas_wf.total_energy_hartree + delta_g_solv_hartree;
     let total_q: f64 = q.iter().sum();
 
-    Ok(SolvationResult {
-        solvated_energy,
-        gas_energy: gas_wf.total_energy_hartree,
+    Ok(FrozenDensityCorrection {
         delta_g_solv: delta_g_solv_hartree,
-        delta_g_solv_kcal_mol: delta_g_solv_hartree * HARTREE_TO_KCAL_MOL,
         delta_g_elec_kcal_mol: e_elec_hartree * HARTREE_TO_KCAL_MOL,
         delta_g_cds_kcal_mol: cds_kcal_mol,
         cavity_surface_area_angstrom2: reported_area_a2,
         total_surface_charge: total_q,
         surface_charges: q,
         tessera_coords_bohr: tessera_coords,
-        scf_iterations: gas_wf.diagnostics.iterations,
-        converged: gas_wf.converged,
-        wavefunction: gas_wf.clone(),
     })
 }
 
@@ -348,13 +385,14 @@ pub fn run_scrf_rhf(
     for i in 0..n * n {
         h_core.data[i] = t.data[i] + v.data[i] + v_ecp.data[i];
     }
-    let fock_builder = RksFockBuilder::new_with_options(
+    let fock_builder = RksFockBuilder::with_jfit_basis(
         mol,
         basis,
         use_direct,
         scf_opts.density_fitting,
         scf_opts.use_gpu,
         None,
+        scf_opts.jfit_basis,
     )?;
     let e_nuc = basis.nuclear_repulsion_energy(mol);
 
@@ -365,14 +403,12 @@ pub fn run_scrf_rhf(
     let (s_vals, s_vecs) = eigh_sym(&s, 100, 1e-14)?;
     let mut s_inv_sqrt = Matrix2D::zeros(n, n);
     for (i, &val) in s_vals.iter().enumerate() {
-        if val <= 0.0 {
+        if val <= 1e-10 {
             return Err(CalcError::LinearAlgebra(format!(
-                "Overlap matrix is not positive definite ({val:.3e})"
+                "Overlap matrix is singular or too ill-conditioned for SCRF (eigenvalue {val:.3e})"
             )));
         }
-        if val > 1e-10 {
-            s_inv_sqrt.set(i, i, 1.0 / val.sqrt());
-        }
+        s_inv_sqrt.set(i, i, 1.0 / val.sqrt());
     }
     let x = matmul(&matmul(&s_vecs, &s_inv_sqrt), &transpose(&s_vecs));
     let xt = transpose(&x);
@@ -388,6 +424,8 @@ pub fn run_scrf_rhf(
     let mut e_prev = 0.0;
     let mut converged = false;
     let mut used_iter = 0;
+    let mut last_delta_e = f64::INFINITY;
+    let mut last_rms_d = f64::INFINITY;
     let mut q_converged = Vec::new();
     let mut final_evals = Vec::new();
     let mut final_coeffs = Matrix2D::zeros(n, n);
@@ -421,9 +459,18 @@ pub fn run_scrf_rhf(
         let diis_err = frobenius_norm(&err);
         diis_err_history.push(diis_err);
 
-        let f_extrap = diis
-            .try_push_and_extrapolate(&f, &err)
-            .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+        let f_extrap = if scf_opts.use_diis {
+            let extrap = diis
+                .try_push_and_extrapolate(&f, &err)
+                .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+            if iter >= 2 {
+                extrap
+            } else {
+                f.clone()
+            }
+        } else {
+            f.clone()
+        };
         let (evals, c, mut p_new) = diagonalize_fock_rhf(&f_extrap, &x, &xt, n_occ)?;
 
         let effective_damping = if scf_opts.damping > 0.0 && scf_opts.damping < 1.0 {
@@ -444,6 +491,8 @@ pub fn run_scrf_rhf(
         let rms_d = rms_diff(&p_new, &p);
         rms_history.push(rms_d);
 
+        last_delta_e = delta_e;
+        last_rms_d = rms_d;
         e_prev = e_tot;
         p = p_new;
         q_converged = q;
@@ -455,6 +504,14 @@ pub fn run_scrf_rhf(
             converged = true;
             break;
         }
+    }
+
+    if !converged {
+        return Err(CalcError::NotConverged {
+            iterations: used_iter,
+            delta_e: last_delta_e,
+            rms_d: last_rms_d,
+        });
     }
 
     let (cav_area_a2, tessera_coords) = rf.cavity_area_and_coords();
@@ -475,6 +532,7 @@ pub fn run_scrf_rhf(
         gpu_fallback_invocations: gpu_fb,
         diis_disk_backed: diis.is_disk_backed(),
         rij_metric_truncated_modes: rij_trunc,
+        jfit_basis: scf_opts.jfit_basis,
     };
 
     let mut mo_occupations = vec![0.0f64; n];
@@ -521,13 +579,25 @@ pub fn run_scrf_rhf(
     })
 }
 
-/// Executes full closed-shell Restricted Kohn-Sham (RKS) SCRF in solution.
+/// Executes full closed-shell Restricted Kohn-Sham (RKS) SCRF in solution using `GridLevel::Fine`.
 pub fn run_scrf_rks(
     mol: &Molecule,
     basis: &BasisSet,
     scf_opts: &ScfOptions,
     opts: &SolvationOptions,
     xc: XcFunctional,
+) -> Result<SolvationResult, CalcError> {
+    run_scrf_rks_with_grid(mol, basis, scf_opts, opts, xc, GridLevel::Fine)
+}
+
+/// Executes full closed-shell Restricted Kohn-Sham (RKS) SCRF in solution on an explicit DFT grid.
+pub fn run_scrf_rks_with_grid(
+    mol: &Molecule,
+    basis: &BasisSet,
+    scf_opts: &ScfOptions,
+    opts: &SolvationOptions,
+    xc: XcFunctional,
+    grid_level: GridLevel,
 ) -> Result<SolvationResult, CalcError> {
     opts.model.validate_native()?;
     let use_direct = should_use_direct(basis, scf_opts);
@@ -554,13 +624,14 @@ pub fn run_scrf_rks(
     for i in 0..n * n {
         h_core.data[i] = t.data[i] + v.data[i] + v_ecp.data[i];
     }
-    let fock_builder = RksFockBuilder::new_with_options(
+    let fock_builder = RksFockBuilder::with_jfit_basis(
         mol,
         basis,
         use_direct,
         scf_opts.density_fitting,
         scf_opts.use_gpu,
         xc.range_separated_params(),
+        scf_opts.jfit_basis,
     )?;
     let e_nuc = basis.nuclear_repulsion_energy(mol);
     let e_disp = if xc == XcFunctional::Wb97xd {
@@ -568,16 +639,19 @@ pub fn run_scrf_rks(
     } else {
         0.0
     };
-    let grid = MolecularGrid::build_for_basis(mol, basis, GridLevel::Fine);
+    let grid = MolecularGrid::build_for_basis(mol, basis, grid_level);
 
     let rf = ReactionFieldSolver::build(mol, basis, opts)?;
 
     let (s_vals, s_vecs) = eigh_sym(&s, 100, 1e-14)?;
     let mut s_inv_sqrt = Matrix2D::zeros(n, n);
     for (i, &val) in s_vals.iter().enumerate() {
-        if val > 1e-10 {
-            s_inv_sqrt.set(i, i, 1.0 / val.sqrt());
+        if val <= 1e-10 {
+            return Err(CalcError::LinearAlgebra(format!(
+                "Overlap matrix is singular or too ill-conditioned for SCRF (eigenvalue {val:.3e})"
+            )));
         }
+        s_inv_sqrt.set(i, i, 1.0 / val.sqrt());
     }
     let x = matmul(&matmul(&s_vecs, &s_inv_sqrt), &transpose(&s_vecs));
     let xt = transpose(&x);
@@ -592,6 +666,8 @@ pub fn run_scrf_rks(
     let mut e_prev = 0.0;
     let mut converged = false;
     let mut used_iter = 0;
+    let mut last_delta_e = f64::INFINITY;
+    let mut last_rms_d = f64::INFINITY;
     let mut q_converged = Vec::new();
     let mut final_evals = Vec::new();
     let mut final_coeffs = Matrix2D::zeros(n, n);
@@ -635,9 +711,18 @@ pub fn run_scrf_rks(
         let diis_err = frobenius_norm(&err);
         diis_err_history.push(diis_err);
 
-        let f_extrap = diis
-            .try_push_and_extrapolate(&f, &err)
-            .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+        let f_extrap = if scf_opts.use_diis {
+            let extrap = diis
+                .try_push_and_extrapolate(&f, &err)
+                .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+            if iter >= 2 {
+                extrap
+            } else {
+                f.clone()
+            }
+        } else {
+            f.clone()
+        };
         let (evals, c, mut p_new) = diagonalize_fock_rhf(&f_extrap, &x, &xt, n_occ)?;
 
         let effective_damping = if scf_opts.damping > 0.0 && scf_opts.damping < 1.0 {
@@ -658,6 +743,8 @@ pub fn run_scrf_rks(
         let rms_d = rms_diff(&p_new, &p);
         rms_history.push(rms_d);
 
+        last_delta_e = delta_e;
+        last_rms_d = rms_d;
         e_prev = e_tot;
         p = p_new;
         q_converged = q;
@@ -669,6 +756,14 @@ pub fn run_scrf_rks(
             converged = true;
             break;
         }
+    }
+
+    if !converged {
+        return Err(CalcError::NotConverged {
+            iterations: used_iter,
+            delta_e: last_delta_e,
+            rms_d: last_rms_d,
+        });
     }
 
     let (cav_area_a2, tessera_coords) = rf.cavity_area_and_coords();
@@ -690,6 +785,7 @@ pub fn run_scrf_rks(
         gpu_fallback_invocations: gpu_fb,
         diis_disk_backed: diis.is_disk_backed(),
         rij_metric_truncated_modes: rij_trunc,
+        jfit_basis: scf_opts.jfit_basis,
     };
 
     let mut mo_occupations = vec![0.0f64; n];
@@ -737,13 +833,25 @@ pub fn run_scrf_rks(
 }
 
 /// Runs a Self-Consistent Reaction Field (SCRF) unrestricted UHF (`xc = None`) or UKS (`xc = Some(...)`)
-/// calculation for open-shell molecules.
+/// calculation for open-shell molecules using `GridLevel::Medium`.
 pub fn run_scrf_unrestricted(
     mol: &Molecule,
     basis: &BasisSet,
     scf_opts: &ScfOptions,
     opts: &SolvationOptions,
     xc: Option<XcFunctional>,
+) -> Result<SolvationResult, CalcError> {
+    run_scrf_unrestricted_with_grid(mol, basis, scf_opts, opts, xc, GridLevel::Medium)
+}
+
+/// Runs a Self-Consistent Reaction Field (SCRF) unrestricted UHF/UKS calculation on an explicit DFT grid.
+pub fn run_scrf_unrestricted_with_grid(
+    mol: &Molecule,
+    basis: &BasisSet,
+    scf_opts: &ScfOptions,
+    opts: &SolvationOptions,
+    xc: Option<XcFunctional>,
+    grid_level: GridLevel,
 ) -> Result<SolvationResult, CalcError> {
     opts.model.validate_native()?;
     if let Some(func) = xc {
@@ -764,7 +872,7 @@ pub fn run_scrf_unrestricted(
         )));
     }
 
-    let grid_opt = xc.map(|_| MolecularGrid::build_for_basis(mol, basis, GridLevel::Medium));
+    let grid_opt = xc.map(|_| MolecularGrid::build_for_basis(mol, basis, grid_level));
     let gas_wf = match (xc, &grid_opt) {
         (None, _) => calchem_scf::uhf(mol, basis, scf_opts)?,
         (Some(func), Some(grid)) => calchem_scf::uks_with_grid(mol, basis, func, grid, scf_opts)?,
@@ -781,13 +889,14 @@ pub fn run_scrf_unrestricted(
         h_core.data[i] = t.data[i] + v.data[i] + v_ecp.data[i];
     }
 
-    let fock_builder = UksFockBuilder::new_with_options(
+    let fock_builder = UksFockBuilder::with_jfit_basis(
         mol,
         basis,
         use_direct,
         scf_opts.density_fitting,
         scf_opts.use_gpu,
         xc.and_then(|f| f.range_separated_params()),
+        scf_opts.jfit_basis,
     )?;
     let e_nuc = basis.nuclear_repulsion_energy(mol);
     let e_disp = if xc == Some(XcFunctional::Wb97xd) {
@@ -959,19 +1068,17 @@ pub fn run_scrf_unrestricted(
     let solvated_energy = e_prev + cds_hartree;
     let delta_g_solv_hartree = solvated_energy - gas_energy;
 
-    let rij_trunc = match &fock_builder {
-        UksFockBuilder::DensityFitting(rij, _) => rij.metric_truncated_modes,
-        _ => 0,
-    };
+    let (gpu_k, gpu_fb, rij_trunc) = fock_builder.telemetry();
     let diag = ScfDiagnostics {
         iterations: used_iter,
         energy_history,
         rms_density_history: rms_history,
         diis_error_history: diis_err_history,
-        gpu_kernel_invocations: 0,
-        gpu_fallback_invocations: 0,
+        gpu_kernel_invocations: gpu_k,
+        gpu_fallback_invocations: gpu_fb,
         diis_disk_backed: diis_a.is_disk_backed() || diis_b.is_disk_backed(),
         rij_metric_truncated_modes: rij_trunc,
+        jfit_basis: scf_opts.jfit_basis,
     };
 
     let mut mo_occupations = vec![0.0f64; n];
@@ -1018,7 +1125,7 @@ pub fn run_scrf_unrestricted(
     })
 }
 
-/// Unified entrypoint for SCRF solvation calculations across HF and DFT.
+/// Unified entrypoint for SCRF solvation calculations across HF and DFT (default grid).
 pub fn run_scrf(
     mol: &Molecule,
     basis: &BasisSet,
@@ -1032,13 +1139,38 @@ pub fn run_scrf(
         || mol.nelectron().map(|ne| ne % 2 != 0).unwrap_or(false)
         || m == "uhf"
         || m == "uks";
+    let default_grid = if is_open_shell {
+        GridLevel::Medium
+    } else {
+        GridLevel::Fine
+    };
+    run_scrf_with_grid(mol, basis, scf_opts, opts, method, xc, default_grid)
+}
+
+/// Unified entrypoint for SCRF solvation calculations across HF and DFT on an explicit DFT grid.
+pub fn run_scrf_with_grid(
+    mol: &Molecule,
+    basis: &BasisSet,
+    scf_opts: &ScfOptions,
+    opts: &SolvationOptions,
+    method: &str,
+    xc: Option<XcFunctional>,
+    grid_level: GridLevel,
+) -> Result<SolvationResult, CalcError> {
+    let m = method.trim().to_ascii_lowercase();
+    let is_open_shell = mol.multiplicity > 1
+        || mol.nelectron().map(|ne| ne % 2 != 0).unwrap_or(false)
+        || m == "uhf"
+        || m == "uks";
 
     if is_open_shell {
         return match m.as_str() {
-            "uhf" | "rhf" | "hf" => run_scrf_unrestricted(mol, basis, scf_opts, opts, None),
+            "uhf" | "rhf" | "hf" => {
+                run_scrf_unrestricted_with_grid(mol, basis, scf_opts, opts, None, grid_level)
+            }
             "uks" | "rks" | "dft" => {
                 let func = xc.unwrap_or(XcFunctional::B3lyp);
-                run_scrf_unrestricted(mol, basis, scf_opts, opts, Some(func))
+                run_scrf_unrestricted_with_grid(mol, basis, scf_opts, opts, Some(func), grid_level)
             }
             "b3lyp" | "b3lyp5" | "pbe" | "blyp" | "svwn5" | "pbe0" | "camb3lyp" | "cam-b3lyp"
             | "wb97xd" | "wb97x-d" | "wb97x" => {
@@ -1048,7 +1180,7 @@ pub fn run_scrf(
                         "Conflicting method and XC identities".into(),
                     ));
                 }
-                run_scrf_unrestricted(mol, basis, scf_opts, opts, Some(func))
+                run_scrf_unrestricted_with_grid(mol, basis, scf_opts, opts, Some(func), grid_level)
             }
             other => Err(CalcError::UnsupportedMethod(format!(
                 "Unsupported open-shell SCRF method: {other}"
@@ -1060,7 +1192,7 @@ pub fn run_scrf(
         "rhf" | "hf" => run_scrf_rhf(mol, basis, scf_opts, opts),
         "rks" | "dft" => {
             let func = xc.unwrap_or(XcFunctional::B3lyp);
-            run_scrf_rks(mol, basis, scf_opts, opts, func)
+            run_scrf_rks_with_grid(mol, basis, scf_opts, opts, func, grid_level)
         }
         "b3lyp" | "b3lyp5" | "pbe" | "blyp" | "svwn5" | "pbe0" | "camb3lyp" | "cam-b3lyp"
         | "wb97xd" | "wb97x-d" | "wb97x" => {
@@ -1070,7 +1202,7 @@ pub fn run_scrf(
                     "Conflicting method and XC identities".into(),
                 ));
             }
-            run_scrf_rks(mol, basis, scf_opts, opts, func)
+            run_scrf_rks_with_grid(mol, basis, scf_opts, opts, func, grid_level)
         }
         other => Err(CalcError::UnsupportedMethod(format!(
             "Unsupported SCRF method: {other}"

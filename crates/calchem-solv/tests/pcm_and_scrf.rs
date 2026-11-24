@@ -272,9 +272,12 @@ fn test_pcm_nuclear_gradient() {
         &water,
         &basis,
         &density,
-        &solv,
-        calchem_solv::SolventModel::Cpcm,
-        Some(&cavity_opts),
+        &SolvationOptions {
+            solvent: solv,
+            model: calchem_solv::SolventModel::Cpcm,
+            cavity_opts,
+            ..Default::default()
+        },
     )
     .expect("PCM gradient failed");
 
@@ -293,4 +296,392 @@ fn test_pcm_nuclear_gradient() {
         sum_g[2] += ga[2];
     }
     println!("PCM gradient sum: {:?}", sum_g);
+}
+
+#[test]
+fn test_pcm_default_pure_electrostatic_and_iefpcm_ion_gauss_law() {
+    // 1. Default SolvationOptions must not add macroscopic gamma*Area CDS to C-PCM/IEF-PCM
+    let def_opts = SolvationOptions::default();
+    assert!(!def_opts.include_cds, "Default PCM options must be purely electrostatic");
+
+    let water = Molecule::new(
+        vec![
+            Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("H", [0.0, 1.4304, -1.1072]).unwrap(),
+            Atom::from_bohr("H", [0.0, -1.4304, -1.1072]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let basis = BasisSet::from_name("sto-3g", &water).unwrap();
+    let scf_opts = ScfOptions {
+        max_iter: 60,
+        conv_energy: 1e-8,
+        conv_density: 1e-7,
+        ..Default::default()
+    };
+
+    let ief_opts = SolvationOptions {
+        solvent: Solvent::water(),
+        model: SolventModel::IefPcm,
+        ..Default::default()
+    };
+    let ief_res = calchem_solv::run_scrf_rks_with_grid(
+        &water,
+        &basis,
+        &scf_opts,
+        &ief_opts,
+        XcFunctional::B3lyp,
+        calchem_dft::GridLevel::Coarse,
+    )
+    .expect("IEF-PCM SCRF failed");
+    assert!(ief_res.converged);
+    assert_eq!(ief_res.delta_g_cds_kcal_mol, 0.0);
+    assert!(ief_res.delta_g_elec_kcal_mol < 0.0);
+    assert!(
+        ief_res.delta_g_solv_kcal_mol < 0.0,
+        "Default IEF-PCM water-in-water must be stabilizing, got {}",
+        ief_res.delta_g_solv_kcal_mol
+    );
+
+    // 2. SMD must still compute parameterized SMD-CDS even when include_cds == false
+    let smd_opts = SolvationOptions {
+        solvent: Solvent::water(),
+        model: SolventModel::Smd,
+        ..Default::default()
+    };
+    let smd_res = calchem_solv::run_scrf_rks_with_grid(
+        &water,
+        &basis,
+        &scf_opts,
+        &smd_opts,
+        XcFunctional::B3lyp,
+        calchem_dft::GridLevel::Coarse,
+    )
+    .expect("SMD SCRF failed");
+    assert!(smd_res.converged);
+    assert!(smd_res.delta_g_elec_kcal_mol < 0.0);
+    assert!(smd_res.delta_g_cds_kcal_mol.abs() > 0.1);
+    assert!(smd_res.delta_g_solv_kcal_mol < 0.0);
+
+    // 3. IEF-PCM Gauss law for an ion in low-dielectric solvent (chlorobenzene, eps=5.6968):
+    //    (a) Default uncompensated IEF-PCM (renormalize_charge=false) naturally satisfies Gauss law to ~1%;
+    //    (b) Explicit renormalize_charge=true enforces -((eps - 1)/eps) * Q_net (NOT -1.0 * Q_net) to < 1e-8.
+    let li_plus = Molecule::new(vec![Atom::from_bohr("Li", [0.0, 0.0, 0.0]).unwrap()], 1, 1);
+    let li_basis = BasisSet::from_name("sto-3g", &li_plus).unwrap();
+    let cb = Solvent::chlorobenzene();
+    let expected_q = -((cb.epsilon - 1.0) / cb.epsilon) * 1.0;
+    let li_default = run_scrf_rhf(
+        &li_plus,
+        &li_basis,
+        &scf_opts,
+        &SolvationOptions {
+            solvent: cb.clone(),
+            model: SolventModel::IefPcm,
+            ..Default::default()
+        },
+    )
+    .expect("Li+ uncompensated IEF-PCM SCRF failed");
+    assert!(
+        (li_default.total_surface_charge - expected_q).abs() < 0.02,
+        "Uncompensated IEF-PCM Li+ charge {:.6} too far from Gauss law {:.6}",
+        li_default.total_surface_charge,
+        expected_q
+    );
+
+    let li_renorm = run_scrf_rhf(
+        &li_plus,
+        &li_basis,
+        &scf_opts,
+        &SolvationOptions {
+            solvent: cb,
+            model: SolventModel::IefPcm,
+            renormalize_charge: true,
+            ..Default::default()
+        },
+    )
+    .expect("Li+ renormalized IEF-PCM SCRF failed");
+    assert!(
+        (li_renorm.total_surface_charge - expected_q).abs() < 1e-8,
+        "Renormalized IEF-PCM ion surface charge {:.6} != Gauss law target {:.6}",
+        li_renorm.total_surface_charge,
+        expected_q
+    );
+
+    // 4. Regression for BoundaryMatrix::build Cholesky global-shift bug on interlocking spheres:
+    //    On ethanol in water (eps=78.36), C-PCM and IEF-PCM on the same cavity must agree within 0.1 kcal/mol
+    //    (previously C-PCM was attenuated by +0.60 kcal/mol due to global diagonal Cholesky shift).
+    let ethanol = Molecule::new(
+        vec![
+            Atom::from_angstrom("C", [0.00, 0.00, 0.00]).unwrap(),
+            Atom::from_angstrom("C", [1.54, 0.00, 0.00]).unwrap(),
+            Atom::from_angstrom("O", [2.24, 1.10, 0.00]).unwrap(),
+            Atom::from_angstrom("H", [3.10, 1.10, 0.00]).unwrap(),
+            Atom::from_angstrom("H", [-0.40, 0.90, 0.00]).unwrap(),
+            Atom::from_angstrom("H", [-0.40, -0.45, 0.779]).unwrap(),
+            Atom::from_angstrom("H", [-0.40, -0.45, -0.779]).unwrap(),
+            Atom::from_angstrom("H", [1.90, -0.90, 0.00]).unwrap(),
+            Atom::from_angstrom("H", [1.90, 0.45, 0.779]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let eth_basis = BasisSet::from_name("sto-3g", &ethanol).unwrap();
+    let eth_ief = run_scrf_rhf(
+        &ethanol,
+        &eth_basis,
+        &scf_opts,
+        &SolvationOptions {
+            solvent: Solvent::water(),
+            model: SolventModel::IefPcm,
+            ..Default::default()
+        },
+    )
+    .expect("Ethanol IEF-PCM failed");
+    let eth_cpcm = run_scrf_rhf(
+        &ethanol,
+        &eth_basis,
+        &scf_opts,
+        &SolvationOptions {
+            solvent: Solvent::water(),
+            model: SolventModel::Cpcm,
+            ..Default::default()
+        },
+    )
+    .expect("Ethanol C-PCM failed");
+    assert!(
+        (eth_cpcm.delta_g_solv_kcal_mol - eth_ief.delta_g_solv_kcal_mol).abs() < 0.10,
+        "Ethanol C-PCM ({:.3}) diverged from IEF-PCM ({:.3}) in water (eps=78.36)",
+        eth_cpcm.delta_g_solv_kcal_mol,
+        eth_ief.delta_g_solv_kcal_mol
+    );
+}
+
+#[test]
+fn test_solvation_gradient_matches_scrf_surface_iefpcm_cpcm_smd() {
+    let water = Molecule::new(
+        vec![
+            Atom::from_bohr("O", [0.0, 0.0, 0.1]).unwrap(),
+            Atom::from_bohr("H", [0.0, 1.4304, -1.1]).unwrap(),
+            Atom::from_bohr("H", [0.0, -1.4304, -1.1]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let basis = BasisSet::from_name("sto-3g", &water).unwrap();
+    let scf_opts = ScfOptions {
+        max_iter: 60,
+        conv_energy: 1e-9,
+        conv_density: 1e-8,
+        ..Default::default()
+    };
+    let h = 1e-4;
+
+    let cases = [
+        SolvationOptions {
+            solvent: Solvent::chlorobenzene(),
+            model: SolventModel::IefPcm,
+            ..Default::default()
+        },
+        SolvationOptions {
+            solvent: Solvent::chlorobenzene(),
+            model: SolventModel::Cpcm,
+            include_cds: false,
+            ..Default::default()
+        },
+        SolvationOptions {
+            solvent: Solvent::chlorobenzene(),
+            model: SolventModel::Cpcm,
+            include_cds: true,
+            ..Default::default()
+        },
+        SolvationOptions {
+            solvent: Solvent::water(),
+            model: SolventModel::Smd,
+            include_cds: false,
+            ..Default::default()
+        },
+        SolvationOptions {
+            solvent: Solvent::water(),
+            model: SolventModel::Smd,
+            include_cds: true,
+            ..Default::default()
+        },
+    ];
+
+    let mut grads = Vec::new();
+    let mut energies = Vec::new();
+
+    for opts in &cases {
+        let scrf_res = run_scrf_rhf(&water, &basis, &scf_opts, opts)
+            .expect("SCRF failed before fixed-density gradient check");
+        let density = calchem_tensor::Matrix2D {
+            rows: basis.n_ao,
+            cols: basis.n_ao,
+            data: scrf_res.wavefunction.density_alpha.clone(),
+        };
+
+        let e_grad_fn = calchem_solv::pcm_energy_for_density(&water, &basis, &density, opts)
+            .expect("pcm_energy_for_density failed");
+        let e_scrf_frozen = calchem_solv::scrf::frozen_density_correction(
+            &water,
+            &basis,
+            density.data.clone(),
+            opts,
+        )
+        .expect("frozen_density_correction failed")
+        .delta_g_solv;
+        assert!(
+            (e_grad_fn - e_scrf_frozen).abs() < 1e-12,
+            "Energy surface mismatch for {:?}: grad_fn={e_grad_fn:.12} vs scrf={e_scrf_frozen:.12}",
+            opts.model
+        );
+        energies.push(e_grad_fn);
+
+        let grad = calchem_solv::compute_pcm_gradient_fd(&water, &basis, &density, opts, h)
+            .expect("compute_pcm_gradient_fd failed");
+
+        for i in 0..water.atoms.len() {
+            for c in 0..3 {
+                let mut mol_p = water.clone();
+                mol_p.atoms[i].position_bohr[c] += h;
+                let basis_p = BasisSet::from_name(&basis.name, &mol_p).unwrap();
+                let ep = calchem_solv::scrf::frozen_density_correction(
+                    &mol_p,
+                    &basis_p,
+                    density.data.clone(),
+                    opts,
+                )
+                .unwrap()
+                .delta_g_solv;
+
+                let mut mol_m = water.clone();
+                mol_m.atoms[i].position_bohr[c] -= h;
+                let basis_m = BasisSet::from_name(&basis.name, &mol_m).unwrap();
+                let em = calchem_solv::scrf::frozen_density_correction(
+                    &mol_m,
+                    &basis_m,
+                    density.data.clone(),
+                    opts,
+                )
+                .unwrap()
+                .delta_g_solv;
+
+                let ref_g = (ep - em) / (2.0 * h);
+                assert!(
+                    (grad[i][c] - ref_g).abs() < 1e-11,
+                    "FD gradient mismatch for {:?} atom {i} coord {c}: got {:.12e}, ref {:.12e}",
+                    opts.model,
+                    grad[i][c],
+                    ref_g
+                );
+            }
+        }
+        grads.push(grad);
+    }
+
+    let max_diff = |a: &[[f64; 3]], b: &[[f64; 3]]| -> f64 {
+        a.iter()
+            .zip(b.iter())
+            .flat_map(|(ga, gb)| (0..3).map(move |c| (ga[c] - gb[c]).abs()))
+            .fold(0.0_f64, f64::max)
+    };
+
+    // IEF-PCM and C-PCM must dispatch distinct electrostatics in chlorobenzene
+    assert!(
+        max_diff(&grads[0], &grads[1]) > 1e-5,
+        "IEF-PCM and C-PCM gradients unexpectedly identical"
+    );
+    // C-PCM include_cds=false vs true must add gamma * Area to the solvation energy surface
+    // (Note: discrete unsmoothed Lebedev sphere areas are piecewise constant away from tessera switches)
+    assert!(
+        (energies[1] - energies[2]).abs() > 1e-4,
+        "C-PCM include_cds toggle had no effect on pcm_energy_for_density: {} vs {}",
+        energies[1],
+        energies[2]
+    );
+    // SMD uses parameterized SMD-CDS and SmdIntrinsic radii identically regardless of include_cds,
+    // yielding a distinct surface from pure Bondi IEF-PCM
+    assert!(
+        (energies[3] - energies[4]).abs() < 1e-12,
+        "SMD energy varied with include_cds"
+    );
+    assert!(
+        max_diff(&grads[3], &grads[4]) < 1e-12,
+        "SMD gradient varied with include_cds"
+    );
+    assert!(
+        (energies[3] - energies[0]).abs() > 1e-3 && max_diff(&grads[3], &grads[0]) > 1e-4,
+        "SMD surface unexpectedly matched Bondi IEF-PCM"
+    );
+}
+
+#[test]
+fn test_scrf_closed_shell_respects_use_diis_false() {
+    let water = Molecule::new(
+        vec![
+            Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("H", [0.0, 1.4304, -1.1072]).unwrap(),
+            Atom::from_bohr("H", [0.0, -1.4304, -1.1072]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let basis = BasisSet::from_name("sto-3g", &water).unwrap();
+    let solv_opts = SolvationOptions {
+        solvent: Solvent::water(),
+        model: SolventModel::IefPcm,
+        ..Default::default()
+    };
+    let opts_diis = ScfOptions {
+        max_iter: 60,
+        conv_energy: 1e-8,
+        conv_density: 1e-7,
+        use_diis: true,
+        ..Default::default()
+    };
+    let opts_no_diis = ScfOptions {
+        max_iter: 120,
+        conv_energy: 1e-8,
+        conv_density: 1e-7,
+        use_diis: false,
+        damping: 0.2,
+        ..Default::default()
+    };
+
+    let rhf_diis = run_scrf_rhf(&water, &basis, &opts_diis, &solv_opts).unwrap();
+    let rhf_no_diis = run_scrf_rhf(&water, &basis, &opts_no_diis, &solv_opts).unwrap();
+    assert!(rhf_no_diis.converged);
+    assert!(
+        (rhf_diis.solvated_energy - rhf_no_diis.solvated_energy).abs() < 1e-7,
+        "RHF SCRF with/without DIIS diverged: {} vs {}",
+        rhf_diis.solvated_energy,
+        rhf_no_diis.solvated_energy
+    );
+
+    let rks_diis = calchem_solv::run_scrf_rks_with_grid(
+        &water,
+        &basis,
+        &opts_diis,
+        &solv_opts,
+        XcFunctional::B3lyp,
+        calchem_dft::GridLevel::Coarse,
+    )
+    .unwrap();
+    let rks_no_diis = calchem_solv::run_scrf_rks_with_grid(
+        &water,
+        &basis,
+        &opts_no_diis,
+        &solv_opts,
+        XcFunctional::B3lyp,
+        calchem_dft::GridLevel::Coarse,
+    )
+    .unwrap();
+    assert!(rks_no_diis.converged);
+    assert!(
+        (rks_diis.solvated_energy - rks_no_diis.solvated_energy).abs() < 1e-7,
+        "RKS SCRF with/without DIIS diverged: {} vs {}",
+        rks_diis.solvated_energy,
+        rks_no_diis.solvated_energy
+    );
 }

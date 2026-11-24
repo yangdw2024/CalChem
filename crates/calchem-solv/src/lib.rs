@@ -19,12 +19,16 @@ pub use cavity::{
     bondi_vdw_radius, smd_intrinsic_radius, CavityLebedevOrder, CavityOptions, CavityRadiiMode,
     MolecularCavity, Tessera,
 };
-pub use gradient::{compute_pcm_gradient_analytic, compute_pcm_gradient_fd, run_pcm_gradient};
+pub use gradient::{
+    compute_pcm_gradient_analytic, compute_pcm_gradient_fd, pcm_energy_for_density,
+    run_pcm_gradient,
+};
 pub use matrix::BoundaryMatrix;
 pub use potential::CavityPotentialEngine;
 pub use scrf::{
-    compute_pcm_solvation, run_scrf, run_scrf_rhf, run_scrf_rks, SolvationOptions, SolvationResult,
-    HARTREE_TO_KCAL_MOL,
+    compute_pcm_solvation, run_scrf, run_scrf_rhf, run_scrf_rks, run_scrf_rks_with_grid,
+    run_scrf_unrestricted, run_scrf_unrestricted_with_grid, run_scrf_with_grid, SolvationOptions,
+    SolvationResult, HARTREE_TO_KCAL_MOL,
 };
 pub use smd::compute_smd_cds_energy;
 pub use solvent::{SmdDescriptors, Solvent, SolventModel};

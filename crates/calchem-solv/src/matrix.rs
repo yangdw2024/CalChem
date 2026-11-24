@@ -1,17 +1,38 @@
 //! Green's function electrostatic boundary interaction matrix $A$ and Cholesky solver.
 
+use calchem_int::boys::boys_batch;
 use calchem_model::CalcError;
 use serde::{Deserialize, Serialize};
 
 use crate::cavity::MolecularCavity;
 
-/// Green's function boundary interaction matrix $A \in \mathbb{R}^{N_s \times N_s}$.
+/// Evaluates the York-Karplus spherical-Gaussian Coulomb kernel `erf(z*r)/r = (2/sqrt(pi))*z*F_0(z^2*r^2)`
+/// and its radial derivative factor `-(1/r) d/dr [erf(z*r)/r] = (4/sqrt(pi))*z^3*F_1(z^2*r^2)`.
+#[inline]
+fn gaussian_coulomb_and_grad(zeta_ij: f64, r2: f64) -> (f64, f64) {
+    let inv_sqrt_pi = std::f64::consts::FRAC_2_SQRT_PI * 0.5;
+    let t = zeta_ij * zeta_ij * r2;
+    let mut f = [0.0f64; 2];
+    boys_batch(1, t, &mut f);
+    let s_ij = 2.0 * inv_sqrt_pi * zeta_ij * f[0];
+    let g_ij = 4.0 * inv_sqrt_pi * zeta_ij * zeta_ij * zeta_ij * f[1];
+    (s_ij, g_ij)
+}
+
+/// Green's function boundary interaction matrix $S \in \mathbb{R}^{N_s \times N_s}$
+/// and inverse / effective response operator stored in `a_inv`.
 ///
-/// For off-diagonal elements ($i \ne j$):
-/// $$A_{ij} = \frac{1}{\|\mathbf{s}_i - \mathbf{s}_j\|}$$
-/// For diagonal self-interaction ($i = j$):
-/// $$A_{ii} = 1.07 \sqrt{\frac{4\pi}{a_i}}$$
-/// (Klamt-Schüürmann approximation for curved polygonal tesserae of area $a_i$).
+/// Uses the York-Karplus spherical-Gaussian regularized Coulomb kernel:
+/// - Diagonal self-interaction ($i = j$):
+///   $$S_{ii} = 1.07 \sqrt{\frac{4\pi}{a_i}}, \qquad \zeta_i = \sqrt{\frac{\pi}{2}}\, S_{ii}$$
+///   (Klamt-Schüürmann approximation for tessera area $a_i$).
+/// - Off-diagonal elements ($i \ne j$):
+///   $$S_{ij} = \frac{\operatorname{erf}(\zeta_{ij}\, \|\mathbf{s}_i - \mathbf{s}_j\|)}{\|\mathbf{s}_i - \mathbf{s}_j\|}, \qquad \zeta_{ij} = \frac{\zeta_i \zeta_j}{\sqrt{\zeta_i^2 + \zeta_j^2}}$$
+///
+/// For C-PCM / COSMO (`build`), `a_inv` stores $S^{-1}$.
+/// For IEF-PCM / SMD (`build_iefpcm`), `a_inv` stores the symmetrized effective response matrix
+/// $-Q_{\mathrm{eff}} = -\frac{1}{2}\bigl(K^{-1} R + (K^{-1} R)^T\bigr)$, where
+/// $K = S - \frac{f(\varepsilon)}{2\pi} D A S$ and $R = -f(\varepsilon)\bigl(I - \frac{1}{2\pi} D A\bigr)$.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BoundaryMatrix {
     pub dim: usize,
@@ -32,22 +53,31 @@ impl BoundaryMatrix {
         let mut a = vec![0.0f64; n * n];
 
         let klamt_prefactor = 1.07 * (4.0 * std::f64::consts::PI).sqrt();
+        let sqrt_pi_over_2 = (0.5 * std::f64::consts::PI).sqrt();
+        let mut zetas = vec![0.0f64; n];
+
+        for i in 0..n {
+            let a_i = tesserae[i].area_bohr2.max(1e-12);
+            // Diagonal self-interaction of spherical Gaussian tessera: A_ii = sqrt(2/pi) * zeta_i
+            let a_diag = klamt_prefactor / a_i.sqrt();
+            a[i * n + i] = a_diag;
+            zetas[i] = sqrt_pi_over_2 * a_diag;
+        }
 
         for i in 0..n {
             let s_i = tesserae[i].position_bohr;
-            let a_i = tesserae[i].area_bohr2.max(1e-12);
-            // Diagonal self-interaction
-            a[i * n + i] = klamt_prefactor / a_i.sqrt();
-
+            let zi = zetas[i];
             for j in (i + 1)..n {
                 let s_j = tesserae[j].position_bohr;
                 let dx = s_i[0] - s_j[0];
                 let dy = s_i[1] - s_j[1];
                 let dz = s_i[2] - s_j[2];
-                let r = (dx * dx + dy * dy + dz * dz).sqrt().max(1e-12);
-                let inv_r = 1.0 / r;
-                a[i * n + j] = inv_r;
-                a[j * n + i] = inv_r;
+                let r2 = dx * dx + dy * dy + dz * dz;
+                let zj = zetas[j];
+                let zeta_ij = (zi * zj) / (zi * zi + zj * zj).sqrt();
+                let (s_ij, _) = gaussian_coulomb_and_grad(zeta_ij, r2);
+                a[i * n + j] = s_ij;
+                a[j * n + i] = s_ij;
             }
         }
 
@@ -151,22 +181,28 @@ impl BoundaryMatrix {
 
         let tesserae = &cavity.tesserae;
         let klamt_prefactor = 1.07 * (4.0 * PI).sqrt();
+        let sqrt_pi_over_2 = (0.5 * PI).sqrt();
         let f_eps = (epsilon - 1.0) / (epsilon + 1.0);
         let inv_2pi = 1.0 / (2.0 * PI);
 
         let mut s_mat = vec![0.0f64; n * n];
         let mut d_mat = vec![0.0f64; n * n];
         let mut areas = vec![0.0f64; n];
+        let mut zetas = vec![0.0f64; n];
 
         for i in 0..n {
-            let s_i = tesserae[i].position_bohr;
             let a_i = tesserae[i].area_bohr2.max(1e-12);
             let r_i = tesserae[i].radius_bohr.max(1e-6);
             areas[i] = a_i;
             let s_diag = klamt_prefactor / a_i.sqrt();
             s_mat[i * n + i] = s_diag;
             d_mat[i * n + i] = -s_diag / (2.0 * r_i);
+            zetas[i] = sqrt_pi_over_2 * s_diag;
+        }
 
+        for i in 0..n {
+            let s_i = tesserae[i].position_bohr;
+            let zi = zetas[i];
             for j in 0..n {
                 if i == j {
                     continue;
@@ -176,10 +212,12 @@ impl BoundaryMatrix {
                 let dx = s_i[0] - s_j[0];
                 let dy = s_i[1] - s_j[1];
                 let dz = s_i[2] - s_j[2];
-                let r2 = (dx * dx + dy * dy + dz * dz).max(1e-24);
-                let r = r2.sqrt();
-                s_mat[i * n + j] = 1.0 / r;
-                d_mat[i * n + j] = (dx * n_j[0] + dy * n_j[1] + dz * n_j[2]) / (r2 * r);
+                let r2 = dx * dx + dy * dy + dz * dz;
+                let zj = zetas[j];
+                let zeta_ij = (zi * zj) / (zi * zi + zj * zj).sqrt();
+                let (s_ij, g_ij) = gaussian_coulomb_and_grad(zeta_ij, r2);
+                s_mat[i * n + j] = s_ij;
+                d_mat[i * n + j] = (dx * n_j[0] + dy * n_j[1] + dz * n_j[2]) * g_ij;
             }
         }
 
@@ -201,7 +239,14 @@ impl BoundaryMatrix {
         let mut a_inv = vec![0.0f64; n * n];
         for i in 0..n {
             for j in i..n {
-                let sym = -0.5 * (q_mat.read(i, j) + q_mat.read(j, i));
+                let q_ij = q_mat.read(i, j);
+                let q_ji = q_mat.read(j, i);
+                if !q_ij.is_finite() || !q_ji.is_finite() {
+                    return Err(CalcError::LinearAlgebra(
+                        "IEF-PCM boundary linear solve produced non-finite entries".into(),
+                    ));
+                }
+                let sym = -0.5 * (q_ij + q_ji);
                 a_inv[i * n + j] = sym;
                 a_inv[j * n + i] = sym;
             }
@@ -234,6 +279,24 @@ impl BoundaryMatrix {
         dielectric_factor: f64,
         solute_net_charge: Option<f64>,
     ) -> Result<Vec<f64>, CalcError> {
+        self.solve_surface_charges_with_gauss(
+            v_solute,
+            dielectric_factor,
+            dielectric_factor,
+            solute_net_charge,
+        )
+    }
+
+    /// Solves for apparent surface charges with separate matrix scaling (`matrix_scale`, e.g. `1.0`
+    /// when `a_inv` already embeds IEF-PCM dielectric screening) and Gauss-law charge renormalization
+    /// factor (`gauss_scale`, e.g. `(eps - 1) / eps`).
+    pub fn solve_surface_charges_with_gauss(
+        &self,
+        v_solute: &[f64],
+        matrix_scale: f64,
+        gauss_scale: f64,
+        solute_net_charge: Option<f64>,
+    ) -> Result<Vec<f64>, CalcError> {
         let n = self.dim;
         if v_solute.len() != n {
             return Err(CalcError::LinearAlgebra(format!(
@@ -242,7 +305,7 @@ impl BoundaryMatrix {
             )));
         }
 
-        // q_raw = -f(eps) * A^{-1} * V_solute
+        // q_raw = -matrix_scale * A^{-1} * V_solute
         let mut q = vec![0.0f64; n];
         for i in 0..n {
             let mut sum = 0.0;
@@ -250,12 +313,12 @@ impl BoundaryMatrix {
             for j in 0..n {
                 sum += self.a_inv[row_offset + j] * v_solute[j];
             }
-            q[i] = -dielectric_factor * sum;
+            q[i] = -matrix_scale * sum;
         }
 
         // Charge conservation / Gauss law renormalization
         if let Some(q_net) = solute_net_charge {
-            let target_charge = -dielectric_factor * q_net;
+            let target_charge = -gauss_scale * q_net;
             let current_sum: f64 = q.iter().sum();
 
             if q_net.abs() > 1e-4 {
