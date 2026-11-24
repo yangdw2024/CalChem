@@ -1,0 +1,604 @@
+{
+  "sampled_at": "2026-11-23T01:20:39.8253249-07:00",
+  "host": "WIN-JSDUR14ESO1",
+  "boot_at": "2026-11-22T17:55:23.9357740-07:00",
+  "reboot_events": [
+    {
+      "TimeCreated": "2026-11-22T17:55:29.1123358-07:00",
+      "Id": 12,
+      "ProviderName": "Microsoft-Windows-Kernel-General"
+    },
+    {
+      "TimeCreated": "2026-11-22T17:52:45.6216999-07:00",
+      "Id": 13,
+      "ProviderName": "Microsoft-Windows-Kernel-General"
+    },
+    {
+      "TimeCreated": "2026-11-22T17:55:39.287041-07:00",
+      "Id": 6005,
+      "ProviderName": "EventLog"
+    },
+    {
+      "TimeCreated": "2026-11-22T17:52:41.9915037-07:00",
+      "Id": 6006,
+      "ProviderName": "EventLog"
+    },
+    {
+      "TimeCreated": "2026-11-22T17:52:40.7037162-07:00",
+      "Id": 1074,
+      "ProviderName": "User32"
+    },
+    {
+      "TimeCreated": "2026-11-22T17:52:26.802101-07:00",
+      "Id": 1074,
+      "ProviderName": "User32"
+    }
+  ],
+  "relevant_processes": [],
+  "daemon_listening": false,
+  "state_file_modified_at": "2026-11-22T17:45:13.6201071-07:00",
+  "persisted_groups": [
+    {
+      "name": "qc_ac",
+      "state_on_disk": "Paused",
+      "parallel_tasks": 1
+    },
+    {
+      "name": "qc_bench",
+      "state_on_disk": "Running",
+      "parallel_tasks": 1
+    }
+  ],
+  "persisted_tasks": [
+    {
+      "id": 123,
+      "label": "C1_CalChem_SP",
+      "group": "qc_ac",
+      "state": "Done",
+      "enqueued_at": "2026-11-20T08:08:34.142406700-07:00",
+      "started": "2026-11-20T08:08:34.907995600-07:00",
+      "ended": "2026-11-20T08:08:47.619288100-07:00",
+      "result": "Success"
+    },
+    {
+      "id": 124,
+      "label": "C1_REST_SP",
+      "group": "qc_ac",
+      "state": "Done",
+      "enqueued_at": "2026-11-20T08:08:34.158334100-07:00",
+      "started": "2026-11-20T08:08:47.678237700-07:00",
+      "ended": "2026-11-22T05:25:00.536846200-07:00",
+      "result": "Killed"
+    },
+    {
+      "id": 125,
+      "label": "C1_ORCA_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.178279300-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 126,
+      "label": "C1_Gaussian_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.201383200-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 127,
+      "label": "C2_CalChem_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.217764800-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 128,
+      "label": "C2_REST_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.235921900-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 129,
+      "label": "C2_ORCA_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.253614600-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 130,
+      "label": "C2_Gaussian_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.278918700-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 131,
+      "label": "C3_CalChem_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.296979300-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 132,
+      "label": "C3_REST_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.314951200-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 133,
+      "label": "C3_ORCA_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.331674-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 134,
+      "label": "C3_Gaussian_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.351122500-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 135,
+      "label": "C4_CalChem_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.376918800-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 136,
+      "label": "C4_REST_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.396904500-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 137,
+      "label": "C4_ORCA_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.413360200-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 138,
+      "label": "C4_Gaussian_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.434183600-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 139,
+      "label": "C5_CalChem_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.458329800-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 140,
+      "label": "C5_REST_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.475318100-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 141,
+      "label": "C5_ORCA_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.493960200-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 142,
+      "label": "C5_Gaussian_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.509817-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 143,
+      "label": "A2_CalChem_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.526214700-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 144,
+      "label": "A2_REST_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.542621600-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 145,
+      "label": "A2_ORCA_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.559585-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 146,
+      "label": "A2_Gaussian_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.576608900-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 147,
+      "label": "A3_CalChem_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.593103900-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 148,
+      "label": "A3_REST_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.609436600-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 149,
+      "label": "A3_ORCA_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.627426700-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 150,
+      "label": "A3_Gaussian_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.643502100-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 151,
+      "label": "A5_CalChem_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.659707-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 152,
+      "label": "A5_REST_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.676028200-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 153,
+      "label": "A5_ORCA_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.691218200-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 154,
+      "label": "A5_Gaussian_SP",
+      "group": "qc_ac",
+      "state": "Queued",
+      "enqueued_at": "2026-11-20T08:08:34.706442500-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 155,
+      "label": "pilot_gaussian",
+      "group": "qc_bench",
+      "state": "Done",
+      "enqueued_at": "2026-11-22T05:37:33.90889-07:00",
+      "started": "2026-11-22T05:37:34.148384700-07:00",
+      "ended": "2026-11-22T05:48:42.608909700-07:00",
+      "result": "Success"
+    },
+    {
+      "id": 156,
+      "label": "pilot_calchem",
+      "group": "qc_bench",
+      "state": "Done",
+      "enqueued_at": "2026-11-22T05:37:34.182370300-07:00",
+      "started": "2026-11-22T05:48:42.653025400-07:00",
+      "ended": "2026-11-22T05:48:45.804067600-07:00",
+      "result": "Success"
+    },
+    {
+      "id": 157,
+      "label": "pilot_orca",
+      "group": "qc_bench",
+      "state": "Done",
+      "enqueued_at": "2026-11-22T05:37:34.213153500-07:00",
+      "started": "2026-11-22T05:48:45.855090900-07:00",
+      "ended": "2026-11-22T05:53:09.051098500-07:00",
+      "result": "Success"
+    },
+    {
+      "id": 158,
+      "label": "pilot_rest",
+      "group": "qc_bench",
+      "state": "Done",
+      "enqueued_at": "2026-11-22T05:37:34.234001100-07:00",
+      "started": "2026-11-22T05:53:09.084987900-07:00",
+      "ended": "2026-11-22T06:42:54.181547500-07:00",
+      "result": "Success"
+    },
+    {
+      "id": 159,
+      "label": "pilot_calchem_direct",
+      "group": "qc_bench",
+      "state": "Paused",
+      "enqueued_at": "2026-11-22T05:53:21.249570500-07:00",
+      "started": "2026-11-22T06:42:54.273736700-07:00",
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 160,
+      "label": "pilot_orca_nori_diag",
+      "group": "qc_bench",
+      "state": "Queued",
+      "enqueued_at": "2026-11-22T05:53:21.274309100-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    },
+    {
+      "id": 161,
+      "label": "pilot_orca_vwn3_diag",
+      "group": "qc_bench",
+      "state": "Queued",
+      "enqueued_at": "2026-11-22T05:59:09.178974700-07:00",
+      "started": null,
+      "ended": null,
+      "result": null
+    }
+  ],
+  "absent_outputs": [
+    "calchem/opt.json",
+    "calchem/freq.json",
+    "calchem/tddft.json",
+    "orca_nori/nori.out",
+    "orca_vwn3/vwn3.out"
+  ],
+  "calchem_git_head": "9f57bd71716b19e9caba25fff7700e85e0a5d754",
+  "evidence": [
+    {
+      "path": "E:\\YDW\\Chemdraws\\zmy_3\\qc_benchmark_suite\\VERIFY_PLAN.md",
+      "bytes": 11978,
+      "sha256": "C47100118BC2E359DC4DE27917D93A0AF4920F4CA9DA5F59383E837E59EB8AA9"
+    },
+    {
+      "path": "E:\\YDW\\Chemdraws\\zmy_3\\qc_benchmark_suite\\VERIFY_STATE.md",
+      "bytes": 48957,
+      "sha256": "5EB1C32E100EA08E7EFD7DC59317FA9510057534A2361723B6154B3020B727DA"
+    },
+    {
+      "path": "E:\\YDW\\Chemdraws\\zmy_3\\qc_benchmark_suite\\enqueue_ac_benchmark.py",
+      "bytes": 4000,
+      "sha256": "EAC0038536D760C78A326F6076A6C9CE5498A69FAAC3E07CE3B46E8B29BC2D94"
+    },
+    {
+      "path": "E:\\YDW\\Chemdraws\\zmy_3\\qc_benchmark_suite\\benchmark_summary.csv",
+      "bytes": 308,
+      "sha256": "4C95DC1D7437E8C9C169E56A5D8C893B71EF0AF6D443435D01998602653E9445"
+    },
+    {
+      "path": "E:\\YDW\\Chemdraws\\zmy_3\\qc_benchmark_suite\\runs_ac\\C1\\calchem\\C1_calchem.json",
+      "bytes": 599,
+      "sha256": "2C18E8A99E0E7E3257D16E1FF560EE7B9E6B2DAC74AF7759EE042398AE97282E"
+    },
+    {
+      "path": "E:\\YDW\\Chemdraws\\zmy_3\\qc_benchmark_suite\\runs_ac\\C1\\rest\\run.log",
+      "bytes": 8045,
+      "sha256": "70917A005B4E5515E0F3093534F4AFFE03147822F980217503F92BC0FE049F87"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\benchmark_results.csv",
+      "bytes": 3770,
+      "sha256": "17AFDE717D105E56B920ACEEC910355A56C663D87E7586AD302E9599962D6D86"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\caffeine.xyz",
+      "bytes": 1194,
+      "sha256": "4967E90EB680727B8449F197565DC14C6555868D01DA8720E716AD5B8C97B214"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\calchem\\run.ps1",
+      "bytes": 1254,
+      "sha256": "DE7F145D7A8D4B2BF5F1EC03D87045C676AE0ED74C02935858F87FED386D3827"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\calchem\\_steps.txt",
+      "bytes": 276,
+      "sha256": "2C3640AEE0799A09F10B1AFA01036C30E78925A87A46185A163D96E8445CCEC6"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\calchem\\sp.json",
+      "bytes": 598,
+      "sha256": "5F93E3887E9709AEC6BBEBEDF0DFB8E49A5CA76A24F4B947AC9DF7154D7F1CDD"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\calchem\\opt.log",
+      "bytes": 324,
+      "sha256": "3CB95DBA2C44E1AFC95C2BCADCFBB64AB10B05BFFFCCE71EC3E58FBF822928C6"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\calchem\\freq.log",
+      "bytes": 1480,
+      "sha256": "8A99F08B7D4C9E6204324CDE708242B42D5BD0491C40D1D78E90C22534E33B79"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\calchem\\tddft.log",
+      "bytes": 1482,
+      "sha256": "FF8C845E8605FCD9D5710271FFE9CE855BEB26CA27992C566AAEF2404D5FAA8C"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\gaussian\\sp.log",
+      "bytes": 52211,
+      "sha256": "48A5F4EB873C3AF7E869E4DC3DC573E0E6E1A9596720C18B0EF3AF0990DDA7BE"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\gaussian\\optfreq.log",
+      "bytes": 444710,
+      "sha256": "1896BAAA99BACF2D58E106A44C2C7F07CA73B56248F99A726A6FC4EE661BBA02"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\gaussian\\td.log",
+      "bytes": 71426,
+      "sha256": "1D2C21F2315699C2BF095EE23292D398F9B6926C1FD0B410442567F77E30ECA7"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\orca\\sp.out",
+      "bytes": 156940,
+      "sha256": "4FBFC2E36107A69726B6618B7375B963B4C0CFD3AFE541902F493441FF555B59"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\orca\\optfreq.out",
+      "bytes": 923220,
+      "sha256": "714A614E3DA2A176DED8D7AC3B2BFBD840DB16E3CB6B8DEBBEEE1DDB2996FDDD"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\orca\\optfreq.hess",
+      "bytes": 233976,
+      "sha256": "430DC60157AEEB7F382891624830B51D9AF4FFF8856659642C1771AE02F24CFF"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\orca\\optfreq.xyz",
+      "bytes": 1857,
+      "sha256": "4445A51B63EBA8F83A7F95F8594032632FF99E9B5133E9405BC0956F016FBB3E"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\orca_nori\\nori.inp",
+      "bytes": 1260,
+      "sha256": "109E8FFF2E4CCF8D3222F08F227405F410CFFE1EEA7205636451A6D06B85E057"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\orca_vwn3\\vwn3.inp",
+      "bytes": 1262,
+      "sha256": "63789E5952CF187FE843F8AA5F4E47DE3BF7876316541A1479C5B015FB6AB72D"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\rest\\sp.log",
+      "bytes": 19476,
+      "sha256": "ADE5C71F5ACE80A8779AFEE24E1D1266FA0DB139B84F0D3B642896BC500E492E"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\rest\\opt.log",
+      "bytes": 96911,
+      "sha256": "8B16AAB6641F6BBF52C39E042C8D09A5D6E502F8F7C4067713261698BA535ABC"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\rest\\freq_probe.log",
+      "bytes": 442771,
+      "sha256": "AFC88B41CCC6267B52FEC292AF20DFD591E7B38BD67B0B0E22933CC1D1F48713"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\rest\\tddft_probe.log",
+      "bytes": 19499,
+      "sha256": "C0534D604DA233AA24A38E78D164DFBE21FEC77FA9F82AF18AF39F07B9305D27"
+    },
+    {
+      "path": "D:\\YDW\\Calc\\qc_benchmark_runs\\pilot\\rest\\GeomeTRIC_optim.xyz",
+      "bytes": 16022,
+      "sha256": "C51B7C67A6E25B67D461316058E1F6A3DEF3F136D80C938E7E0F762089C4756A"
+    },
+    {
+      "path": "E:\\YDW\\Trae_Gaussian\\build_target\\release\\calchem_cli.exe",
+      "bytes": 7125504,
+      "sha256": "952BC793E6F1AC5EEC0A75983ECBD6284E19C9B00C962E9EF77D75312EC6A862"
+    },
+    {
+      "path": "E:\\YDW\\Trae_Gaussian\\calchem\\_core.pyd",
+      "bytes": 6382080,
+      "sha256": "99C648683750215B09273D5D3D39201E4B99C8EF2B995AA687DAF386390F5161"
+    }
+  ]
+}
