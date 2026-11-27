@@ -49,4 +49,14 @@ fn consecutive_calls_observe_changed_middle_elements() {
         assert!(tensor.view().contract_v(&[1.0; 2], &mut v, 2, 2));
         assert_eq!(v, expected);
     }
+
+    drop(one);
+    drop(two);
+    // Neither transient (tensor_id == 0) nor ResidentRijTensor allocations should remain
+    // after dropping all tensors (only static lookup tables <= 256 KiB may persist).
+    let after_drop = calchem_cuda::total_allocated_gpu_bytes();
+    assert!(
+        after_drop <= 256 * 1024,
+        "RI-J tensor/scratch bytes leaked after drop: {after_drop}"
+    );
 }
