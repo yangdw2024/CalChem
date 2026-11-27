@@ -198,3 +198,57 @@ fn test_cam_b3lyp_gradient_accuracy() {
     );
 }
 
+#[test]
+fn test_wb97xd_rks_and_uks_gradient_matches_finite_differences() {
+    let h = 1e-4;
+    let opts = tight_scf_opts();
+
+    let h2 = Molecule::new(
+        vec![
+            Atom::from_bohr("H", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("H", [0.0, 0.0, 1.45]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let bs = BasisSet::from_name("6-31g(d)", &h2).unwrap();
+    let wf = rks(&h2, &bs, XcFunctional::Wb97xd, GridLevel::Fine, &opts).unwrap();
+    let ana = rks_gradient(&h2, &bs, XcFunctional::Wb97xd, GridLevel::Fine, &wf).unwrap();
+    let mut mp = h2.clone();
+    let mut mm = h2.clone();
+    mp.atoms[1].position_bohr[2] += h;
+    mm.atoms[1].position_bohr[2] -= h;
+    let ep = rks(&mp, &BasisSet::from_name("6-31g(d)", &mp).unwrap(), XcFunctional::Wb97xd, GridLevel::Fine, &opts)
+        .unwrap()
+        .total_energy_hartree;
+    let em = rks(&mm, &BasisSet::from_name("6-31g(d)", &mm).unwrap(), XcFunctional::Wb97xd, GridLevel::Fine, &opts)
+        .unwrap()
+        .total_energy_hartree;
+    let fd = (ep - em) / (2.0 * h);
+    assert!((ana[1][2] - fd).abs() < 5e-6, "wB97XD RKS ana={} fd={fd}", ana[1][2]);
+
+    let oh = Molecule::new(
+        vec![
+            Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("H", [0.0, 0.0, 1.85]).unwrap(),
+        ],
+        0,
+        2,
+    );
+    let bs_oh = BasisSet::from_name("6-31g(d)", &oh).unwrap();
+    let wf_u = uks(&oh, &bs_oh, XcFunctional::Wb97xd, GridLevel::Fine, &opts).unwrap();
+    let ana_u = uks_gradient(&oh, &bs_oh, XcFunctional::Wb97xd, GridLevel::Fine, &wf_u).unwrap();
+    let mut mp_u = oh.clone();
+    let mut mm_u = oh.clone();
+    mp_u.atoms[1].position_bohr[2] += h;
+    mm_u.atoms[1].position_bohr[2] -= h;
+    let ep_u = uks(&mp_u, &BasisSet::from_name("6-31g(d)", &mp_u).unwrap(), XcFunctional::Wb97xd, GridLevel::Fine, &opts)
+        .unwrap()
+        .total_energy_hartree;
+    let em_u = uks(&mm_u, &BasisSet::from_name("6-31g(d)", &mm_u).unwrap(), XcFunctional::Wb97xd, GridLevel::Fine, &opts)
+        .unwrap()
+        .total_energy_hartree;
+    let fd_u = (ep_u - em_u) / (2.0 * h);
+    assert!((ana_u[1][2] - fd_u).abs() < 5e-6, "wB97XD UKS ana={} fd={fd_u}", ana_u[1][2]);
+}
+

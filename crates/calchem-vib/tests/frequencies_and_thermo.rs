@@ -162,3 +162,36 @@ fn test_diatomic_linear_hbr_ecp_frequencies() {
     // Reduced mass of H-Br should be close to H mass (~1.0 amu)
     assert!((stretch.reduced_mass_amu - 1.0).abs() < 0.05);
 }
+
+#[test]
+fn test_monoatomic_he_freq_and_invalid_thermo_params() {
+    let he = Molecule::new(vec![Atom::from_bohr("He", [0.0, 0.0, 0.0]).unwrap()], 0, 1);
+    let opts = FreqOptions {
+        grid_level: GridLevel::Coarse,
+        ..Default::default()
+    };
+    let res = compute_frequencies_and_thermo(&he, "sto-3g", VibMethod::Rhf, &opts).unwrap();
+    assert_eq!(res.vibrational_analysis.n_vib, 0);
+    assert!(res.vibrational_analysis.modes.is_empty());
+    assert_eq!(res.thermochemistry.zpve_hartree, 0.0);
+    assert!(res.thermochemistry.s_trans_cal_mol_k > 20.0);
+    assert!(res.thermochemistry.s_rot_cal_mol_k == 0.0);
+
+    for bad in [
+        FreqOptions { temperature_k: 0.0, ..opts.clone() },
+        FreqOptions { temperature_k: f64::NAN, ..opts.clone() },
+        FreqOptions { pressure_pa: -1.0, ..opts.clone() },
+        FreqOptions { symmetry_number: Some(0), ..opts.clone() },
+    ] {
+        assert!(compute_frequencies_and_thermo(&he, "sto-3g", VibMethod::Rhf, &bad).is_err());
+    }
+    assert!(calchem_vib::compute_thermochemistry_checked(
+        &he,
+        -2.8,
+        &res.vibrational_analysis,
+        -10.0,
+        101325.0,
+        None,
+    )
+    .is_err());
+}

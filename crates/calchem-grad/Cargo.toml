@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 calchem-model = { path = "../calchem-model" }
 calchem-basis = { path = "../calchem-basis" }
+calchem-cuda = { path = "../calchem-cuda" }
 calchem-int = { path = "../calchem-int" }
 calchem-scf = { path = "../calchem-scf" }
 calchem-tensor = { path = "../calchem-tensor" }

@@ -3,7 +3,10 @@
 
 use calchem_basis::BasisSet;
 use calchem_dft::{D3Model, GridLevel, MolecularGrid, XcFunctional};
-use calchem_grad::{rhf_gradient, rks_gradient_with_grid, uhf_gradient, uks_gradient_with_grid};
+use calchem_grad::{
+    rhf_gradient_with_gpu, rks_gradient_with_grid_and_gpu, uhf_gradient_with_gpu,
+    uks_gradient_with_grid_and_gpu,
+};
 use calchem_model::{CalcError, Molecule, ScfOptions, ScfSummary};
 use calchem_prop::{compute_dipole, AU_TO_DEBYE};
 use calchem_scf::{
@@ -83,23 +86,31 @@ fn eval_grad_and_dipole(
     grid_level: GridLevel,
     scf_opts: &ScfOptions,
     guess: Option<&InitialGuess>,
-) -> Result<(Vec<f64>, [f64; 3]), CalcError> {
+) -> Result<(Vec<f64>, [f64; 3], usize, usize), CalcError> {
     let bs = BasisSet::from_name(basis_name, mol)?;
-    let (mut grad_atoms, dipole_au) = match method {
+    let use_gpu = scf_opts.use_gpu;
+    let (mut grad_atoms, dipole_au, scf_k, scf_fb, grad_k, grad_fb) = match method {
         VibMethod::Rhf => {
             let wfn = rhf_with_guess(mol, &bs, scf_opts, guess)?;
-            let g = rhf_gradient(mol, &bs, &wfn)?;
+            let g_res = rhf_gradient_with_gpu(mol, &bs, &wfn, use_gpu)?;
             let (dip_deb, _) = compute_dipole(mol, &bs, &wfn.density_alpha);
             let dip_au = [
                 dip_deb[0] / AU_TO_DEBYE,
                 dip_deb[1] / AU_TO_DEBYE,
                 dip_deb[2] / AU_TO_DEBYE,
             ];
-            (g, dip_au)
+            (
+                g_res.gradient,
+                dip_au,
+                wfn.diagnostics.gpu_kernel_invocations,
+                wfn.diagnostics.gpu_fallback_invocations,
+                g_res.gpu_kernel_invocations,
+                g_res.gpu_fallback_invocations,
+            )
         }
         VibMethod::Uhf => {
             let wfn = uhf_with_guess(mol, &bs, scf_opts, guess)?;
-            let g = uhf_gradient(mol, &bs, &wfn)?;
+            let g_res = uhf_gradient_with_gpu(mol, &bs, &wfn, use_gpu)?;
             let total_dens = wfn.total_density();
             let (dip_deb, _) = compute_dipole(mol, &bs, &total_dens);
             let dip_au = [
@@ -107,24 +118,38 @@ fn eval_grad_and_dipole(
                 dip_deb[1] / AU_TO_DEBYE,
                 dip_deb[2] / AU_TO_DEBYE,
             ];
-            (g, dip_au)
+            (
+                g_res.gradient,
+                dip_au,
+                wfn.diagnostics.gpu_kernel_invocations,
+                wfn.diagnostics.gpu_fallback_invocations,
+                g_res.gpu_kernel_invocations,
+                g_res.gpu_fallback_invocations,
+            )
         }
         VibMethod::Rks(func) => {
             let grid = MolecularGrid::build_for_basis(mol, &bs, grid_level);
             let wfn = rks_with_grid_and_guess(mol, &bs, func, &grid, scf_opts, guess)?;
-            let g = rks_gradient_with_grid(mol, &bs, func, &grid, &wfn)?;
+            let g_res = rks_gradient_with_grid_and_gpu(mol, &bs, func, &grid, &wfn, use_gpu)?;
             let (dip_deb, _) = compute_dipole(mol, &bs, &wfn.density_alpha);
             let dip_au = [
                 dip_deb[0] / AU_TO_DEBYE,
                 dip_deb[1] / AU_TO_DEBYE,
                 dip_deb[2] / AU_TO_DEBYE,
             ];
-            (g, dip_au)
+            (
+                g_res.gradient,
+                dip_au,
+                wfn.diagnostics.gpu_kernel_invocations,
+                wfn.diagnostics.gpu_fallback_invocations,
+                g_res.gpu_kernel_invocations,
+                g_res.gpu_fallback_invocations,
+            )
         }
         VibMethod::Uks(func) => {
             let grid = MolecularGrid::build_for_basis(mol, &bs, grid_level);
             let wfn = uks_with_grid_and_guess(mol, &bs, func, &grid, scf_opts, guess)?;
-            let g = uks_gradient_with_grid(mol, &bs, func, &grid, &wfn)?;
+            let g_res = uks_gradient_with_grid_and_gpu(mol, &bs, func, &grid, &wfn, use_gpu)?;
             let total_dens = wfn.total_density();
             let (dip_deb, _) = compute_dipole(mol, &bs, &total_dens);
             let dip_au = [
@@ -132,7 +157,14 @@ fn eval_grad_and_dipole(
                 dip_deb[1] / AU_TO_DEBYE,
                 dip_deb[2] / AU_TO_DEBYE,
             ];
-            (g, dip_au)
+            (
+                g_res.gradient,
+                dip_au,
+                wfn.diagnostics.gpu_kernel_invocations,
+                wfn.diagnostics.gpu_fallback_invocations,
+                g_res.gpu_kernel_invocations,
+                g_res.gpu_fallback_invocations,
+            )
         }
     };
     if let Some(model) = d3 { model.add_gradient(&mol.atoms, &mut grad_atoms)?; }
@@ -142,7 +174,7 @@ fn eval_grad_and_dipole(
         grad_3n.push(row[1]);
         grad_3n.push(row[2]);
     }
-    Ok((grad_3n, dipole_au))
+    Ok((grad_3n, dipole_au, scf_k + grad_k, scf_fb + grad_fb))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -230,13 +262,45 @@ pub fn compute_hessian_with_checkpoint(
     checkpoint_dir: Option<&Path>,
     model_fingerprint: Option<&str>,
 ) -> Result<(Matrix2D, Matrix2D, ScfSummary, f64), CalcError> {
+    let (h, a, s, c, _, _) = compute_hessian_with_checkpoint_and_telemetry(
+        mol,
+        basis_name,
+        method,
+        opts,
+        d3,
+        displacement_jobs,
+        checkpoint_dir,
+        model_fingerprint,
+    )?;
+    Ok((h, a, s, c))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_hessian_with_checkpoint_and_telemetry(
+    mol: &Molecule,
+    basis_name: &str,
+    method: VibMethod,
+    opts: &FreqOptions,
+    d3: Option<&D3Model>,
+    displacement_jobs: usize,
+    checkpoint_dir: Option<&Path>,
+    model_fingerprint: Option<&str>,
+) -> Result<(Matrix2D, Matrix2D, ScfSummary, f64, usize, usize), CalcError> {
     if displacement_jobs == 0 { return Err(CalcError::InvalidMolecule("displacement_jobs must be positive".into())); }
+    crate::thermo::validate_thermochemistry_params(
+        opts.temperature_k,
+        opts.pressure_pa,
+        opts.symmetry_number,
+    )?;
     // A density error is amplified by 1/(2h) in both the Hessian and APT.
     // Energy convergence alone does not control IR intensity accuracy.
     let mut response_options = opts.clone();
-    response_options.scf_options.conv_energy = response_options.scf_options.conv_energy.min(1e-13);
+    response_options.scf_options.conv_energy = response_options.scf_options.conv_energy.min(1e-11);
     response_options.scf_options.conv_density =
-        response_options.scf_options.conv_density.min(1e-12);
+        response_options.scf_options.conv_density.min(1e-10);
+    if response_options.scf_options.max_iter >= 10 && response_options.scf_options.max_iter <= 100 {
+        response_options.scf_options.max_iter = 150;
+    }
     let opts = &response_options;
     let n_atoms = mol.atoms.len();
     let dim = 3 * n_atoms;
@@ -279,11 +343,11 @@ pub fn compute_hessian_with_checkpoint(
     };
     let correction = d3.map(|m| m.energy(&mol.atoms)).transpose()?.unwrap_or(0.0);
     let two_delta = 2.0 * delta;
-    let column = |k: usize| -> Result<(Vec<f64>, [f64; 3]), CalcError> {
+    let column = |k: usize| -> Result<(Vec<f64>, [f64; 3], usize, usize), CalcError> {
             if let (Some(dir), Some(fp)) = (checkpoint_dir, model_fingerprint) {
-                if let Some(cached) = load_displacement(dir, fp, k, dim) {
+                if let Some((h_col, apt_col)) = load_displacement(dir, fp, k, dim) {
                     eprintln!("freq coord={}/{dim} (cached)", k + 1);
-                    return Ok(cached);
+                    return Ok((h_col, apt_col, 0, 0));
                 }
             }
             let atom_idx = k / 3;
@@ -292,7 +356,7 @@ pub fn compute_hessian_with_checkpoint(
             // +delta displacement
             let mut mol_plus = mol.clone();
             mol_plus.atoms[atom_idx].position_bohr[axis] += delta;
-            let (g_plus, dip_plus) = eval_grad_and_dipole(
+            let (g_plus, dip_plus, kp, fbp) = eval_grad_and_dipole(
                 &mol_plus,
                 basis_name,
                 method,
@@ -305,7 +369,7 @@ pub fn compute_hessian_with_checkpoint(
             // -delta displacement
             let mut mol_minus = mol.clone();
             mol_minus.atoms[atom_idx].position_bohr[axis] -= delta;
-            let (g_minus, dip_minus) = eval_grad_and_dipole(
+            let (g_minus, dip_minus, km, fbm) = eval_grad_and_dipole(
                 &mol_minus,
                 basis_name,
                 method,
@@ -331,7 +395,7 @@ pub fn compute_hessian_with_checkpoint(
             }
             eprintln!("freq coord={}/{dim} done", k + 1);
 
-            Ok((h_col, apt_col))
+            Ok((h_col, apt_col, kp + km, fbp + fbm))
     };
     // Each displacement owns a full SCF workspace. Bound independent SCFs while
     // leaving the entire Rayon pool available for its integrals and quadrature.
@@ -345,7 +409,7 @@ pub fn compute_hessian_with_checkpoint(
     // Assemble Cartesian Hessian H (dim x dim) and enforce exact symmetry H = (H + H^T) / 2
     let mut hess = Matrix2D::zeros(dim, dim);
     for k in 0..dim {
-        let (ref h_col, _) = cols[k];
+        let (ref h_col, _, _, _) = cols[k];
         for j in 0..dim {
             hess.set(j, k, h_col[j]);
         }
@@ -360,12 +424,16 @@ pub fn compute_hessian_with_checkpoint(
 
     // Assemble Atomic Polar Tensor (3 x dim)
     let mut apt = Matrix2D::zeros(3, dim);
+    let mut total_k = center.diagnostics.gpu_kernel_invocations;
+    let mut total_fb = center.diagnostics.gpu_fallback_invocations;
     for k in 0..dim {
-        let (_, apt_col) = cols[k];
+        let (_, apt_col, ck, cfb) = cols[k];
+        total_k += ck;
+        total_fb += cfb;
         for q in 0..3 {
             apt.set(q, k, apt_col[q]);
         }
     }
 
-    Ok((hess, apt, center, correction))
+    Ok((hess, apt, center, correction, total_k, total_fb))
 }

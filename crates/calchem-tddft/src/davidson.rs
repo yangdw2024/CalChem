@@ -9,6 +9,13 @@ const DENSE_FASTPATH_MAX_DIM: usize = 64;
 const MGS_NORM_TOL: f64 = 1e-11;
 const PRECOND_SHIFT_MIN: f64 = 1e-4;
 
+/// Two-stage ERI screening level passed from Davidson solvers into the response evaluator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScreeningStage {
+    Coarse,
+    Tight,
+}
+
 #[derive(Debug, Clone)]
 pub struct EigenMode {
     pub omega: f64,
@@ -29,12 +36,18 @@ fn norm2(a: &[f64]) -> f64 {
     dot(a, a).sqrt()
 }
 
-fn column_residual(cols: &[Vec<f64>], input: &[f64], target: &[f64], omega: f64) -> f64 {
-    let mut residual: Vec<f64> = target.iter().map(|v| -omega * v).collect();
-    for (column, &coefficient) in cols.iter().zip(input) {
-        for (r, &v) in residual.iter_mut().zip(column) { *r += coefficient * v; }
+fn sym_matrix_residual(mat: &Matrix2D, input: &[f64], target: &[f64], omega: f64) -> f64 {
+    let dim = target.len();
+    let mut sq = 0.0;
+    for i in 0..dim {
+        let mut r = -omega * target[i];
+        let row = &mat.data[i * dim..(i + 1) * dim];
+        for j in 0..dim {
+            r += row[j] * input[j];
+        }
+        sq += r * r;
     }
-    norm2(&residual)
+    sq.sqrt()
 }
 
 fn checked_dense_modes(modes: Vec<EigenMode>, tolerance: f64) -> Result<(Vec<EigenMode>,usize),CalcError> {
@@ -76,6 +89,67 @@ fn append_orthonormal(basis: &mut Vec<Vec<f64>>, mut cand: Vec<f64>) -> bool {
     true
 }
 
+/// Orthonormalizes `v` against `v_basis` via two-pass MGS while applying the exact same
+/// linear operations to `(wp, wm)` against `(wp_basis, wm_basis)` so `(A+B)V` and `(A-B)V`
+/// remain exact without re-evaluating ERIs during RPA subspace collapse.
+fn append_orthonormal_triplet(
+    v_basis: &mut Vec<Vec<f64>>,
+    wp_basis: &mut Vec<Vec<f64>>,
+    wm_basis: &mut Vec<Vec<f64>>,
+    mut v: Vec<f64>,
+    mut wp: Vec<f64>,
+    mut wm: Vec<f64>,
+) -> bool {
+    let n0 = norm2(&v);
+    if !n0.is_finite() || n0 < MGS_NORM_TOL {
+        return false;
+    }
+    let inv0 = 1.0 / n0;
+    for x in &mut v {
+        *x *= inv0;
+    }
+    for x in &mut wp {
+        *x *= inv0;
+    }
+    for x in &mut wm {
+        *x *= inv0;
+    }
+
+    for _pass in 0..2 {
+        for ((qv, qwp), qwm) in v_basis.iter().zip(wp_basis.iter()).zip(wm_basis.iter()) {
+            let proj = dot(qv, &v);
+            for (c, &qi) in v.iter_mut().zip(qv.iter()) {
+                *c -= proj * qi;
+            }
+            for (c, &qi) in wp.iter_mut().zip(qwp.iter()) {
+                *c -= proj * qi;
+            }
+            for (c, &qi) in wm.iter_mut().zip(qwm.iter()) {
+                *c -= proj * qi;
+            }
+        }
+    }
+
+    let n1 = norm2(&v);
+    if !n1.is_finite() || n1 < 1e-6 {
+        return false;
+    }
+    let inv1 = 1.0 / n1;
+    for x in &mut v {
+        *x *= inv1;
+    }
+    for x in &mut wp {
+        *x *= inv1;
+    }
+    for x in &mut wm {
+        *x *= inv1;
+    }
+    v_basis.push(v);
+    wp_basis.push(wp);
+    wm_basis.push(wm);
+    true
+}
+
 /// Builds initial guess unit vectors sorted by orbital energy differences $\Delta\varepsilon_{ia}$,
 /// automatically completing degenerate shells so spatial irreps never split artificially.
 fn build_initial_guess(diag: &[f64], n_roots: usize) -> Vec<Vec<f64>> {
@@ -109,13 +183,38 @@ pub fn solve_tda<F>(
 where
     F: Fn(&[Vec<f64>]) -> Vec<Vec<f64>>,
 {
+    solve_tda_with_screening(
+        diag,
+        n_roots,
+        max_iter,
+        conv_tol,
+        force_davidson,
+        false,
+        |vecs, _| apply_a(vecs),
+    )
+}
+
+/// Solves the real symmetric TDA / CIS eigenproblem $A X = \omega X$ with soft root locking
+/// and optional two-stage (`Coarse -> Tight`) ERI screening with Collapse-and-Refresh.
+pub fn solve_tda_with_screening<F>(
+    diag: &[f64],
+    n_roots: usize,
+    max_iter: usize,
+    conv_tol: f64,
+    force_davidson: bool,
+    enable_coarse_stage: bool,
+    apply_a: F,
+) -> Result<(Vec<EigenMode>, usize), CalcError>
+where
+    F: Fn(&[Vec<f64>], ScreeningStage) -> Vec<Vec<f64>>,
+{
     let dim = diag.len();
     if dim == 0 || n_roots == 0 {
         return Ok((Vec::new(), 0));
     }
     let k_roots = n_roots.min(dim);
 
-    // Exact dense fast path for compact OV spaces
+    // Exact dense fast path for compact OV spaces (always uses Tight screening)
     if !force_davidson && dim <= DENSE_FASTPATH_MAX_DIM {
         let mut unit = Vec::with_capacity(dim);
         for i in 0..dim {
@@ -123,7 +222,7 @@ where
             e[i] = 1.0;
             unit.push(e);
         }
-        let cols = apply_a(&unit);
+        let cols = apply_a(&unit, ScreeningStage::Tight);
         let mut a_mat = Matrix2D::zeros(dim, dim);
         for j in 0..dim {
             for i in 0..dim {
@@ -139,7 +238,7 @@ where
             }
             modes.push(EigenMode {
                 omega: evals[r],
-                residual_norm: column_residual(&cols,&x,&x,evals[r]),
+                residual_norm: sym_matrix_residual(&a_mat, &x, &x, evals[r]),
                 x,
                 y: vec![0.0; dim],
             });
@@ -149,27 +248,33 @@ where
 
     let n_track = (k_roots + 4).min(dim);
     let max_subspace = (n_track * 10).max(64).min(dim);
+    let mut stage = if enable_coarse_stage {
+        ScreeningStage::Coarse
+    } else {
+        ScreeningStage::Tight
+    };
+    let switch_tol = (conv_tol * 500.0).clamp(5e-4, 1e-2).max(conv_tol);
     let mut v_basis = build_initial_guess(diag, k_roots);
-    let mut av_basis = apply_a(&v_basis);
+    let mut av_basis = apply_a(&v_basis, stage);
+    let mut locked = vec![false; k_roots];
     let mut last_res = 0.0f64;
 
-    for iter in 1..=max_iter {
-        let m = v_basis.len();
+    let evaluate_tda_subspace = |v_b: &[Vec<f64>], av_b: &[Vec<f64>]| -> Result<(Vec<f64>, Matrix2D, Vec<f64>, Vec<Vec<f64>>, Vec<Vec<f64>>, f64), CalcError> {
+        let m = v_b.len();
         let active_roots = n_track.min(m);
         let mut sub_a = Matrix2D::zeros(m, m);
         for i in 0..m {
             for j in i..m {
-                let hij = 0.5 * (dot(&v_basis[i], &av_basis[j]) + dot(&v_basis[j], &av_basis[i]));
+                let hij = 0.5 * (dot(&v_b[i], &av_b[j]) + dot(&v_b[j], &av_b[i]));
                 sub_a.set(i, j, hij);
                 sub_a.set(j, i, hij);
             }
         }
-
         let (evals, evecs) = eigh_sym(&sub_a, 120, 1e-13)?;
         let mut max_res = 0.0f64;
         let mut residuals = Vec::with_capacity(active_roots);
         let mut ritz_vecs: Vec<Vec<f64>> = Vec::with_capacity(active_roots);
-        let mut new_cands: Vec<Vec<f64>> = Vec::new();
+        let mut res_vecs: Vec<Vec<f64>> = Vec::with_capacity(active_roots);
 
         for r in 0..active_roots {
             let omega = evals[r];
@@ -178,8 +283,8 @@ where
             for p in 0..m {
                 let c = evecs.get(p, r);
                 for i in 0..dim {
-                    x_full[i] += c * v_basis[p][i];
-                    ax_full[i] += c * av_basis[p][i];
+                    x_full[i] += c * v_b[p][i];
+                    ax_full[i] += c * av_b[p][i];
                 }
             }
             let mut res = vec![0.0; dim];
@@ -195,8 +300,41 @@ where
             }
             residuals.push(r_norm);
             ritz_vecs.push(x_full);
+            res_vecs.push(res);
+        }
 
-            if r_norm > conv_tol {
+        Ok((evals, evecs, residuals, ritz_vecs, res_vecs, max_res))
+    };
+
+    for iter in 1..=max_iter {
+        let m = v_basis.len();
+        let active_roots = n_track.min(m);
+        let (evals, evecs, residuals, ritz_vecs, res_vecs, max_res) =
+            evaluate_tda_subspace(&v_basis, &av_basis)?;
+        last_res = max_res;
+
+        let root_tol = if stage == ScreeningStage::Coarse {
+            conv_tol.max(1e-5)
+        } else {
+            conv_tol
+        };
+        let boundary_eval = evals[k_roots.min(active_roots) - 1];
+        let buffer_tol = root_tol.max(1e-3);
+        let mut new_cands: Vec<Vec<f64>> = Vec::new();
+
+        for r in 0..active_roots {
+            let r_norm = residuals[r];
+            let expand = if r < k_roots {
+                locked[r] = r_norm <= root_tol;
+                !locked[r]
+            } else {
+                let gap = (evals[r] - boundary_eval).max(0.0);
+                let eff_buffer_tol = (0.25 * gap).min(buffer_tol).max(root_tol);
+                r_norm > eff_buffer_tol && gap < 0.02 + 2.0 * r_norm
+            };
+            if expand {
+                let omega = evals[r];
+                let res = &res_vecs[r];
                 let mut corr = vec![0.0; dim];
                 for i in 0..dim {
                     let denom = omega - diag[i];
@@ -214,9 +352,11 @@ where
                 new_cands.push(corr);
             }
         }
-        last_res = max_res;
 
-        if max_res <= conv_tol {
+        if stage == ScreeningStage::Tight
+            && max_res <= conv_tol
+            && (new_cands.is_empty() || iter == max_iter)
+        {
             let modes = (0..k_roots)
                 .map(|r| EigenMode {
                     omega: evals[r],
@@ -228,9 +368,38 @@ where
             return Ok((modes, iter));
         }
 
+        if stage == ScreeningStage::Coarse && (max_res <= switch_tol || new_cands.is_empty()) {
+            let mut collapsed_v = Vec::with_capacity(active_roots);
+            for rv in ritz_vecs {
+                append_orthonormal(&mut collapsed_v, rv);
+            }
+            v_basis = collapsed_v;
+            stage = ScreeningStage::Tight;
+            av_basis = apply_a(&v_basis, ScreeningStage::Tight);
+            locked.fill(false);
+            if iter < max_iter {
+                continue;
+            }
+            let (t_evals, _, t_res, t_ritz, _, t_max_res) =
+                evaluate_tda_subspace(&v_basis, &av_basis)?;
+            last_res = t_max_res;
+            if t_max_res <= conv_tol {
+                let modes = (0..k_roots)
+                    .map(|r| EigenMode {
+                        omega: t_evals[r],
+                        residual_norm: t_res[r],
+                        x: t_ritz[r].clone(),
+                        y: vec![0.0; dim],
+                    })
+                    .collect();
+                return Ok((modes, iter));
+            }
+            break;
+        }
+
         // Collapse subspace to lowest Ritz vectors if approaching max_subspace
         if m + new_cands.len() > max_subspace && m > k_roots * 2 {
-            let keep = (k_roots * 2).min(m);
+            let keep = (k_roots * 2).max(active_roots).min(m);
             let mut collapsed_v = Vec::with_capacity(keep);
             let mut collapsed_av = Vec::with_capacity(keep);
             for r in 0..keep {
@@ -255,6 +424,45 @@ where
             append_orthonormal(&mut v_basis, cand);
         }
         if v_basis.len() == old_m {
+            if stage == ScreeningStage::Coarse {
+                let mut collapsed_v = Vec::with_capacity(active_roots);
+                for rv in ritz_vecs {
+                    append_orthonormal(&mut collapsed_v, rv);
+                }
+                v_basis = collapsed_v;
+                stage = ScreeningStage::Tight;
+                av_basis = apply_a(&v_basis, ScreeningStage::Tight);
+                locked.fill(false);
+                if iter < max_iter {
+                    continue;
+                }
+                let (t_evals, _, t_res, t_ritz, _, t_max_res) =
+                    evaluate_tda_subspace(&v_basis, &av_basis)?;
+                last_res = t_max_res;
+                if t_max_res <= conv_tol {
+                    let modes = (0..k_roots)
+                        .map(|r| EigenMode {
+                            omega: t_evals[r],
+                            residual_norm: t_res[r],
+                            x: t_ritz[r].clone(),
+                            y: vec![0.0; dim],
+                        })
+                        .collect();
+                    return Ok((modes, iter));
+                }
+                break;
+            }
+            if max_res <= conv_tol {
+                let modes = (0..k_roots)
+                    .map(|r| EigenMode {
+                        omega: evals[r],
+                        residual_norm: residuals[r],
+                        x: ritz_vecs[r].clone(),
+                        y: vec![0.0; dim],
+                    })
+                    .collect();
+                return Ok((modes, iter));
+            }
             return Err(CalcError::NotConverged {
                 iterations: iter,
                 delta_e: max_res,
@@ -262,7 +470,7 @@ where
             });
         }
 
-        let added_av = apply_a(&v_basis[old_m..]);
+        let added_av = apply_a(&v_basis[old_m..], stage);
         av_basis.extend(added_av);
     }
 
@@ -363,6 +571,32 @@ pub fn solve_rpa<F>(
 where
     F: Fn(&[Vec<f64>]) -> (Vec<Vec<f64>>, Vec<Vec<f64>>),
 {
+    solve_rpa_with_screening(
+        diag,
+        n_roots,
+        max_iter,
+        conv_tol,
+        force_davidson,
+        false,
+        |vecs, _| apply_apb_amb(vecs),
+    )
+}
+
+/// Solves the full Casida linear-response RPA / TD-DFT problem with soft root locking,
+/// zero-ERI linear triplet subspace collapse, and optional two-stage (`Coarse -> Tight`)
+/// ERI screening with Collapse-and-Refresh.
+pub fn solve_rpa_with_screening<F>(
+    diag: &[f64],
+    n_roots: usize,
+    max_iter: usize,
+    conv_tol: f64,
+    force_davidson: bool,
+    enable_coarse_stage: bool,
+    apply_apb_amb: F,
+) -> Result<(Vec<EigenMode>, usize), CalcError>
+where
+    F: Fn(&[Vec<f64>], ScreeningStage) -> (Vec<Vec<f64>>, Vec<Vec<f64>>),
+{
     let dim = diag.len();
     if dim == 0 || n_roots == 0 {
         return Ok((Vec::new(), 0));
@@ -376,7 +610,7 @@ where
             e[i] = 1.0;
             unit.push(e);
         }
-        let (apb_cols, amb_cols) = apply_apb_amb(&unit);
+        let (apb_cols, amb_cols) = apply_apb_amb(&unit, ScreeningStage::Tight);
         let mut m_plus = Matrix2D::zeros(dim, dim);
         let mut m_minus = Matrix2D::zeros(dim, dim);
         for j in 0..dim {
@@ -395,9 +629,14 @@ where
                     x[i] = 0.5 * (xpy[i] + xmy[i]);
                     y[i] = 0.5 * (xpy[i] - xmy[i]);
                 }
-                let plus = column_residual(&apb_cols, &xpy, &xmy, omega);
-                let minus = column_residual(&amb_cols, &xmy, &xpy, omega);
-                EigenMode { omega, x, y, residual_norm: plus.max(minus) }
+                let plus = sym_matrix_residual(&m_plus, &xpy, &xmy, omega);
+                let minus = sym_matrix_residual(&m_minus, &xmy, &xpy, omega);
+                EigenMode {
+                    omega,
+                    x,
+                    y,
+                    residual_norm: plus.max(minus),
+                }
             })
             .collect::<Vec<_>>();
         return checked_dense_modes(modes, conv_tol);
@@ -405,19 +644,34 @@ where
 
     let n_track = (k_roots + 4).min(dim);
     let max_subspace = (n_track * 12).max(64).min(dim);
+    let mut stage = if enable_coarse_stage {
+        ScreeningStage::Coarse
+    } else {
+        ScreeningStage::Tight
+    };
+    let switch_tol = (conv_tol * 500.0).clamp(5e-4, 1e-2).max(conv_tol);
     let mut v_basis = build_initial_guess(diag, k_roots);
-    let (mut wp_basis, mut wm_basis) = apply_apb_amb(&v_basis);
+    let (mut wp_basis, mut wm_basis) = apply_apb_amb(&v_basis, stage);
+    let mut locked = vec![false; k_roots];
     let mut last_res = 0.0f64;
 
-    for iter in 1..=max_iter {
-        let m = v_basis.len();
+    type RpaSubspaceEval = (
+        Vec<(f64, Vec<f64>, Vec<f64>)>,
+        Vec<EigenMode>,
+        Vec<Vec<f64>>,
+        Vec<Vec<f64>>,
+        f64,
+    );
+
+    let evaluate_rpa_subspace = |v_b: &[Vec<f64>], wp_b: &[Vec<f64>], wm_b: &[Vec<f64>]| -> Result<RpaSubspaceEval, CalcError> {
+        let m = v_b.len();
         let active_roots = n_track.min(m);
         let mut m_plus = Matrix2D::zeros(m, m);
         let mut m_minus = Matrix2D::zeros(m, m);
         for i in 0..m {
             for j in i..m {
-                let hp = 0.5 * (dot(&v_basis[i], &wp_basis[j]) + dot(&v_basis[j], &wp_basis[i]));
-                let hm = 0.5 * (dot(&v_basis[i], &wm_basis[j]) + dot(&v_basis[j], &wm_basis[i]));
+                let hp = 0.5 * (dot(&v_b[i], &wp_b[j]) + dot(&v_b[j], &wp_b[i]));
+                let hm = 0.5 * (dot(&v_b[i], &wm_b[j]) + dot(&v_b[j], &wm_b[i]));
                 m_plus.set(i, j, hp);
                 m_plus.set(j, i, hp);
                 m_minus.set(i, j, hm);
@@ -428,7 +682,8 @@ where
         let sub_sols = solve_projected_rpa(&m_plus, &m_minus, active_roots)?;
         let mut max_res = 0.0f64;
         let mut full_modes: Vec<EigenMode> = Vec::with_capacity(active_roots);
-        let mut new_cands: Vec<Vec<f64>> = Vec::new();
+        let mut rp_vecs: Vec<Vec<f64>> = Vec::with_capacity(active_roots);
+        let mut rm_vecs: Vec<Vec<f64>> = Vec::with_capacity(active_roots);
 
         for (r, (omega, xpy_sub, xmy_sub)) in sub_sols.iter().enumerate() {
             let mut xpy = vec![0.0; dim];
@@ -440,16 +695,13 @@ where
                 let cp = xpy_sub[p];
                 let cm = xmy_sub[p];
                 for i in 0..dim {
-                    xpy[i] += cp * v_basis[p][i];
-                    xmy[i] += cm * v_basis[p][i];
-                    apb_xpy[i] += cp * wp_basis[p][i];
-                    amb_xmy[i] += cm * wm_basis[p][i];
+                    xpy[i] += cp * v_b[p][i];
+                    xmy[i] += cm * v_b[p][i];
+                    apb_xpy[i] += cp * wp_b[p][i];
+                    amb_xmy[i] += cm * wm_b[p][i];
                 }
             }
 
-            // Paired Casida residuals:
-            // r_+ = (A + B)(X + Y) - omega (X - Y)
-            // r_- = (A - B)(X - Y) - omega (X + Y)
             let mut rp = vec![0.0; dim];
             let mut rm = vec![0.0; dim];
             for i in 0..dim {
@@ -476,8 +728,43 @@ where
                 x,
                 y,
             });
+            rp_vecs.push(rp);
+            rm_vecs.push(rm);
+        }
 
-            if r_norm > conv_tol {
+        Ok((sub_sols, full_modes, rp_vecs, rm_vecs, max_res))
+    };
+
+    for iter in 1..=max_iter {
+        let m = v_basis.len();
+        let active_roots = n_track.min(m);
+        let (sub_sols, mut full_modes, rp_vecs, rm_vecs, max_res) =
+            evaluate_rpa_subspace(&v_basis, &wp_basis, &wm_basis)?;
+        last_res = max_res;
+
+        let root_tol = if stage == ScreeningStage::Coarse {
+            conv_tol.max(1e-5)
+        } else {
+            conv_tol
+        };
+        let boundary_omega = sub_sols[k_roots.min(active_roots) - 1].0;
+        let buffer_tol = root_tol.max(1e-3);
+        let mut new_cands: Vec<Vec<f64>> = Vec::new();
+
+        for (r, mode) in full_modes.iter().enumerate() {
+            let r_norm = mode.residual_norm;
+            let expand = if r < k_roots {
+                locked[r] = r_norm <= root_tol;
+                !locked[r]
+            } else {
+                let gap = (mode.omega - boundary_omega).max(0.0);
+                let eff_buffer_tol = (0.25 * gap).min(buffer_tol).max(root_tol);
+                r_norm > eff_buffer_tol && gap < 0.02 + 2.0 * r_norm
+            };
+            if expand {
+                let omega = mode.omega;
+                let rp = &rp_vecs[r];
+                let rm = &rm_vecs[r];
                 let mut d_plus = vec![0.0; dim];
                 let mut d_minus = vec![0.0; dim];
                 for i in 0..dim {
@@ -502,24 +789,90 @@ where
             }
         }
 
-        if max_res <= conv_tol {
+        if stage == ScreeningStage::Tight
+            && max_res <= conv_tol
+            && (new_cands.is_empty() || iter == max_iter)
+        {
             full_modes.truncate(k_roots);
             return Ok((full_modes, iter));
         }
-        last_res = max_res;
 
-        if m + new_cands.len() > max_subspace && m > k_roots * 2 {
-            let mut collapsed_v: Vec<Vec<f64>> = Vec::with_capacity(k_roots * 2);
+        if stage == ScreeningStage::Coarse && (max_res <= switch_tol || new_cands.is_empty()) {
+            let mut collapsed_v: Vec<Vec<f64>> = Vec::with_capacity(active_roots * 2);
             for mode in &full_modes {
                 let xpy: Vec<f64> = mode.x.iter().zip(&mode.y).map(|(a, b)| a + b).collect();
                 let xmy: Vec<f64> = mode.x.iter().zip(&mode.y).map(|(a, b)| a - b).collect();
                 append_orthonormal(&mut collapsed_v, xpy);
                 append_orthonormal(&mut collapsed_v, xmy);
             }
-            let (wp, wm) = apply_apb_amb(&collapsed_v);
             v_basis = collapsed_v;
+            stage = ScreeningStage::Tight;
+            let (wp, wm) = apply_apb_amb(&v_basis, ScreeningStage::Tight);
             wp_basis = wp;
             wm_basis = wm;
+            locked.fill(false);
+            if iter < max_iter {
+                continue;
+            }
+            let (_, mut t_modes, _, _, t_max_res) =
+                evaluate_rpa_subspace(&v_basis, &wp_basis, &wm_basis)?;
+            last_res = t_max_res;
+            if t_max_res <= conv_tol {
+                t_modes.truncate(k_roots);
+                return Ok((t_modes, iter));
+            }
+            break;
+        }
+
+        if m + new_cands.len() > max_subspace && m > k_roots * 2 {
+            // Zero-ERI linear triplet MGS collapse preserving (A+B)V and (A-B)V
+            let mut collapsed_v: Vec<Vec<f64>> = Vec::with_capacity(active_roots * 2);
+            let mut collapsed_wp: Vec<Vec<f64>> = Vec::with_capacity(active_roots * 2);
+            let mut collapsed_wm: Vec<Vec<f64>> = Vec::with_capacity(active_roots * 2);
+            for (_omega, xpy_sub, xmy_sub) in &sub_sols {
+                let mut xpy = vec![0.0; dim];
+                let mut xmy = vec![0.0; dim];
+                let mut apb_xpy = vec![0.0; dim];
+                let mut amb_xpy = vec![0.0; dim];
+                let mut apb_xmy = vec![0.0; dim];
+                let mut amb_xmy = vec![0.0; dim];
+                for p in 0..m {
+                    let cp = xpy_sub[p];
+                    let cm = xmy_sub[p];
+                    for i in 0..dim {
+                        let vp = v_basis[p][i];
+                        let wpp = wp_basis[p][i];
+                        let wmp = wm_basis[p][i];
+                        xpy[i] += cp * vp;
+                        xmy[i] += cm * vp;
+                        apb_xpy[i] += cp * wpp;
+                        amb_xpy[i] += cp * wmp;
+                        apb_xmy[i] += cm * wpp;
+                        amb_xmy[i] += cm * wmp;
+                    }
+                }
+                append_orthonormal_triplet(
+                    &mut collapsed_v,
+                    &mut collapsed_wp,
+                    &mut collapsed_wm,
+                    xpy,
+                    apb_xpy,
+                    amb_xpy,
+                );
+                append_orthonormal_triplet(
+                    &mut collapsed_v,
+                    &mut collapsed_wp,
+                    &mut collapsed_wm,
+                    xmy,
+                    apb_xmy,
+                    amb_xmy,
+                );
+            }
+            if !collapsed_v.is_empty() {
+                v_basis = collapsed_v;
+                wp_basis = collapsed_wp;
+                wm_basis = collapsed_wm;
+            }
         }
 
         let old_m = v_basis.len();
@@ -527,6 +880,36 @@ where
             append_orthonormal(&mut v_basis, cand);
         }
         if v_basis.len() == old_m {
+            if stage == ScreeningStage::Coarse {
+                let mut collapsed_v: Vec<Vec<f64>> = Vec::with_capacity(active_roots * 2);
+                for mode in &full_modes {
+                    let xpy: Vec<f64> = mode.x.iter().zip(&mode.y).map(|(a, b)| a + b).collect();
+                    let xmy: Vec<f64> = mode.x.iter().zip(&mode.y).map(|(a, b)| a - b).collect();
+                    append_orthonormal(&mut collapsed_v, xpy);
+                    append_orthonormal(&mut collapsed_v, xmy);
+                }
+                v_basis = collapsed_v;
+                stage = ScreeningStage::Tight;
+                let (wp, wm) = apply_apb_amb(&v_basis, ScreeningStage::Tight);
+                wp_basis = wp;
+                wm_basis = wm;
+                locked.fill(false);
+                if iter < max_iter {
+                    continue;
+                }
+                let (_, mut t_modes, _, _, t_max_res) =
+                    evaluate_rpa_subspace(&v_basis, &wp_basis, &wm_basis)?;
+                last_res = t_max_res;
+                if t_max_res <= conv_tol {
+                    t_modes.truncate(k_roots);
+                    return Ok((t_modes, iter));
+                }
+                break;
+            }
+            if max_res <= conv_tol {
+                full_modes.truncate(k_roots);
+                return Ok((full_modes, iter));
+            }
             return Err(CalcError::NotConverged {
                 iterations: iter,
                 delta_e: max_res,
@@ -534,7 +917,7 @@ where
             });
         }
 
-        let (added_wp, added_wm) = apply_apb_amb(&v_basis[old_m..]);
+        let (added_wp, added_wm) = apply_apb_amb(&v_basis[old_m..], stage);
         wp_basis.extend(added_wp);
         wm_basis.extend(added_wm);
     }

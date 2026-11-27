@@ -18,9 +18,12 @@ use calchem_int::{compute_sparse_eri, DirectFockEngine, SparseSymmetricEri};
 use calchem_model::{CalcError, Molecule, ScfOptions, ScfWavefunction};
 use calchem_scf::{rhf, rks_with_grid};
 use calchem_tensor::{matmul, transpose, Matrix2D};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::davidson::{solve_rpa, solve_tda, EigenMode};
+use crate::davidson::{
+    solve_rpa_with_screening, solve_tda_with_screening, EigenMode, ScreeningStage,
+};
 
 /// CODATA 2018 Hartree to electron-volt conversion factor.
 pub const HARTREE_TO_EV: f64 = 27.211386245988;
@@ -165,6 +168,10 @@ pub struct TddftResult {
     pub davidson_iterations_triplet: usize,
     pub states: Vec<ExcitedState>,
     pub scf_wavefunction: ScfWavefunction,
+    #[serde(default)]
+    pub gpu_kernel_invocations: usize,
+    #[serde(default)]
+    pub gpu_fallback_invocations: usize,
 }
 
 /// Computes the 3 Cartesian AO electric dipole integral matrices $\langle \mu | r_q | \nu \rangle$ ($q \in \{x,y,z\}$).
@@ -247,6 +254,45 @@ fn contract_k_gen(eri: &SparseSymmetricEri, x_ao: &Matrix2D) -> Matrix2D {
         cols: n,
         data: eri.contract_k_gen(&x_ao.data),
     }
+}
+
+/// Transforms an OV vector `u` (`n_occ * n_virt`) into symmetric AO transition density
+/// $D_{\text{sym}} = \frac{1}{2}(D + D^T)$ and optionally antisymmetric $D_{\text{anti}} = \frac{1}{2}(D - D^T)$,
+/// where $D = C_{\text{occ}} U C_{\text{virt}}^T$.
+fn ov_to_ao_sym_anti(
+    u: &[f64],
+    c_occ: &Matrix2D,
+    c_virt_t: &Matrix2D,
+    n_occ: usize,
+    n_virt: usize,
+    need_anti: bool,
+) -> (Matrix2D, Option<Matrix2D>) {
+    let mut u_mat = Matrix2D::zeros(n_occ, n_virt);
+    u_mat.data.copy_from_slice(u);
+    let tmp = matmul(c_occ, &u_mat);
+    let d = matmul(&tmp, c_virt_t);
+    let n = d.rows;
+    let mut d_sym = Matrix2D::zeros(n, n);
+    let mut d_anti = if need_anti {
+        Some(Matrix2D::zeros(n, n))
+    } else {
+        None
+    };
+    for i in 0..n {
+        for j in i..n {
+            let dij = d.get(i, j);
+            let dji = d.get(j, i);
+            let s = 0.5 * (dij + dji);
+            d_sym.set(i, j, s);
+            d_sym.set(j, i, s);
+            if let Some(ref mut da) = d_anti {
+                let a = 0.5 * (dij - dji);
+                da.set(i, j, a);
+                da.set(j, i, -a);
+            }
+        }
+    }
+    (d_sym, d_anti)
 }
 
 /// Transforms an OV vector `u` (`n_occ * n_virt`) into AO transition density $D = C_{\text{occ}} U C_{\text{virt}}^T$,
@@ -409,12 +455,23 @@ pub fn run_cis(
     basis: &BasisSet,
     opts: &TddftOptions,
 ) -> Result<TddftResult, CalcError> {
-    let mut hf_opts = opts.clone();
-    let wfn = rhf(mol, basis, &hf_opts.scf_options)?;
     if opts.n_states == 0 {
-        hf_opts.n_states = 1;
+        return Err(CalcError::InvalidMolecule(
+            "TddftOptions.n_states must be >= 1".into(),
+        ));
     }
-    run_tddft_from_scf(mol, basis, &wfn, None, &hf_opts)
+    if opts.scf_options.density_fitting {
+        return Err(CalcError::UnsupportedMethod(
+            "RI-J response kernel is not implemented; use an exact-Coulomb SCF reference".into(),
+        ));
+    }
+    if opts.max_iter == 0 || !opts.conv_tol.is_finite() || opts.conv_tol <= 0.0 {
+        return Err(CalcError::InvalidMolecule(
+            "TddftOptions.max_iter must be >= 1 and conv_tol must be finite and > 0".into(),
+        ));
+    }
+    let wfn = rhf(mol, basis, &opts.scf_options)?;
+    run_tddft_from_scf(mol, basis, &wfn, None, opts)
 }
 
 /// Runs TD-DFT (`tda = false`) or TDA-DFT (`tda = true`) — or CIS/TDHF when `xc` is `None` —
@@ -428,6 +485,16 @@ pub fn run_tddft(
     if opts.n_states == 0 {
         return Err(CalcError::InvalidMolecule(
             "TddftOptions.n_states must be >= 1".into(),
+        ));
+    }
+    if opts.scf_options.density_fitting {
+        return Err(CalcError::UnsupportedMethod(
+            "RI-J response kernel is not implemented; use an exact-Coulomb SCF reference".into(),
+        ));
+    }
+    if opts.max_iter == 0 || !opts.conv_tol.is_finite() || opts.conv_tol <= 0.0 {
+        return Err(CalcError::InvalidMolecule(
+            "TddftOptions.max_iter must be >= 1 and conv_tol must be finite and > 0".into(),
         ));
     }
     match xc {
@@ -456,6 +523,11 @@ pub fn run_tddft_from_scf(
             "TddftOptions.n_states must be >= 1".into(),
         ));
     }
+    if opts.max_iter == 0 || !opts.conv_tol.is_finite() || opts.conv_tol <= 0.0 {
+        return Err(CalcError::InvalidMolecule(
+            "TddftOptions.max_iter must be >= 1 and conv_tol must be finite and > 0".into(),
+        ));
+    }
     match xc {
         None => run_tddft_from_scf_with_grid(mol, basis, wfn, None, opts),
         Some(func) => {
@@ -465,13 +537,25 @@ pub fn run_tddft_from_scf(
     }
 }
 
-fn run_tddft_from_scf_with_grid(
+/// Runs linear-response excited states atop an already-converged closed-shell [`ScfWavefunction`]
+/// while reusing an existing SCF [`MolecularGrid`] when available.
+pub fn run_tddft_from_scf_with_grid(
     mol: &Molecule,
     basis: &BasisSet,
     wfn: &ScfWavefunction,
     xc_and_grid: Option<(XcFunctional, &MolecularGrid)>,
     opts: &TddftOptions,
 ) -> Result<TddftResult, CalcError> {
+    if opts.n_states == 0 {
+        return Err(CalcError::InvalidMolecule(
+            "TddftOptions.n_states must be >= 1".into(),
+        ));
+    }
+    if opts.max_iter == 0 || !opts.conv_tol.is_finite() || opts.conv_tol <= 0.0 {
+        return Err(CalcError::InvalidMolecule(
+            "TddftOptions.max_iter must be >= 1 and conv_tol must be finite and > 0".into(),
+        ));
+    }
     let (n_alpha, n_beta) = basis.validate_rhf_valence(mol)?;
     if wfn.density_fitting {
         return Err(CalcError::UnsupportedMethod(
@@ -572,48 +656,25 @@ fn run_tddft_from_scf_with_grid(
     } else {
         None
     };
+    let pinned_thresh = std::env::var("CALCHEM_DIRECT_THRESH")
+        .ok()
+        .and_then(|s| s.parse::<f64>().ok());
+    let tight_thresh =
+        pinned_thresh.unwrap_or_else(|| (opts.conv_tol * 1e-5).clamp(1e-12, 1e-11));
+    let coarse_thresh =
+        pinned_thresh.unwrap_or_else(|| (tight_thresh * 100.0).min(1e-9));
+    let enable_coarse = use_direct
+        && pinned_thresh.is_none()
+        && (need_eri || need_lr_eri)
+        && coarse_thresh > tight_thresh;
     let direct_opt: Option<DirectFockEngine> = if use_direct && (need_eri || need_lr_eri) {
-        Some(DirectFockEngine::new(basis, 1e-12))
+        Some(DirectFockEngine::new_with_gpu(
+            basis,
+            tight_thresh,
+            opts.scf_options.use_gpu,
+        ))
     } else {
         None
-    };
-    let direct_thresh = 1e-12;
-
-    let eval_j_sym = |d_sym: &Matrix2D| -> Matrix2D {
-        if let Some(ref eri) = eri_opt {
-            contract_j_sym(eri, d_sym)
-        } else {
-            let direct = direct_opt.as_ref().expect("DirectFockEngine needed for J");
-            Matrix2D {
-                rows: n_ao,
-                cols: n_ao,
-                data: direct.build_rks(basis, &d_sym.data, 0.0, direct_thresh),
-            }
-        }
-    };
-    let eval_k_gen = |x_ao: &Matrix2D| -> Matrix2D {
-        if let Some(ref eri) = eri_opt {
-            contract_k_gen(eri, x_ao)
-        } else {
-            let direct = direct_opt.as_ref().expect("DirectFockEngine needed for K");
-            Matrix2D {
-                rows: n_ao,
-                cols: n_ao,
-                data: direct.build_k_general_with_omega(basis, &x_ao.data, None, direct_thresh),
-            }
-        }
-    };
-    let eval_k_lr_gen = |x_ao: &Matrix2D| -> Matrix2D {
-        if let Some(ref eri_lr) = eri_lr_opt {
-            contract_k_gen(eri_lr, x_ao)
-        } else {
-            let direct = direct_opt.as_ref().expect("DirectFockEngine needed for LR-K");
-            Matrix2D {
-                rows: n_ao,
-                cols: n_ao,
-                data: direct.build_k_general_with_omega(basis, &x_ao.data, lr_omega, direct_thresh),
-            }
-        }
     };
 
     let fxc_opt: Option<FxcKernel> = xc_and_grid.map(|(func, grid)| {
@@ -623,42 +684,215 @@ fn run_tddft_from_scf_with_grid(
     });
 
     let ao_dipoles = compute_ao_dipole_matrices(basis);
+    let has_c_hf = c_hf.abs() > 1e-15;
+    let has_exx = has_c_hf || need_lr_eri;
+    let nn = n_ao * n_ao;
+    let max_batch_chunk = ((256usize << 20) / (nn.saturating_mul(24).max(1))).max(1);
 
-    let solve_manifold = |triplet: bool| -> Result<(Vec<ExcitedState>, usize), CalcError> {
-        let (modes, iters) = if opts.tda {
-            let apply_a = |vecs: &[Vec<f64>]| -> Vec<Vec<f64>> {
-                vecs.iter()
-                    .map(|u| {
-                        let (d_gen, d_sym, _) =
-                            ov_to_ao_densities(u, &c_occ, &c_virt_t, n_occ, n_virt);
-                        let mut g_ao = Matrix2D::zeros(n_ao, n_ao);
+    struct BatchedAoContractions {
+        j_sym: Vec<Matrix2D>,
+        k_sym: Vec<Matrix2D>,
+        k_anti: Vec<Matrix2D>,
+        k_lr_sym: Vec<Matrix2D>,
+        k_lr_anti: Vec<Matrix2D>,
+        v_fxc: Vec<Matrix2D>,
+    }
 
-                        if !triplet {
-                            let j_mat = eval_j_sym(&d_sym);
-                            for idx in 0..(n_ao * n_ao) {
-                                g_ao.data[idx] += 2.0 * j_mat.data[idx];
+    let eval_batched_contractions =
+        |vecs: &[Vec<f64>], triplet: bool, stage: ScreeningStage| -> BatchedAoContractions {
+            let b_len = vecs.len();
+            if b_len == 0 {
+                return BatchedAoContractions {
+                    j_sym: Vec::new(),
+                    k_sym: Vec::new(),
+                    k_anti: Vec::new(),
+                    k_lr_sym: Vec::new(),
+                    k_lr_anti: Vec::new(),
+                    v_fxc: Vec::new(),
+                };
+            }
+
+            let d_pairs: Vec<(Matrix2D, Option<Matrix2D>)> = vecs
+                .par_iter()
+                .map(|u| ov_to_ao_sym_anti(u, &c_occ, &c_virt_t, n_occ, n_virt, has_exx))
+                .collect();
+            let mut d_sym_list = Vec::with_capacity(b_len);
+            let mut d_anti_list = Vec::with_capacity(if has_exx { b_len } else { 0 });
+            for (ds, da_opt) in d_pairs {
+                d_sym_list.push(ds);
+                if let Some(da) = da_opt {
+                    d_anti_list.push(da);
+                }
+            }
+
+            let mut j_sym = if !triplet {
+                Vec::with_capacity(b_len)
+            } else {
+                Vec::new()
+            };
+            let mut k_sym = if has_c_hf {
+                Vec::with_capacity(b_len)
+            } else {
+                Vec::new()
+            };
+            let mut k_anti = if has_c_hf {
+                Vec::with_capacity(b_len)
+            } else {
+                Vec::new()
+            };
+            let mut k_lr_sym = if need_lr_eri {
+                Vec::with_capacity(b_len)
+            } else {
+                Vec::new()
+            };
+            let mut k_lr_anti = if need_lr_eri {
+                Vec::with_capacity(b_len)
+            } else {
+                Vec::new()
+            };
+
+            if use_direct {
+                if !triplet || has_c_hf || need_lr_eri {
+                    let direct = direct_opt.as_ref().expect("DirectFockEngine needed for TD-DFT");
+                    let thresh = match stage {
+                        ScreeningStage::Coarse => coarse_thresh,
+                        ScreeningStage::Tight => tight_thresh,
+                    };
+                    for start in (0..b_len).step_by(max_batch_chunk) {
+                        let end = (start + max_batch_chunk).min(b_len);
+                        let ds_chunk = &d_sym_list[start..end];
+                        let da_chunk = if has_exx {
+                            &d_anti_list[start..end]
+                        } else {
+                            &[][..]
+                        };
+
+                        if !triplet || has_c_hf {
+                            let (jc, ksc, kac) = direct.build_tddft_response_batch(
+                                basis,
+                                ds_chunk,
+                                if has_c_hf { da_chunk } else { &[][..] },
+                                !triplet,
+                                has_c_hf,
+                                None,
+                                thresh,
+                            );
+                            if !triplet {
+                                j_sym.extend(jc);
+                            }
+                            if has_c_hf {
+                                k_sym.extend(ksc);
+                                k_anti.extend(kac);
                             }
                         }
-                        if c_hf.abs() > 1e-15 {
-                            let k_mat = eval_k_gen(&d_gen);
-                            for idx in 0..(n_ao * n_ao) {
-                                g_ao.data[idx] -= c_hf * k_mat.data[idx];
+
+                        if need_lr_eri {
+                            let (_, klsc, klac) = direct.build_tddft_response_batch(
+                                basis,
+                                ds_chunk,
+                                da_chunk,
+                                false,
+                                true,
+                                lr_omega,
+                                thresh,
+                            );
+                            k_lr_sym.extend(klsc);
+                            k_lr_anti.extend(klac);
+                        }
+                    }
+                }
+            } else {
+                if !triplet || has_c_hf {
+                    let eri = eri_opt.as_ref().expect("SparseSymmetricEri needed for TD-DFT");
+                    if !triplet {
+                        j_sym = d_sym_list
+                            .par_iter()
+                            .map(|ds| contract_j_sym(eri, ds))
+                            .collect();
+                    }
+                    if has_c_hf {
+                        k_sym = d_sym_list
+                            .par_iter()
+                            .map(|ds| contract_k_gen(eri, ds))
+                            .collect();
+                        k_anti = d_anti_list
+                            .par_iter()
+                            .map(|da| contract_k_gen(eri, da))
+                            .collect();
+                    }
+                }
+                if need_lr_eri {
+                    let eri_lr = eri_lr_opt
+                        .as_ref()
+                        .expect("SparseSymmetricEri needed for LR-K");
+                    k_lr_sym = d_sym_list
+                        .par_iter()
+                        .map(|ds| contract_k_gen(eri_lr, ds))
+                        .collect();
+                    k_lr_anti = d_anti_list
+                        .par_iter()
+                        .map(|da| contract_k_gen(eri_lr, da))
+                        .collect();
+                }
+            }
+
+            let v_fxc = if let Some(ref fxc) = fxc_opt {
+                fxc.contract_batch(&d_sym_list, triplet)
+            } else {
+                Vec::new()
+            };
+
+            BatchedAoContractions {
+                j_sym,
+                k_sym,
+                k_anti,
+                k_lr_sym,
+                k_lr_anti,
+                v_fxc,
+            }
+        };
+
+    let solve_manifold = |triplet: bool| -> Result<(Vec<ExcitedState>, usize), CalcError> {
+        let manifold_enable_coarse = enable_coarse && (!triplet || has_exx);
+        let (modes, iters) = if opts.tda {
+            let apply_a = |vecs: &[Vec<f64>], stage: ScreeningStage| -> Vec<Vec<f64>> {
+                if vecs.is_empty() {
+                    return Vec::new();
+                }
+                let batch = eval_batched_contractions(vecs, triplet, stage);
+                (0..vecs.len())
+                    .into_par_iter()
+                    .map(|b| {
+                        let mut g_ao = Matrix2D::zeros(n_ao, n_ao);
+                        if !triplet {
+                            let j_data = &batch.j_sym[b].data;
+                            for idx in 0..nn {
+                                g_ao.data[idx] += 2.0 * j_data[idx];
+                            }
+                        }
+                        if has_c_hf {
+                            let ks_data = &batch.k_sym[b].data;
+                            let ka_data = &batch.k_anti[b].data;
+                            for idx in 0..nn {
+                                g_ao.data[idx] -= c_hf * (ks_data[idx] + ka_data[idx]);
                             }
                         }
                         if need_lr_eri {
-                            let k_mat_lr = eval_k_lr_gen(&d_gen);
-                            for idx in 0..(n_ao * n_ao) {
-                                g_ao.data[idx] -= lr_beta * k_mat_lr.data[idx];
+                            let kls_data = &batch.k_lr_sym[b].data;
+                            let kla_data = &batch.k_lr_anti[b].data;
+                            for idx in 0..nn {
+                                g_ao.data[idx] -= lr_beta * (kls_data[idx] + kla_data[idx]);
                             }
                         }
-                        if let Some(ref fxc) = fxc_opt {
-                            let v_fxc = fxc.contract(&d_sym, triplet);
-                            for idx in 0..(n_ao * n_ao) {
-                                g_ao.data[idx] += v_fxc.data[idx];
+                        if !batch.v_fxc.is_empty() {
+                            let fxc_data = &batch.v_fxc[b].data;
+                            for idx in 0..nn {
+                                g_ao.data[idx] += fxc_data[idx];
                             }
                         }
 
                         let mut au = ao_to_ov(&g_ao, &c_occ_t, &c_virt);
+                        let u = &vecs[b];
                         for idx in 0..n_ov {
                             au[idx] += diag[idx] * u[idx];
                         }
@@ -667,92 +901,91 @@ fn run_tddft_from_scf_with_grid(
                     .collect()
             };
 
-            solve_tda(
+            solve_tda_with_screening(
                 &diag,
                 opts.n_states,
                 opts.max_iter,
                 opts.conv_tol,
                 opts.force_davidson,
+                manifold_enable_coarse,
                 apply_a,
             )?
         } else {
-            let apply_apb_amb = |vecs: &[Vec<f64>]| -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
-                let mut wp_all = Vec::with_capacity(vecs.len());
-                let mut wm_all = Vec::with_capacity(vecs.len());
-
-                for u in vecs {
-                    let (_, d_sym, d_anti) =
-                        ov_to_ao_densities(u, &c_occ, &c_virt_t, n_occ, n_virt);
-
-                    // (A + B) * u: symmetric transition density response
-                    let mut gp_ao = Matrix2D::zeros(n_ao, n_ao);
-                    if !triplet {
-                        let j_mat = eval_j_sym(&d_sym);
-                        for idx in 0..(n_ao * n_ao) {
-                            gp_ao.data[idx] += 4.0 * j_mat.data[idx];
-                        }
+            let apply_apb_amb =
+                |vecs: &[Vec<f64>], stage: ScreeningStage| -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
+                    if vecs.is_empty() {
+                        return (Vec::new(), Vec::new());
                     }
-                    if c_hf.abs() > 1e-15 {
-                        let k_sym = eval_k_gen(&d_sym);
-                        for idx in 0..(n_ao * n_ao) {
-                            gp_ao.data[idx] -= 2.0 * c_hf * k_sym.data[idx];
-                        }
-                    }
-                    if need_lr_eri {
-                        let k_sym_lr = eval_k_lr_gen(&d_sym);
-                        for idx in 0..(n_ao * n_ao) {
-                            gp_ao.data[idx] -= 2.0 * lr_beta * k_sym_lr.data[idx];
-                        }
-                    }
-                    if let Some(ref fxc) = fxc_opt {
-                        let v_fxc = fxc.contract(&d_sym, triplet);
-                        for idx in 0..(n_ao * n_ao) {
-                            gp_ao.data[idx] += 2.0 * v_fxc.data[idx];
-                        }
-                    }
-                    let mut apb_u = ao_to_ov(&gp_ao, &c_occ_t, &c_virt);
-                    for idx in 0..n_ov {
-                        apb_u[idx] += diag[idx] * u[idx];
-                    }
-
-                    // (A - B) * u: purely orbital difference + exact-exchange antisymmetric response!
-                    let has_exx = c_hf.abs() > 1e-15 || lr_beta.abs() > 1e-15;
-                    let amb_u = if has_exx {
-                        let mut gm_ao = Matrix2D::zeros(n_ao, n_ao);
-                        if c_hf.abs() > 1e-15 {
-                            let k_anti = eval_k_gen(&d_anti);
-                            for idx in 0..(n_ao * n_ao) {
-                                gm_ao.data[idx] -= 2.0 * c_hf * k_anti.data[idx];
+                    let batch = eval_batched_contractions(vecs, triplet, stage);
+                    (0..vecs.len())
+                        .into_par_iter()
+                        .map(|b| {
+                            let mut gp_ao = Matrix2D::zeros(n_ao, n_ao);
+                            if !triplet {
+                                let j_data = &batch.j_sym[b].data;
+                                for idx in 0..nn {
+                                    gp_ao.data[idx] += 4.0 * j_data[idx];
+                                }
                             }
-                        }
-                        if need_lr_eri {
-                            let k_anti_lr = eval_k_lr_gen(&d_anti);
-                            for idx in 0..(n_ao * n_ao) {
-                                gm_ao.data[idx] -= 2.0 * lr_beta * k_anti_lr.data[idx];
+                            if has_c_hf {
+                                let ks_data = &batch.k_sym[b].data;
+                                for idx in 0..nn {
+                                    gp_ao.data[idx] -= 2.0 * c_hf * ks_data[idx];
+                                }
                             }
-                        }
-                        let mut v = ao_to_ov(&gm_ao, &c_occ_t, &c_virt);
-                        for idx in 0..n_ov {
-                            v[idx] += diag[idx] * u[idx];
-                        }
-                        v
-                    } else {
-                        diag.iter().zip(u.iter()).map(|(&d, &ui)| d * ui).collect()
-                    };
+                            if need_lr_eri {
+                                let kls_data = &batch.k_lr_sym[b].data;
+                                for idx in 0..nn {
+                                    gp_ao.data[idx] -= 2.0 * lr_beta * kls_data[idx];
+                                }
+                            }
+                            if !batch.v_fxc.is_empty() {
+                                let fxc_data = &batch.v_fxc[b].data;
+                                for idx in 0..nn {
+                                    gp_ao.data[idx] += 2.0 * fxc_data[idx];
+                                }
+                            }
+                            let mut apb_u = ao_to_ov(&gp_ao, &c_occ_t, &c_virt);
+                            let u = &vecs[b];
+                            for idx in 0..n_ov {
+                                apb_u[idx] += diag[idx] * u[idx];
+                            }
 
-                    wp_all.push(apb_u);
-                    wm_all.push(amb_u);
-                }
+                            let amb_u = if has_exx {
+                                let mut gm_ao = Matrix2D::zeros(n_ao, n_ao);
+                                if has_c_hf {
+                                    let ka_data = &batch.k_anti[b].data;
+                                    for idx in 0..nn {
+                                        gm_ao.data[idx] -= 2.0 * c_hf * ka_data[idx];
+                                    }
+                                }
+                                if need_lr_eri {
+                                    let kla_data = &batch.k_lr_anti[b].data;
+                                    for idx in 0..nn {
+                                        gm_ao.data[idx] -= 2.0 * lr_beta * kla_data[idx];
+                                    }
+                                }
+                                let mut v = ao_to_ov(&gm_ao, &c_occ_t, &c_virt);
+                                for idx in 0..n_ov {
+                                    v[idx] += diag[idx] * u[idx];
+                                }
+                                v
+                            } else {
+                                diag.iter().zip(u.iter()).map(|(&d, &ui)| d * ui).collect()
+                            };
 
-                (wp_all, wm_all)
-            };
+                            (apb_u, amb_u)
+                        })
+                        .unzip()
+                };
 
-            solve_rpa(
+            solve_rpa_with_screening(
                 &diag,
                 opts.n_states,
                 opts.max_iter,
                 opts.conv_tol,
                 opts.force_davidson,
+                manifold_enable_coarse,
                 apply_apb_amb,
             )?
         };
@@ -818,6 +1051,14 @@ fn run_tddft_from_scf_with_grid(
         _ => None,
     };
 
+    let (gpu_kernel_invocations, mut gpu_fallback_invocations) = direct_opt
+        .as_ref()
+        .map(|d| d.gpu_telemetry())
+        .unwrap_or((0, 0));
+    if opts.scf_options.use_gpu && (need_eri || need_lr_eri) && !use_direct {
+        gpu_fallback_invocations += 1;
+    }
+
     Ok(TddftResult {
         ground_energy_hartree: wfn.total_energy_hartree,
         xc_functional: xc_and_grid.map(|(f, _)| f.canonical_name().to_string()),
@@ -834,6 +1075,8 @@ fn run_tddft_from_scf_with_grid(
         davidson_iterations_triplet: iters_t,
         states: all_states,
         scf_wavefunction: wfn.clone(),
+        gpu_kernel_invocations,
+        gpu_fallback_invocations,
     })
 }
 

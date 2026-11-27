@@ -4,7 +4,7 @@
 //! entropy $S(T, P)$, constant-pressure/volume heat capacities $C_p, C_v$,
 //! and Gibbs free energy $G(T, P)$.
 
-use calchem_model::Molecule;
+use calchem_model::{CalcError, Molecule};
 use serde::{Deserialize, Serialize};
 
 use crate::masses::{
@@ -69,6 +69,50 @@ pub struct Thermochemistry {
     pub gibbs_free_energy_kcal_mol: f64,
 }
 
+/// Validates thermochemical parameters (`T > 0`, `P > 0`, finite, and `symmetry_number != Some(0)`).
+pub fn validate_thermochemistry_params(
+    temperature_k: f64,
+    pressure_pa: f64,
+    symmetry_number_override: Option<usize>,
+) -> Result<(), CalcError> {
+    if !temperature_k.is_finite() || temperature_k <= 0.0 {
+        return Err(CalcError::InvalidMolecule(format!(
+            "Thermochemistry temperature_k must be finite and > 0, got {temperature_k}"
+        )));
+    }
+    if !pressure_pa.is_finite() || pressure_pa <= 0.0 {
+        return Err(CalcError::InvalidMolecule(format!(
+            "Thermochemistry pressure_pa must be finite and > 0, got {pressure_pa}"
+        )));
+    }
+    if symmetry_number_override == Some(0) {
+        return Err(CalcError::InvalidMolecule(
+            "Thermochemistry symmetry_number must be >= 1".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Checked RRHO thermochemistry evaluator that rejects invalid temperature, pressure, or symmetry number.
+pub fn compute_thermochemistry_checked(
+    mol: &Molecule,
+    electronic_energy_hartree: f64,
+    vib: &VibrationalAnalysis,
+    temperature_k: f64,
+    pressure_pa: f64,
+    symmetry_number_override: Option<usize>,
+) -> Result<Thermochemistry, CalcError> {
+    validate_thermochemistry_params(temperature_k, pressure_pa, symmetry_number_override)?;
+    Ok(compute_thermochemistry(
+        mol,
+        electronic_energy_hartree,
+        vib,
+        temperature_k,
+        pressure_pa,
+        symmetry_number_override,
+    ))
+}
+
 /// Evaluates complete RRHO thermochemical properties given electronic energy and normal modes.
 pub fn compute_thermochemistry(
     mol: &Molecule,
@@ -78,12 +122,12 @@ pub fn compute_thermochemistry(
     pressure_pa: f64,
     symmetry_number_override: Option<usize>,
 ) -> Thermochemistry {
-    let t = if temperature_k > 0.0 {
+    let t = if temperature_k.is_finite() && temperature_k > 0.0 {
         temperature_k
     } else {
         298.15
     };
-    let p = if pressure_pa > 0.0 {
+    let p = if pressure_pa.is_finite() && pressure_pa > 0.0 {
         pressure_pa
     } else {
         101325.0

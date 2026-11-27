@@ -109,6 +109,7 @@ name = "calchem-grad"
 version = "0.2.2"
 dependencies = [
  "calchem-basis",
+ "calchem-cuda",
  "calchem-dft",
  "calchem-int",
  "calchem-model",

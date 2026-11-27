@@ -76,7 +76,8 @@ pub(crate) fn scf_energy(mol: &Molecule, bs: &BasisSet, r: Reference, grid: Grid
 
 pub fn scf_energy_gradient(mol: &Molecule, bs: &BasisSet, r: Reference, grid: GridLevel, opts: &ScfOptions) -> Result<(f64, Vec<[f64; 3]>), CalcError> {
     let point = GasPoint::solve(mol, bs, r, grid, opts)?;
-    Ok((point.energy(), point.gradient(mol, bs)?))
+    let g_res = point.gradient_with_telemetry(mol, bs, opts.use_gpu)?;
+    Ok((point.energy(), g_res.gradient))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -213,7 +214,15 @@ fn solvent_total_energy(
         solvent,
         ..Default::default()
     };
-    let res = calchem_solv::run_scrf(mol, bs, &opts.scf_options, &solv_opts, method, xc)?;
+    let res = calchem_solv::run_scrf_with_grid(
+        mol,
+        bs,
+        &opts.scf_options,
+        &solv_opts,
+        method,
+        xc,
+        opts.grid_level,
+    )?;
     if !res.converged {
         return Err(CalcError::NotConverged {
             iterations: opts.scf_options.max_iter,
@@ -249,6 +258,10 @@ pub struct OptResult {
     pub steps: usize,
     pub converged: bool,
     pub history: Vec<OptStep>,
+    #[serde(default)]
+    pub gpu_kernel_invocations: usize,
+    #[serde(default)]
+    pub gpu_fallback_invocations: usize,
 }
 
 pub(crate) fn coords_from_mol(mol: &Molecule) -> Vec<f64> {
@@ -320,7 +333,17 @@ struct TrialPoint {
     basis: BasisSet,
     gas: Option<GasPoint>,
     energy: f64,
+    scf_summary: Option<calchem_model::ScfSummary>,
 }
+
+type TrialDerivatives = (
+    f64,
+    Vec<[f64; 3]>,
+    Option<calchem_model::ScfSummary>,
+    Option<calchem_scf::InitialGuess>,
+    usize,
+    usize,
+);
 
 impl TrialPoint {
     fn solve(
@@ -333,23 +356,45 @@ impl TrialPoint {
         let gas = if opts.solvent.is_none() {
             Some(GasPoint::solve_with_guess(mol, &basis, opts.reference, opts.grid_level, &opts.scf_options, guess)?)
         } else { None };
+        let scf_summary = gas.as_ref().map(|g| g.summary());
         let mut energy = match &gas {
             Some(g) => g.energy(),
             None => solvent_total_energy(mol, &basis, opts)?,
         };
         if opts.dispersion.is_some() { energy += dispersion_model(opts)?.energy(&mol.atoms)?; }
-        Ok(Self { basis, gas, energy })
+        Ok(Self { basis, gas, energy, scf_summary })
     }
 
-    fn derivatives(self, mol: &Molecule, opts: &OptOptions) -> Result<(f64, Vec<[f64; 3]>, Option<calchem_model::ScfSummary>, Option<calchem_scf::InitialGuess>), CalcError> {
+    fn scf_gpu_telemetry(&self) -> (usize, usize) {
+        self.scf_summary.as_ref().map_or((0, 0), |s| {
+            (
+                s.diagnostics.gpu_kernel_invocations,
+                s.diagnostics.gpu_fallback_invocations,
+            )
+        })
+    }
+
+    fn derivatives(
+        self,
+        mol: &Molecule,
+        opts: &OptOptions,
+    ) -> Result<TrialDerivatives, CalcError> {
         if let Some(gas) = self.gas {
             let guess = Some(gas.mo_guess());
-            let mut g = gas.gradient(mol, &self.basis)?;
+            let g_res = gas.gradient_with_telemetry(mol, &self.basis, opts.scf_options.use_gpu)?;
+            let mut g = g_res.gradient;
             if opts.dispersion.is_some() { dispersion_model(opts)?.add_gradient(&mol.atoms, &mut g)?; }
-            Ok((self.energy, g, Some(gas.summary()), guess))
+            Ok((
+                self.energy,
+                g,
+                self.scf_summary,
+                guess,
+                g_res.gpu_kernel_invocations,
+                g_res.gpu_fallback_invocations,
+            ))
         } else {
             let (e, g) = scf_energy_gradient_with_options(mol, &self.basis, opts)?;
-            Ok((e, g, None, None))
+            Ok((e, g, None, None, 0, 0))
         }
     }
 }
@@ -380,6 +425,8 @@ pub fn optimize_geometry_observed(
     let mut cached_eg = None;
     let mut prev_guess: Option<calchem_scf::InitialGuess> = None;
     let mut first_step = 0;
+    let mut total_gpu_kernels = 0usize;
+    let mut total_gpu_fallbacks = 0usize;
     if let Some(restart) = resume {
         let last = restart.history.last().ok_or_else(|| CalcError::InvalidMolecule("Empty optimizer checkpoint".into()))?;
         if restart.molecule.atoms.len() != n_atoms || restart.gradient.len() != n_atoms || restart.inverse_hessian.len() != dim * dim
@@ -403,7 +450,16 @@ pub fn optimize_geometry_observed(
         let cur_mol = mol_with_coords(mol, &x);
         let (current_e, current_g_3d, final_scf, step_guess) = match cached_eg.take() {
             Some(eg) => eg,
-            None => TrialPoint::solve(&cur_mol, basis_name, opts, prev_guess.as_ref())?.derivatives(&cur_mol, opts)?,
+            None => {
+                let tp = TrialPoint::solve(&cur_mol, basis_name, opts, prev_guess.as_ref())?;
+                let (sk, sfb) = tp.scf_gpu_telemetry();
+                total_gpu_kernels += sk;
+                total_gpu_fallbacks += sfb;
+                let (e, g_3d, scf, guess, gk, gfb) = tp.derivatives(&cur_mol, opts)?;
+                total_gpu_kernels += gk;
+                total_gpu_fallbacks += gfb;
+                (e, g_3d, scf, guess)
+            }
         };
         if step_guess.is_some() {
             prev_guess = step_guess;
@@ -439,11 +495,17 @@ pub fn optimize_geometry_observed(
                 steps: step,
                 converged: true,
                 history,
+                gpu_kernel_invocations: total_gpu_kernels,
+                gpu_fallback_invocations: total_gpu_fallbacks,
             });
         }
 
         if step == opts.max_steps {
-            return Err(CalcError::Internal(format!("Geometry optimization reached step limit {step} (max_force={max_force:.6e}, rms_force={rms_force:.6e}, displacement={last_displacement:.6e})")));
+            return Err(CalcError::NotConverged {
+                iterations: step,
+                delta_e: max_force,
+                rms_d: last_displacement,
+            });
         }
 
         let mut p = mat_vec_mul(&h_inv, &g);
@@ -485,6 +547,11 @@ pub fn optimize_geometry_observed(
 
             let trial_mol = mol_with_coords(mol, &x_new);
             let trial = TrialPoint::solve(&trial_mol, basis_name, opts, prev_guess.as_ref());
+            if let Ok(t) = &trial {
+                let (sk, sfb) = t.scf_gpu_telemetry();
+                total_gpu_kernels += sk;
+                total_gpu_fallbacks += sfb;
+            }
             let ok = trial.as_ref().is_ok_and(|t| t.energy <= current_e + opts.c1 * alpha * g_dot_p);
             observer.trial(step, ls + 1, alpha, trial.as_ref().map(|p| p.energy), ok);
             match trial {
@@ -526,6 +593,11 @@ pub fn optimize_geometry_observed(
                 }
                 let trial_mol = mol_with_coords(mol, &x_new);
                 let trial = TrialPoint::solve(&trial_mol, basis_name, opts, prev_guess.as_ref());
+                if let Ok(t) = &trial {
+                    let (sk, sfb) = t.scf_gpu_telemetry();
+                    total_gpu_kernels += sk;
+                    total_gpu_fallbacks += sfb;
+                }
                 let ok = trial.as_ref().is_ok_and(|p| p.energy <= current_e);
                 observer.trial(step, ls_trials_used, small_step, trial.as_ref().map(|p| p.energy), ok);
                 match trial {
@@ -565,7 +637,11 @@ pub fn optimize_geometry_observed(
         last_alpha = accepted_alpha;
 
         let new_mol = mol_with_coords(mol, &x_new);
-        let (new_e, new_g_3d, scf, new_guess) = accepted.ok_or_else(|| CalcError::Internal("Missing accepted trial".into()))?.derivatives(&new_mol, opts)?;
+        let (new_e, new_g_3d, scf, new_guess, gk, gfb) = accepted
+            .ok_or_else(|| CalcError::Internal("Missing accepted trial".into()))?
+            .derivatives(&new_mol, opts)?;
+        total_gpu_kernels += gk;
+        total_gpu_fallbacks += gfb;
         let mut g_new = Vec::with_capacity(dim);
         for ag in &new_g_3d {
             g_new.extend_from_slice(ag);
@@ -607,4 +683,61 @@ pub fn optimize_geometry_observed(
         delta_e: 0.0,
         rms_d: last_displacement,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use calchem_model::Atom;
+    use std::sync::Mutex;
+
+    static OPT_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn test_opt_gpu_telemetry_accumulates_all_steps_and_disable_gpu_fallbacks() {
+        let _guard = OPT_ENV_LOCK.lock().unwrap();
+        let h2o = Molecule::new(
+            vec![
+                Atom::from_bohr("O", [0.0, 0.0, 0.12]).unwrap(),
+                Atom::from_bohr("H", [1.48, 0.0, -1.02]).unwrap(),
+                Atom::from_bohr("H", [-1.48, 0.0, -1.02]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        let mut opts = OptOptions::default();
+        opts.reference = Reference::Rhf;
+        opts.max_steps = 8;
+        opts.scf_options.use_gpu = true;
+
+        let res_gpu = optimize_geometry_with_options(&h2o, "6-31g(d)", &opts).unwrap();
+        assert!(res_gpu.converged);
+        if res_gpu.gpu_kernel_invocations > 0 {
+            assert_eq!(res_gpu.gpu_fallback_invocations, 0);
+            let final_scf_k = res_gpu
+                .final_scf
+                .as_ref()
+                .map_or(0, |s| s.diagnostics.gpu_kernel_invocations);
+            assert!(
+                res_gpu.gpu_kernel_invocations > final_scf_k,
+                "Expected total opt GPU kernels ({}) > final SCF kernels ({})",
+                res_gpu.gpu_kernel_invocations,
+                final_scf_k
+            );
+        } else {
+            assert!(res_gpu.gpu_fallback_invocations > 0);
+        }
+
+        let prev = std::env::var("CALCHEM_DISABLE_GPU").ok();
+        std::env::set_var("CALCHEM_DISABLE_GPU", "1");
+        let res_fb = optimize_geometry_with_options(&h2o, "6-31g(d)", &opts);
+        match prev {
+            Some(v) => std::env::set_var("CALCHEM_DISABLE_GPU", v),
+            None => std::env::remove_var("CALCHEM_DISABLE_GPU"),
+        }
+        let res_fb = res_fb.unwrap();
+        assert!(res_fb.converged);
+        assert_eq!(res_fb.gpu_kernel_invocations, 0);
+        assert!(res_fb.gpu_fallback_invocations > 0);
+    }
 }

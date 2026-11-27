@@ -22,7 +22,7 @@ pub use masses::{
     HARTREE_TO_EV, HARTREE_TO_KCAL_MOL, HESSIAN_EVAL_TO_INV_CM, IR_INTENSITY_PREFACTOR_KM_MOL,
 };
 pub use modes::{analyze_vibrations, NormalMode, VibrationalAnalysis};
-pub use thermo::{compute_thermochemistry, Thermochemistry};
+pub use thermo::{compute_thermochemistry, compute_thermochemistry_checked, Thermochemistry};
 
 use calchem_model::{CalcError, Molecule};
 
@@ -36,6 +36,8 @@ pub struct FrequencyResult {
     pub apt: Matrix2D,
     pub vibrational_analysis: VibrationalAnalysis,
     pub thermochemistry: Thermochemistry,
+    pub gpu_kernel_invocations: usize,
+    pub gpu_fallback_invocations: usize,
 }
 
 /// Runs full vibrational frequency analysis and RRHO thermochemistry on a molecule.
@@ -66,24 +68,85 @@ pub fn compute_frequencies_with_checkpoint(
     checkpoint_dir: Option<&std::path::Path>,
     model_fingerprint: Option<&str>,
 ) -> Result<(FrequencyResult, calchem_model::ScfSummary, f64), CalcError> {
-    let (cart_hess, apt, center, correction) = hessian::compute_hessian_with_checkpoint(
-        mol, basis_name, method, opts, dispersion, displacement_jobs, checkpoint_dir, model_fingerprint,
-    )?;
+    let (cart_hess, apt, center, correction, gpu_kernel_invocations, gpu_fallback_invocations) =
+        hessian::compute_hessian_with_checkpoint_and_telemetry(
+            mol,
+            basis_name,
+            method,
+            opts,
+            dispersion,
+            displacement_jobs,
+            checkpoint_dir,
+            model_fingerprint,
+        )?;
     let e0 = center.total_energy_hartree + correction;
     let vib = analyze_vibrations(mol, &cart_hess, &apt)?;
-    let thermo = compute_thermochemistry(
+    let thermo = compute_thermochemistry_checked(
         mol,
         e0,
         &vib,
         opts.temperature_k,
         opts.pressure_pa,
         opts.symmetry_number,
-    );
+    )?;
     Ok((FrequencyResult {
         energy_hartree: e0,
         cartesian_hessian: cart_hess,
         apt,
         vibrational_analysis: vib,
         thermochemistry: thermo,
+        gpu_kernel_invocations,
+        gpu_fallback_invocations,
     }, center, correction))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use calchem_model::Atom;
+    use std::sync::Mutex;
+
+    static VIB_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn test_freq_gpu_telemetry_accumulates_displacements_and_disable_gpu_fallbacks() {
+        let _guard = VIB_ENV_LOCK.lock().unwrap();
+        let h2 = Molecule::new(
+            vec![
+                Atom::from_bohr("H", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("H", [0.0, 0.0, 1.4]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        let mut opts = FreqOptions::default();
+        opts.scf_options.use_gpu = true;
+
+        let (res_gpu, center, _) =
+            compute_frequencies_with_model(&h2, "6-31g(d)", VibMethod::Rhf, &opts, None, 1)
+                .unwrap();
+        if res_gpu.gpu_kernel_invocations > 0 {
+            assert_eq!(res_gpu.gpu_fallback_invocations, 0);
+            assert!(
+                res_gpu.gpu_kernel_invocations > center.diagnostics.gpu_kernel_invocations,
+                "Expected total freq GPU kernels ({}) > center SCF kernels ({})",
+                res_gpu.gpu_kernel_invocations,
+                center.diagnostics.gpu_kernel_invocations
+            );
+        } else {
+            assert!(res_gpu.gpu_fallback_invocations > 0);
+        }
+
+        let prev = std::env::var("CALCHEM_DISABLE_GPU").ok();
+        std::env::set_var("CALCHEM_DISABLE_GPU", "1");
+        let res_fb =
+            compute_frequencies_with_model(&h2, "6-31g(d)", VibMethod::Rhf, &opts, None, 1);
+        match prev {
+            Some(v) => std::env::set_var("CALCHEM_DISABLE_GPU", v),
+            None => std::env::remove_var("CALCHEM_DISABLE_GPU"),
+        }
+        let (res_fb, _, _) = res_fb.unwrap();
+        assert_eq!(res_fb.gpu_kernel_invocations, 0);
+        assert!(res_fb.gpu_fallback_invocations > 0);
+    }
 }

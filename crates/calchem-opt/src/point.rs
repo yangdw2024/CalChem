@@ -67,12 +67,29 @@ impl GasPoint {
     }
 
     pub fn gradient(&self, mol: &Molecule, bs: &BasisSet) -> Result<Vec<[f64; 3]>, CalcError> {
-        use calchem_grad::{rhf_gradient, uhf_gradient, rks_gradient_with_grid, uks_gradient_with_grid};
+        self.gradient_with_telemetry(mol, bs, false)
+            .map(|r| r.gradient)
+    }
+
+    pub fn gradient_with_telemetry(
+        &self,
+        mol: &Molecule,
+        bs: &BasisSet,
+        use_gpu: bool,
+    ) -> Result<calchem_grad::GradientResult, CalcError> {
+        use calchem_grad::{
+            rhf_gradient_with_gpu, rks_gradient_with_grid_and_gpu, uhf_gradient_with_gpu,
+            uks_gradient_with_grid_and_gpu,
+        };
         match self {
-            Self::Restricted(w, None) => rhf_gradient(mol, bs, w),
-            Self::Unrestricted(w, None) => uhf_gradient(mol, bs, w),
-            Self::Restricted(w, Some((xc, grid))) => rks_gradient_with_grid(mol, bs, *xc, grid, w),
-            Self::Unrestricted(w, Some((xc, grid))) => uks_gradient_with_grid(mol, bs, *xc, grid, w),
+            Self::Restricted(w, None) => rhf_gradient_with_gpu(mol, bs, w, use_gpu),
+            Self::Unrestricted(w, None) => uhf_gradient_with_gpu(mol, bs, w, use_gpu),
+            Self::Restricted(w, Some((xc, grid))) => {
+                rks_gradient_with_grid_and_gpu(mol, bs, *xc, grid, w, use_gpu)
+            }
+            Self::Unrestricted(w, Some((xc, grid))) => {
+                uks_gradient_with_grid_and_gpu(mol, bs, *xc, grid, w, use_gpu)
+            }
         }
     }
 }

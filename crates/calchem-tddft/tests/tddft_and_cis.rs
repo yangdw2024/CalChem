@@ -621,3 +621,137 @@ fn test_direct_tddft_matches_stored_tda_and_rpa_b3lyp_and_camb3lyp() {
         }
     }
 }
+
+#[test]
+fn test_gpu_tddft_parity_and_disable_gpu_fallback_telemetry() {
+    let mol = water_mol([0.0, 0.0, 0.0]);
+    let bs = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+
+    // 1. Always verify CALCHEM_DISABLE_GPU=1 increments fallback cleanly (both direct=None and direct=Some(true))
+    {
+        let prev = std::env::var("CALCHEM_DISABLE_GPU").ok();
+        std::env::set_var("CALCHEM_DISABLE_GPU", "1");
+        for direct in [None, Some(true)] {
+            let mut opts = TddftOptions {
+                n_states: 2,
+                tda: false,
+                manifold: SpinManifold::Singlet,
+                grid_level: GridLevel::Coarse,
+                ..TddftOptions::default()
+            };
+            opts.scf_options.use_gpu = true;
+            opts.scf_options.direct = direct;
+            let res = run_tddft(&mol, &bs, Some(XcFunctional::B3lyp), &opts).unwrap();
+            assert_eq!(res.gpu_kernel_invocations, 0);
+            assert!(
+                res.gpu_fallback_invocations >= 1,
+                "Expected fallback >= 1 when CALCHEM_DISABLE_GPU=1 (direct={direct:?})"
+            );
+        }
+        match prev {
+            Some(v) => std::env::set_var("CALCHEM_DISABLE_GPU", v),
+            None => std::env::remove_var("CALCHEM_DISABLE_GPU"),
+        }
+    }
+
+    if !calchem_int::is_cuda_available() {
+        return;
+    }
+
+    for (xc, tda, manifold) in [
+        (XcFunctional::B3lyp, false, SpinManifold::Both),
+        (XcFunctional::B3lyp, true, SpinManifold::Singlet),
+        (XcFunctional::CamB3lyp, false, SpinManifold::Triplet),
+        (XcFunctional::CamB3lyp, false, SpinManifold::Singlet),
+    ] {
+        let mut opts_cpu = TddftOptions {
+            n_states: 3,
+            tda,
+            manifold,
+            grid_level: GridLevel::Fine,
+            ..TddftOptions::default()
+        };
+        opts_cpu.scf_options.direct = Some(true);
+        opts_cpu.scf_options.use_gpu = false;
+        let res_cpu = run_tddft(&mol, &bs, Some(xc), &opts_cpu).unwrap();
+        assert_eq!(res_cpu.gpu_kernel_invocations, 0);
+        assert_eq!(res_cpu.gpu_fallback_invocations, 0);
+
+        let mut opts_gpu = opts_cpu.clone();
+        opts_gpu.scf_options.use_gpu = true;
+        let res_gpu = run_tddft(&mol, &bs, Some(xc), &opts_gpu).unwrap();
+        assert!(
+            res_gpu.gpu_kernel_invocations > 0,
+            "Expected GPU kernel invocations > 0 for {xc:?} tda={tda} manifold={manifold:?}"
+        );
+        assert_eq!(
+            res_gpu.gpu_fallback_invocations, 0,
+            "Unexpected GPU fallback for {xc:?} tda={tda} manifold={manifold:?}"
+        );
+        assert_eq!(res_gpu.states.len(), res_cpu.states.len());
+        for (sg, sc) in res_gpu.states.iter().zip(&res_cpu.states) {
+            let de = (sg.excitation_energy_ev - sc.excitation_energy_ev).abs();
+            let df = (sg.oscillator_strength - sc.oscillator_strength).abs();
+            assert!(
+                de <= 1e-4,
+                "GPU vs CPU TD-DFT energy mismatch ({xc:?}, tda={tda}, {manifold:?}): {de:.3e} eV"
+            );
+            assert!(
+                df <= 1e-4,
+                "GPU vs CPU TD-DFT osc mismatch ({xc:?}, tda={tda}, {manifold:?}): {df:.3e}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_davidson_edge_cases_nstates_ge_dim_zero_bad_opts_and_rpa_instability() {
+    use calchem_tddft::davidson::{solve_rpa_with_screening, solve_tda_with_screening};
+
+    let (m0, it0) = solve_tda_with_screening(&[0.5, 1.0], 0, 10, 1e-6, false, false, |v, _| v.to_vec()).unwrap();
+    assert!(m0.is_empty() && it0 == 0);
+    let (me, ite) = solve_tda_with_screening(&[], 3, 10, 1e-6, false, false, |v, _| v.to_vec()).unwrap();
+    assert!(me.is_empty() && ite == 0);
+
+    let diag = vec![0.4, 0.4, 0.9, 1.5];
+    let apply_diag = |vecs: &[Vec<f64>], _st: calchem_tddft::davidson::ScreeningStage| -> Vec<Vec<f64>> {
+        vecs.iter()
+            .map(|v| v.iter().zip(&diag).map(|(x, d)| x * d).collect())
+            .collect()
+    };
+    let (modes, _) = solve_tda_with_screening(&diag, 10, 20, 1e-8, true, true, apply_diag).unwrap();
+    assert_eq!(modes.len(), 4);
+    assert!((modes[0].omega - 0.4).abs() < 1e-10);
+
+    let diag_instab = vec![-0.1, 0.5];
+    let err = solve_rpa_with_screening(
+        &diag_instab,
+        1,
+        10,
+        1e-6,
+        false,
+        false,
+        |vecs, _| {
+            let apb = vecs.iter().map(|v| vec![0.5 * v[0], 0.5 * v[1]]).collect();
+            let amb = vecs.iter().map(|v| vec![-0.1 * v[0], 0.5 * v[1]]).collect();
+            (apb, amb)
+        },
+    )
+    .unwrap_err();
+    assert!(matches!(err, calchem_model::CalcError::LinearAlgebra(_)), "{err}");
+
+    let mol = water_mol([0.0, 0.0, 0.0]);
+    let bs = BasisSet::from_name("sto-3g", &mol).unwrap();
+    let bad_n = TddftOptions { n_states: 0, ..Default::default() };
+    assert!(calchem_tddft::run_cis(&mol, &bs, &bad_n).is_err());
+
+    let mut df_opts = TddftOptions::default();
+    df_opts.scf_options.density_fitting = true;
+    assert!(run_tddft(&mol, &bs, Some(XcFunctional::B3lyp), &df_opts).is_err());
+
+    let wfn = rhf(&mol, &bs, &ScfOptions::default()).unwrap();
+    let bad_iter = TddftOptions { max_iter: 0, ..Default::default() };
+    assert!(calchem_tddft::run_tddft_from_scf(&mol, &bs, &wfn, None, &bad_iter).is_err());
+    let bad_tol = TddftOptions { conv_tol: 0.0, ..Default::default() };
+    assert!(calchem_tddft::run_tddft_from_scf(&mol, &bs, &wfn, None, &bad_tol).is_err());
+}

@@ -89,3 +89,32 @@ fn test_h2_optimization_from_compressed_1_2_bohr() {
         res.energy_hartree
     );
 }
+
+#[test]
+fn test_opt_boundary_single_atom_zero_steps_and_invalid_options() {
+    use calchem_model::{Atom, CalcError, Molecule};
+    use calchem_opt::{optimize_geometry_with_options, OptOptions, Reference};
+
+    let he = Molecule::new(vec![Atom::from_bohr("He", [0.0, 0.0, 0.0]).unwrap()], 0, 1);
+    let mut opts = OptOptions {
+        reference: Reference::Rhf,
+        max_steps: 0,
+        ..Default::default()
+    };
+    let res_he = optimize_geometry_with_options(&he, "sto-3g", &opts).unwrap();
+    assert!(res_he.converged && res_he.steps == 0);
+
+    let h2 = Molecule::new(
+        vec![
+            Atom::from_bohr("H", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("H", [0.0, 0.0, 2.5]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let err = optimize_geometry_with_options(&h2, "sto-3g", &opts).unwrap_err();
+    assert!(matches!(err, CalcError::NotConverged { .. }), "{err}");
+
+    opts.max_force = 0.0;
+    assert!(optimize_geometry_with_options(&h2, "sto-3g", &opts).is_err());
+}
