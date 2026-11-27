@@ -28,11 +28,10 @@ function isRunnableFile(filePath) {
 export function findBinary() {
   const exe = binaryName();
 
-  if (process.env.CALCHEM_BIN) {
-    const explicit = path.resolve(process.env.CALCHEM_BIN);
-    if (isRunnableFile(explicit)) {
-      return explicit;
-    }
+  const rawExplicit = process.env.CALCHEM_BIN?.trim();
+  if (rawExplicit) {
+    const explicit = path.resolve(rawExplicit);
+    return isRunnableFile(explicit) ? explicit : null;
   }
 
   const localCandidates = [

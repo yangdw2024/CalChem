@@ -1,6 +1,6 @@
 # CalChem 全量问题台账与分阶段推进总规划
 
-> **生效日期**：2026-11-24（`v0.2.3` 封板基线）  
+> **生效日期**：2026-11-26（`v0.3.0` Phase 3 + Tier-5 加固发布版）  
 > **强制前置约束**：本规划下的一切研发、测试、基准对比与汇报，必须无条件遵守仓库根目录最高执行铁律 [AGENTS.md](file:///E:/YDW/Trae_Gaussian/AGENTS.md)。
 
 ---
@@ -10,52 +10,43 @@
 ### 1.1 版本与交付状态
 | 状态层级 | 当前真实状态 | 说明 |
 |---|---|---|
-| **历史基线 (`v0.2.2`, Git `9f57bd7`)** | **2026-11-19 归档版** | 已被 `v0.2.3` 替代的历史基线。 |
-| **当前封板基线 (`v0.2.3`)** | **2026-11-24 Phase 1 闭环 + Phase 2 单哈希终验封板版** | 已完成 `OPEN-01`/`OPEN-02`/`OPEN-03` 底层修补与终版单哈希验收、纯 Rust + CUDA 架构收口、`npm/` 原生 CLI 解耦与文档同步；全量 Rust 测试 **160 passed, 0 failed, 1 ignored**（72 suites）；冻结 Release 二进制 `build_target/release/calchem_cli.exe`（`7,594,496` bytes，SHA256: `C00AB91FF8DEB26675D4819FCDB868E429BCDF3976B60FEFDF39BA965D1C9D46`）已完成三项统一单哈希终验并全部落盘至 `D:\YDW\Calc\qc_benchmark_runs\pilot\v023_final_C00AB91F\summary.json`；正作为 `v0.2.3` 封板提交并同步至 GitHub Release 与 `@yangdw2024/calchem` npm 包。 |
+| **历史基线 (`v0.2.2`, Git `9f57bd7`)** | **2026-11-19 归档版** | 已被 `v0.2.3` / `v0.3.0` 替代。 |
+| **封板基线 (`v0.2.3`, Git `27929de`)** | **2026-11-24 已发布** | 完成 `OPEN-01/02/03` 物理闭环与 `calchem-py` 剥离；冻结二进制 `C00AB91F...` 备份于 `D:\YDW\Calc\qc_benchmark_runs\pilot\v023_final_C00AB91F\calchem_cli_C00AB91F.exe`；GitHub Release `456555083`（`windows-latest` CI 成功，`ubuntu-latest` CI 失败）与 `@yangdw2024/calchem@0.2.3` 已发布。 |
+| **当前发布版 (`v0.3.0`, Phase 3 + Tier-5)** | **2026-11-26 终验通过，发布中/已封板** | 完成 **OPEN-04**（Pure CPU SCF + TD-DFT 批量收缩，以及 CUDA `sm_120` GPU F-shell RI-J 3c / Direct-K / TD-DFT 响应 / 解析梯度全链路卸载）与 3 轮 Tier-5 白盒红队对抗加固；`cargo test --workspace` **`230 passed, 0 failed, 1 ignored`**（72 suites）、`cargo clippy` **exit 0**、`scripts/test_verify_calchem_job.py` **2/2 passed**。最终二进制 `build_target/release/calchem_cli.exe`（`22,292,480` B，SHA256 `C9F553BB0F96D183F34BD1E4A79563D0FAF750C33EFC3B6B9426DD908F1FD653`；Cubin SHA256 `5A7DBBFC0908E9A40DCD2BFE5DAA34CD9C98F2EEFCA919B7A1E379A4BC30F533`）已完成 `D:\YDW\Calc\qc_benchmark_runs\phase3_m6\final_benchmarks\` 全量实测与独立 `teamwork_victory_auditor` 终验（`VICTORY CONFIRMED`）。`crates/*/Cargo.toml` 保留 `0.2.2` 以保持与 `C9F553BB...` 源码一致。 |
 
 ### 1.2 真实长板 vs 真实短板（不夸大、不贬低）
-- **✅ 真实长板（源码与实测已验证）**：
-  1. **纯 Rust 科学底座扎实**：14 个核心 crate 生产代码 `0 panic!`、`0 todo!`，精确积分下 `RHF/B3LYP/CAM-B3LYP/wB97X-D` 与 Gaussian 16 精度对齐（24 原子咖啡因 `B3LYP-D3BJ/6-31G(d,p)` 实测仅差 **`+0.0082 kcal/mol`**）。
-  2. **已有 67 KB 手写 FP64 CUDA 核函数**（[cuda_kernels.cu](file:///E:/YDW/Trae_Gaussian/crates/calchem-cuda/src/cuda_kernels.cu)）：完整覆盖 **GPU 3 中心积分（含 S/P/D 轨，$10^{-14}$ 精度）、GPU RI-J 缩并、GPU DFT 格点 $V_{\text{xc}}$**，搭配 SAD 初猜 + Level Shifting，在 **纯泛函（PBE/BLYP）+ GPU RI-J 单点** 赛道具备真实速度与内存优势。
-  3. **多任务工程链路今日已补齐契约**：统一 D3BJ（energy/grad/opt/freq）、严格参数/内存前检、AO-Direct TD-DFT（TDA + Full LR/RPA）、原子 JSON、优化步级日志与原子续算 checkpoint、频率位移缓存。
-- **⚠️ 真实短板（后续集中攻坚对象）**：
-  1. **GPU 尚未覆盖杂化泛函精确交换 $K$、TD-DFT、解析梯度及 F-shell RI-J 3c**：即便开启 `--gpu`，3c 积分遇到极化基组 F 辅助壳层（`L_aux > 2`）仍回退 CPU（已真实计入 `gpu_fallback_invocations`），`B3LYP` 精确交换 $K$、Full-LR TD-DFT 与解析梯度也仍在 CPU 运行（纯 CPU 咖啡因单点 265s vs G16 31.5s，8 核 Full-LR TD-DFT 5119.84 s（5119.86 s manifest）vs G16 192.2s，慢约 26.6x）。
-  2. **RI-J 在极小基组 `STO-3G` 仍存在 `-4.1 kcal/mol` 误差**（`IC-2F / STO-3G`：`auto-jfit` `-4.08`、`def2-jfit-f` `-4.58 kcal/mol`）；极化基组 `6-31G(d)` / `6-31G(d,p)` 已收口至 `< 0.1 kcal/mol`。
-  3. **开壳层 `UB3LYP` 与溶剂化小幅残差**：`UB3LYP` 因采用 VWN 公式 V 与 G16 VWN3 存在约 `0.14 kcal/mol` 绝对气相能差（闭壳层与 $\Delta G_{\text{solv}}$ 差值不受影响）；PCM 默认用 `Bondi (alpha=1.20)` 而非 G16 `UFF (alpha=1.10)`；`ethanol/DMSO` SMD CDS 符号偏差待复核。
-  4. **优化器仍为笛卡尔 BFGS**：缺少冗余内坐标（DLC）优化器，收敛步数偏多。
-  5. **中大体系极化基组全任务尚未完成端到端实测**：72 / 94 / 199 / 726 原子需按铁律补齐真实收敛（或显式预算拒算）的落盘证据。
+- **✅ 真实长板（源码与 `C9F553BB...` 实测已验证）**：
+  1. **Pure CPU 8T 已追平/小幅反超 Caffeine G16 8T**：Direct4c 单点 `31.15 s`（`+0.0079 kcal/mol`，`8.16x` v0.2.3 / `1.01x` G16）、`auto-jfit` 单点 `26.77 s`（`-0.0859 kcal/mol`，`3.54x` v0.2.3 / `1.18x` G16）、5 根 Full-LR TD-DFT `174.53 s`（`max|Δω|=0.000233 eV`，`29.33x` v0.2.3 `5119.84 s` / `1.10x` G16 `192.2 s`）；同时修复 `v0.2.3` `wB97X-D` 能量漏计色散（`IC2F` 从 `+9.18` 降至 `-0.0366 kcal/mol`）。
+  2. **CUDA GPU `sm_120` 覆盖 F-shell / Direct-K / TD-DFT / 解析梯度且全程零回退**：74 项 `含 GPU` E2E 与 3 项独立 GPU 运行 `gpu_fallback_invocations == 0`；Direct4c CPU 与 GPU 一致性 `<= 1.89e-11 Eh` / `<= 5.11e-10 Eh/Bohr`。`含 GPU` 实测：Caffeine SP `13.45–14.02 s`、Caffeine LR-TDDFT `96.43 s`（`1.81x` CPU / `53.09x` v0.2.3）、`IC2F` SP `15.61–16.14 s`、`IC2F` LR-TDDFT `105.50 s`（`2.72x` CPU）、`pm6_l8bo_60` B3LYP `292.75 s`（`6.87x` CPU `2011.78 s`）。
+  3. **质量与契约防线**：`cargo test` `230/0/1`、`clippy` 0 错、`npm/index.js` 严格 fail-fast `CALCHEM_BIN`、[verify_calchem_job.py](file:///E:/YDW/Trae_Gaussian/scripts/verify_calchem_job.py) 支持 `--gpu` 严检与防绕过单测。
+- **⚠️ 真实短板（必须继续解决，不隐藏）**：
+  1. **E2E 与梯度精度/速度未过门禁项**：CPU (`83/92`) 与 GPU (`65/74`) 均一致存在 **7 项失败 + 2 项已知超标**：
+     - 3 项 `PBE/auto-jfit`（`C4H4S` `-0.1307`、`Caffeine` `-0.1820`、`pm6_l8bo_60` `-2.1029 kcal/mol`）；
+     - `C2H3F` Full-LR TD-DFT (`nstates=3`) 低激发态根序差异（`max|Δω| = 0.74776 eV`）；
+     - `Caffeine` / `IC2F` `B3LYP-D3BJ/6-31G(d,p)` `Fine` 格点解析梯度相对 G16 默认 `UltraFine` 偏差 `1.39e-4–2.22e-4 Eh/Bohr`（Direct4c 与 RI-J 均一致出现），且总耗时仍慢于 G16 8T（Direct4c 梯度 CPU `261.90 s` / GPU `48.52 s` vs G16 `40.2 s`；`IC2F` CPU `403.77 s` / GPU `62.08 s` vs G16 `43.9 s`）。
+  2. **其余慢于 G16 8T 项**：`IC2F wB97X-D RI-J`（CPU `251.50 s` / GPU `61.50 s` vs G16 `55.9 s`）、`IC2F LR-TDDFT` 纯 CPU（`287.82 s` vs G16 `176.0 s`）、`IC2F Direct4c SP` 纯 CPU（`57.16 s` vs G16 `43.9 s`）、`C4H4S Direct4c Grad` 纯 CPU（`9.49 s` vs G16 `5.7 s`）。
+  3. **优化器仍为笛卡尔 BFGS**：缺少冗余内坐标（DLC）优化器（`OPEN-05`）。
+  4. **大体系阶梯尚未完整**：`pm6_l8bo_60`（`B3LYP`）与 `D18`（`STO-3G`）仅验证 SCF 收敛，缺 G16 基准能及 `72/94/199/726` 原子极化基组梯度/频率验证（`OPEN-07/08`）。
 
 ---
 
 ## 2. 全部已知问题总台账
 
-### 2.1 `v0.2.3` 已修复并实测通过项
-
-| 编号 | 原问题 | 本地修复内容 | 实测验证证据 |
-|---|---|---|---|
-| **P0-01** | CLI 仅单点加 D3，`grad/opt/freq` 不一致；`wB97X-D` 易双重色散 | 统一 `D3Model` 贯穿四任务；拆分 `Wb97x` 与 `Wb97xd`；拒绝 `wB97X-D + --disp` | `cargo test -p calchem-cli --test cli_contracts`（D3BJ 中心差分梯度闭环通过） |
-| **P0-02** | 非法参数/未知溶剂/超内存静默忽略或误报基组不支持 | 严格参数校验与 SCF 前拦截；超 4 GB 自动切 Direct；显式 `--stored` 报 `ResourceLimit`；失败不写假 JSON | `cli_contracts` 10 项非法输入拒绝测试全通过 |
-| **P0-03** | CLI 激发态写死 TDA singlet；260 AO 咖啡因 Stored ERI 9.9 GB 爆内存 | 暴露 `--td-mode <tda\|lr>`、`--spin`、残差检验；新增 `build_k_general_with_omega` 与 **AO-Direct TD-DFT** | `direct_fock_numerical` 5/5、`tddft_and_cis` 5/5（Direct vs Stored `< 1e-6 eV`） |
-| **P0-04** | JSON 缺状态/几何哈希/轨道信息，写入非原子 | 统一结构化 JSON 契约 + 临时文件原子替换；新增单任务强校验脚本 [verify_calchem_job.py](file:///E:/YDW/Trae_Gaussian/scripts/verify_calchem_job.py) | `cli_contracts` 全通过 |
-| **P0-05** | Opt 无步级进度、无持久化检查点，中断后无法续跑 | 新增每步实时 stderr 日志、原子 checkpoint（含二进制/模型哈希）、`--resume` 校验与续算 | `cli_contracts` 中断续算位级一致 + 失配拒绝通过；咖啡因 2 步实跑验证 |
-| **P1-01 (阶段1)** | Opt 接受步重复跑 SCF、冷启动试探、梯度缺预筛且 9 倍重复 Boys/VRR | `GasPoint` 波函数复用；相邻几何 Löwdin 轨道投影初猜；单遍四中心梯度导数 + 密度加权 Schwarz 预筛 | 咖啡因 8 核单步梯度 `648s -> 214s`（**3.02x 提速**，梯度值完全一致）；`calchem-grad` 15/15 通过 |
-| **P1-03** | Freq 重复构网格、缺乏并发上限与断点续算 | 修复双网格构造；新增 `--freq-jobs` 限流与 `--checkpoint <dir>` 逐位移原子缓存 | `cli_contracts` 位移缓存复用通过；`calchem-vib` 全通过 |
-| **P1-04** | 咖啡因单点 `-6.87 kcal/mol`；`sp_fine_exact` 100 步不收敛 | 归因 `-6.52 kcal/mol` 来自 `auto-jfit`；收紧 Direct SCF 筛选阈值 `1e-10 -> 1e-12` | `D:\YDW\Calc\qc_benchmark_runs\pilot\calchem_postfix_20261123_1795435704\summary.json`：**`sp_fine_exact` 20 步收敛，`dE_G16 = +0.0082 kcal/mol`** |
-
----
+### 2.1 已修复并实测闭环项（`v0.2.3` + `v0.3.0`）
+- **P0-01 ~ P0-05, P1-01 ~ P1-04**：见 `v0.2.3` 归档验收记录（已全部通过）。
+- **OPEN-01 / OPEN-02 / OPEN-03**：`v0.2.3` 完成单哈希精度闭环，`v0.3.0` 进一步将 Caffeine LR-TDDFT 5 根从 `5119.84 s` 降至 `174.53 s`（纯 CPU）/ `96.43 s`（含 GPU）。
+- **OPEN-04（Phase 3 CPU + GPU 攻坚）**：✅ 已交付 `v0.3.0`（`C9F553BB...`、`230/0/1`、`clippy=0`、CPU `83/92` & GPU `65/74` `fb=0`），并将遗留的梯度网格偏差/耗时、PBE RI-J 偏差与 `C2H3F` TD-DFT 根序拆分至下方 **OPEN-09 / OPEN-10** 跟进。
+- **OPEN-06（文档纠偏与 `v0.2.3` / `v0.3.0` 发布对齐）**：✅ 已对齐并随 `v0.3.0` 更新发布。
 
 ### 2.2 尚未闭合的待办问题（按优先级排序）
 
 | 编号 | 优先级 | 问题描述 | 根因 / 现状 | 关单验收标准 |
 |---|---|---|---|---|
-| **OPEN-01** | **P0（单哈希终验已闭环）** | 默认 `--aux-basis auto-jfit` 对极化基组精度超标 | 重构 per-$L$ AutoAux 辅助基组构造并加测 F-shell GPU 回退如实计数；极化基组 `6-31G(d)` / `6-31G(d,p)` SP `< 0.1 kcal/mol`、梯度 `< 5e-5 Eh/Bohr`（咖啡因 `-0.0938 kcal/mol`、`trunc=0`） | **已通过终版单哈希验收（`C00AB91F...`）**：`rij_precision_probe` 3/3 绿；咖啡因 8 核纯 CPU 复验 [open01_caffeine_autojfit/manifest.json](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/v023_final_C00AB91F/open01_caffeine_autojfit/manifest.json) `status="verified"`、`exit_code=0`、`rij_metric_truncated_modes=0`、`dE_G16 = -0.0856 kcal/mol`（`94.89 s`）；**明示边界**：`IC-2F/STO-3G` 极小基组仍存在 `-4.08 kcal/mol` 误差 |
-| **OPEN-02** | **P0（Blocker-2 单哈希终验已关闭；纯 CPU 提速归口 Phase 3）** | 咖啡因 AO-Direct Full-LR TD-DFT 与 Gaussian 16 对齐及纯 CPU 耗时 | 冻结二进制 `C00AB91F...` 8 核纯 CPU 终验 5 根 S1–S5 与 G16 `td.log` 偏差 **`-0.000063` 至 `-0.000246 eV`**（全部 `<= 0.001 eV`），全部收敛（最大残差 `8.468e-07 Eh`），实测耗时 **`5119.86 s`（~85.3 min，较 G16 `192.2 s` 慢 ~26.6x）** | **Blocker-2 精度与收敛验收已关闭**：[open02_caffeine_tddft_lr/manifest.json](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/v023_final_C00AB91F/open02_caffeine_tddft_lr/manifest.json) `status="verified"`、`exit_code=0`、几何 `1acd5f86...` 严格对齐 [td.log](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/gaussian/td.log)；纯 CPU 提速归口 Phase 3（`OPEN-04`） |
-| **OPEN-03** | **P0（单哈希终验已闭环）** | 溶剂化（PCM/SMD）$\Delta G_{\text{solv}}$ 符号/拆项与梯度势能面分裂 | 已修复 `BoundaryMatrix` Cholesky 全局偏移与 York-Karplus 核 / `IEF-PCM` / `SmdIntrinsic` / 默认纯静电与不强行重归一化；23/23 算例对齐 G16 至 `0.002–0.318 kcal/mol`；已重构 `gradient.rs` 统一走 `ReactionFieldSolver` + `compute_cds_energy` 并补齐 `matrix.rs` / `scrf.rs` 修复；冻结二进制 `C00AB91F...` 关键 8 算例 4 核纯 CPU 复验全收敛且与前次 `0.000000 kcal/mol` 一致 | **已通过终版单哈希复验（`C00AB91F...`）**：`pcm_and_scrf` 8/8 通过；关键 8 算例落盘 [open03_final_summary.json](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/v023_final_C00AB91F/open03_final_summary.json)（与 G16 偏差 `-0.186` 至 `+0.318 kcal/mol`）；明示默认 `Bondi(1.20)` 与 G16 `UFF(1.10)`、`UB3LYP` VWN5/VWN3 差异及 `ethanol/DMSO` SMD CDS 符号偏差待复核 |
-| **OPEN-04** | **P1** | 杂化泛函精确交换 $K$、TD-DFT、解析梯度与 F-shell RI-J 3c 未上 GPU | CUDA 目前仅覆盖 RI-J `L <= 2` 3c（极化 F-shell 回退 CPU）、缩并与 DFT $V_{\text{xc}}$ | ① 补完同条件 8 核 **CPU vs GPU** 阶段耗时剖析；② 落地 **GPU 解析梯度**、TD-DFT 与 **交换 $K$ 加速（先守精度门禁）** |
+| **OPEN-09** | **P0** | Caffeine/IC2F `Fine` 格点梯度偏差（`1.39e-4–2.22e-4 Eh/Bohr`）与解析梯度速度慢于 G16；`C2H3F` TD-DFT 根序差异 | `Fine` vs G16 `UltraFine` 格点敏感性及解析梯度阶段仍慢于 G16 8T；`C2H3F` `nstates=3` 与 G16 排序差异 | 核明格点收敛及解析梯度热点提速；确认 `C2H3F` 根序与 `UltraFine` 梯度与 G16 对齐至 `< 1e-4 Eh/Bohr` |
+| **OPEN-10** | **P1** | `PBE/auto-jfit`（`-0.13` 至 `-2.10 kcal/mol`）与 `STO-3G` RI-J（`-4.08 kcal/mol`）误差 | AutoAux 在 `PBE` / `STO-3G` 下库仑密度拟合残差偏大 | 极化基组 `PBE/auto-jfit` 收口至 `<= 0.1 kcal/mol`（或明确规则边界） |
 | **OPEN-05** | **P1** | 优化器为笛卡尔 BFGS，缺少冗余内坐标（DLC） | Rust `calchem-opt` 当前仅实现笛卡尔 BFGS/P-RFO | 在 `calchem-opt` 实现真实 DLC + 信赖域 RFO；咖啡因完整 Opt 收敛步数实测下降且驻点 Freq 0 虚频 |
-| **OPEN-06** | **P1（`v0.2.3` 封板闭环）** | 文档漂移、旧版 `v0.2.2` 与封板发布对齐 | 已完成纯 Rust 原生 CLI 收口、`npm/` 解耦与 `0.2.3` 元数据同步、更新 [README.md](file:///E:/YDW/Trae_Gaussian/README.md) 与 [NATIVE_METHOD_BOUNDARIES.md](file:///E:/YDW/Trae_Gaussian/docs/NATIVE_METHOD_BOUNDARIES.md)；冻结版 `calchem_cli.exe`（`C00AB91F...`）三项单哈希终验已全部落盘于 [summary.json](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/v023_final_C00AB91F/summary.json) | `v0.2.3` tag 推送 GitHub Release 与 `@yangdw2024/calchem@0.2.3` 发布即关闭 |
-| **OPEN-07** | **P2** | Pueue 守护离线 + 第三方对照（ORCA 160/161、REST、G16 5D/6D）未闭环 | 11/22 重启后 Pueue 未拉起，ORCA 诊断未跑，REST 频率失败未归因 | 恢复 Pueue（2×4 核上限）与重启自检；补完同条件 8 核四引擎对照表 |
-| **OPEN-08** | **P2** | 中大体系（94 / 199 / 726 原子）极化基组真实内存与耗时缺实测 | 过去仅跑过小分子或 STO-3G/PBE 或半途被杀 | 按 `24 -> 94 -> 199 -> 726` 阶梯实测，落盘完整收敛 JSON + 峰值 RSS/VRAM，绝不半途 kill 充数 |
+| **OPEN-07** | **P2** | `ubuntu-latest` CI 测试失败与第三方四引擎对照（ORCA/REST/G16 5D-6D）未闭环 | `v0.2.3` GitHub Actions `45367616846` Linux 权限相关 `disk_diis` 单测在容器权限模型下未拒绝写目录 | 修复 Linux `disk_diis` 测试并使 `ubuntu-latest` CI 全绿；恢复 Pueue（2×4 核上限）并补完四引擎对照表 |
+| **OPEN-08** | **P2** | 中大体系（72 / 94 / 199 / 726 原子）极化基组与梯度/频率缺实测 | 当前仅 `pm6_l8bo_60` / `D18` 单点 SCF 收敛（无 G16 对照） | 按 `24 -> 72 -> 94 -> 199 -> 726` 阶梯实测，落盘完整收敛 JSON + 峰值 RSS/VRAM |
 
 ---
 
@@ -63,44 +54,19 @@
 
 ```mermaid
 flowchart LR
-    P1["Phase 1: 精度与正确性收口\n(OPEN-01 / 02 / 03)"]
-    P2["Phase 2: 文档纠偏与 v0.2.3 发布\n(OPEN-06)"]
-    P3["Phase 3: GPU 杂化K与解析梯度破局\n(OPEN-04)"]
-    P4["Phase 4: DLC 内坐标优化 + 驻点频率\n(OPEN-05)"]
-    P5["Phase 5: 四引擎对齐与大体系阶梯验证\n(OPEN-07 / 08)"]
+    P1["Phase 1: 精度与正确性收口\n(OPEN-01 / 02 / 03) ✅"]
+    P2["Phase 2: 文档纠偏与 v0.2.3 发布\n(OPEN-06) ✅"]
+    P3["Phase 3: CPU/GPU 攻坚与 v0.3.0 发布\n(OPEN-04 + Tier-5) ✅"]
+    P4["Phase 4: 梯度/PBE/TD-DFT 遗留闭环 + DLC 优化器\n(OPEN-09 / 10 / 05)"]
+    P5["Phase 5: Linux CI + 四引擎对齐与大体系验证\n(OPEN-07 / 08)"]
     P1 --> P2 --> P3 --> P4 --> P5
 ```
 
-### Phase 1：精度与物理正确性收口（已完成冻结二进制 `C00AB91F...` 单哈希闭环验收）
-1. **OPEN-01（RI-J 默认辅助基组与 GPU 回退计数修复）**：✅ 冻结二进制 `C00AB91F...` 单哈希复验通过（`dE_G16 = -0.0856 kcal/mol`、`trunc=0`、`94.89 s`，[manifest.json](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/v023_final_C00AB91F/open01_caffeine_autojfit/manifest.json)），`rij_precision_probe` 3/3 绿；`STO-3G` `-4.08 kcal/mol` 已入边界文档。
-2. **OPEN-02（咖啡因 AO-Direct Full-LR TD-DFT 实测）**：✅ 冻结二进制 `C00AB91F...` 单哈希验收关闭 Blocker-2（S1–S5 偏差 `-0.000063` 至 `-0.000246 eV`，最大残差 `8.468e-07 Eh`，实测耗时 `5119.86 s` / ~85.3 min，较 G16 `192.2 s` 慢 ~26.6x，[manifest.json](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/v023_final_C00AB91F/open02_caffeine_tddft_lr/manifest.json)）；纯 CPU 提速归口 Phase 3。
-3. **OPEN-03（溶剂化 $\Delta G_{\text{solv}}$ 拆项与梯度势能面统一）**：✅ 冻结二进制 `C00AB91F...` 关键 8 算例 8/8 收敛且与前次偏差 `0.000000 kcal/mol`（[open03_final_summary.json](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/v023_final_C00AB91F/open03_final_summary.json)）；`23/23` G16 对齐、`pcm_and_scrf` 8/8 通过；明示 `Bondi(1.20)` vs `UFF(1.10)`、`UB3LYP` VWN5/VWN3 及 `ethanol/DMSO` SMD CDS 边界。
+### 已完成阶段
+- **Phase 1（`OPEN-01 / 02 / 03`）**：✅ 冻结二进制 `C00AB91F...` 单哈希验收闭环。
+- **Phase 2（`OPEN-06`）**：✅ `v0.2.3` 提交、打 tag、`windows-latest` CI 与 GitHub Release / `npm@0.2.3` 发布完成。
+- **Phase 3（`OPEN-04` + Tier-5 加固 + `v0.3.0`）**：✅ 完成纯 CPU（DirectFock 筛选缓存、增量 ΔP、SAD 初猜、TD-DFT 批量收缩）与 CUDA GPU（F-shell `L<=3` RI-J 3c、杂化 `Direct-K`、TD-DFT 响应收缩、解析梯度）全链路开发、3 轮 Tier-5 对抗加固（`230/0/1`、`clippy=0`）、92 CPU / 74 GPU E2E 复测及独立 `VICTORY CONFIRMED` 终验，并推进 `v0.3.0` GitHub/npm 发布。
 
-### Phase 2：文档纠偏、纯原生架构收口与 `v0.2.3` 封板发布（封板收口）
-1. ✅ 已更新 [README.md](file:///E:/YDW/Trae_Gaussian/README.md) 与 [NATIVE_METHOD_BOUNDARIES.md](file:///E:/YDW/Trae_Gaussian/docs/NATIVE_METHOD_BOUNDARIES.md)，严格按 [AGENTS.md](file:///E:/YDW/Trae_Gaussian/AGENTS.md) 清除夸张措辞并明示真实方法边界。
-2. ✅ 已完成纯 Rust + CUDA 原生架构收口，并将 `npm/` 解耦为纯原生 `calchem_cli` 包装器（`0.2.3`）；全工作区 `cargo test --workspace --no-fail-fast --jobs 4` **160 passed, 0 failed, 1 ignored**。
-3. ✅ 已完成冻结二进制 `C00AB91F...` 三项统一单哈希实跑复验并汇总落盘至 [summary.json](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/v023_final_C00AB91F/summary.json)，准备打 `v0.2.3` tag 并同步发布至 GitHub 与 npm。
-
-### Phase 3：GPU 全链路扩展（把 RTX 5060 Ti 真正打到杂化泛函与梯度）
-1. 先在同一台机器、同样 8 线程下，跑通 **咖啡因 `B3LYP-D3BJ/6-31G(d,p)`：纯 CPU vs 开启 `--gpu`** 的详细分阶段 Profile（精确量化 `1e / RI-J / K / V_xc / grad` 每一项的真实耗时）。
-2. **解析梯度上 GPU**（先做 `V_xc` 梯度与 RI-J 3c 梯度核，再评估 4c-K 梯度核），每步必须先通过数值有限差分精度验证（`< 1e-6 Eh/Bohr`）。
-3. **杂化精确交换 $K$ 提速**（评估 GPU Direct-K / RI-K / COSX），严格以咖啡因精确 4c 能量为基准，精度差控制在 $\le 0.1\text{ kcal/mol}$ 内再计入加速。
-- **Phase 3 出口门禁**：咖啡因 `B3LYP-D3BJ/6-31G(d,p)` 单点与梯度在守住精度门禁的前提下实现数量级提速，且所有 GPU 核均有 CPU 解析参考单测。
-
-### Phase 4：冗余内坐标（DLC）优化器与完整 Opt+Freq 闭环
-1. 在 `calchem-opt` 实现标准 Wilson $B$ 矩阵 + 冗余内坐标（DLC）+ 信赖域步骤，替换笛卡尔 BFGS。
-2. 实跑咖啡因完整 `Opt -> Freq` 闭环，核查优化后能量、梯度与 **0 虚频**，与 Gaussian 16 对比步数和耗时。
-- **Phase 4 出口门禁**：咖啡因完整 Opt 收敛且驻点 Freq 无虚频，落盘可复现。
-
-### Phase 5：四引擎完整对齐与大体系阶梯验证
-1. 拉起 Pueue（并发 2×4 核），补完 Gaussian 16（5D/6D）、ORCA（160/161 诊断）、REST、CalChem 四引擎同条件对照。
-2. 按 `24 原子（咖啡因）-> 72 原子（PTQ10）-> 94 原子 -> 199 原子（BTP-4F）-> 726 原子（p4D18）` 阶梯实测单点/梯度/短优化，如实记录每一档的真实收敛结果、耗时、峰值 RSS/VRAM 与失败边界。
-
----
-
-## 4. 下一步执行起点
-
-按当前进度，**已完成冻结二进制 `C00AB91F...` 单哈希终验与 `v0.2.3` 封板准备**：
-1. ✅ 终版 Release `calchem_cli.exe`（SHA256: `C00AB91FF8DEB26675D4819FCDB868E429BCDF3976B60FEFDF39BA965D1C9D46`）已完成 `OPEN-01` / `OPEN-02` / `OPEN-03` 统一单哈希落盘验收（[summary.json](file:///D:/YDW/Calc/qc_benchmark_runs/pilot/v023_final_C00AB91F/summary.json)）；
-2. ✅ 已完成 `v0.2.3` 封板元数据与文档同步准备，执行打 `v0.2.3` tag、推送 GitHub Release 及发布 `@yangdw2024/calchem@0.2.3`；
-3. 发布收口后进入 Phase 3（`OPEN-04`：CPU 优化与 GPU 杂化 $K$、F-shell RI-J 3c、TD-DFT 及解析梯度）。
+### 后续待办阶段
+- **Phase 4（`OPEN-09 / OPEN-10 / OPEN-05`）**：攻关 `Fine`/`UltraFine` 解析梯度精度与提速、`PBE/auto-jfit` 精度、`C2H3F` LR-TDDFT 根序，以及 `calchem-opt` 冗余内坐标（DLC）+ 咖啡因完整 `Opt -> Freq` 零虚频闭环。
+- **Phase 5（`OPEN-07 / OPEN-08`）**：修复 `ubuntu-latest` `disk_diis` CI、补完四引擎同条件对照、完成 `72 -> 94 -> 199 -> 726` 原子极化基组阶梯实测。

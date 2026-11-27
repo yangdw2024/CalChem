@@ -10,7 +10,7 @@
 `@yangdw2024/calchem` locates and invokes the native `calchem_cli` binary (`calchem_cli.exe` on Windows) with zero Python dependency.
 
 Binary lookup order:
-1. `process.env.CALCHEM_BIN`
+1. `process.env.CALCHEM_BIN` (strict fail-fast: if set to a non-existent or non-runnable path, lookup fails immediately without falling back)
 2. `./bin/calchem_cli[.exe]`, `../build_target/release/calchem_cli[.exe]`, `../target/release/calchem_cli[.exe]`
 3. `calchem_cli[.exe]` on `PATH`
 
@@ -54,11 +54,11 @@ child.on('exit', (code) => {
 
 ## Implemented Native Capabilities & Boundaries
 
-- **SCF**: RHF, UHF, RKS, UKS (`SVWN5`, `BLYP`, `PBE`, `B3LYP`, `B3LYP5`, `PBE0`, `CAM-B3LYP`, `wB97X`, `wB97X-D`), Stored/Direct/RI-J (`auto-jfit` / `def2-jfit-f`).
-- **GPU**: Optional CUDA acceleration covers 3-center RI-J integrals (`L <= 2`, falling back to CPU when polarized auxiliary F-shells are present), RI-J contractions, and DFT XC grid quadrature. Hybrid exact exchange `K` and analytical gradients run on CPU.
-- **Properties & Solvation**: Gas-phase analytic gradients, Cartesian BFGS optimization, numerical harmonic frequencies, AO-Direct TDA/Full-LR TD-DFT, and SCRF single-point solvation (`C-PCM`, `IEF-PCM`, `COSMO`, `SMD`) using `Bondi (alpha=1.20)` defaults for PCM.
+- **SCF**: RHF, UHF, RKS, UKS (`SVWN5`, `BLYP`, `PBE`, `B3LYP`, `B3LYP5`, `PBE0`, `CAM-B3LYP`, `wB97X`, `wB97X-D`), Stored/Direct/RI-J (`auto-jfit` / `def2-jfit-f`), atomic-block SAD initial guess, and incremental ΔP Fock construction.
+- **GPU**: Optional FP64 CUDA acceleration (`--gpu`) covers 3-center RI-J integrals up to Cartesian F-shells (`L <= 3`), RI-J contractions, hybrid exact exchange (`Direct-K`), batched TD-DFT response contractions, analytical nuclear gradients (3c RI-J, 4c ERI, DFT $V_{\text{xc}}$), and DFT XC grid quadrature.
+- **Properties & Solvation**: Gas-phase analytic gradients, Cartesian BFGS optimization, numerical harmonic frequencies, batched AO-Direct TDA/Full-LR TD-DFT, and SCRF single-point solvation (`C-PCM`, `IEF-PCM`, `COSMO`, `SMD`) using `Bondi (alpha=1.20)` defaults for PCM.
 
-See the root [README.md](../README.md) and [docs/NATIVE_METHOD_BOUNDARIES.md](../docs/NATIVE_METHOD_BOUNDARIES.md) for verified benchmark accuracy and method boundaries.
+See the root [README.md](../README.md) and [docs/NATIVE_METHOD_BOUNDARIES.md](../docs/NATIVE_METHOD_BOUNDARIES.md) for verified benchmark accuracy, slow/failing test cases, and method boundaries.
 
 ## Links
 

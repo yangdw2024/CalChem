@@ -1,6 +1,6 @@
 {
   "name": "@yangdw2024/calchem",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Cross-platform Node.js CLI wrapper for the native Rust/CUDA CalChem quantum chemistry engine (calchem_cli).",
   "type": "module",
   "main": "./index.js",
