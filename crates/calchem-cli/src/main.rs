@@ -44,6 +44,8 @@ struct CliArgs {
     max_iter: usize,
     conv_energy: f64,
     conv_density: f64,
+    conv_energy_set: bool,
+    conv_density_set: bool,
     diis_max_vecs: usize,
     solv_model: Option<String>,
     solvent: Option<String>,
@@ -80,7 +82,7 @@ fn print_usage() {
          \t--charge <int>                       Override net molecular charge\n\
          \t--mult <uint>                        Override spin multiplicity\n\
          \t--max-iter <uint>                    SCF iteration limit (default: 100)\n\
-         \t--conv-e <float>                     Energy convergence threshold (default: 1e-10)\n\
+         \t--conv-e <float>                     Energy convergence threshold (default: 1e-8)\n\
          \t--conv-d <float>                     Density convergence threshold (default: 1e-8)\n\
          \t--diis-max-vecs <uint>               DIIS subspace size (default: 6)\n\n\
          Physical Environments & Properties:\n\
@@ -124,13 +126,23 @@ fn parse_args() -> Result<CliArgs, String> {
     let mut jfit_basis = calchem_model::JFitBasis::Auto;
     let mut rij = false;
     let mut direct: Option<bool> = None;
+    let mut direct_flag = false;
+    let mut stored_flag = false;
+    let mut xc_set = false;
+    let mut grid_set = false;
+    let mut td_set = false;
+    let mut freq_set = false;
+    let mut opt_set = false;
     let mut gpu = false;
     let mut charge_override = None;
     let mut mult_override = None;
-    let mut max_iter = 100usize;
-    let mut conv_energy = 1e-10_f64;
-    let mut conv_density = 1e-8_f64;
-    let mut diis_max_vecs = 6usize;
+    let default_scf = ScfOptions::default();
+    let mut max_iter = default_scf.max_iter;
+    let mut conv_energy = default_scf.conv_energy;
+    let mut conv_density = default_scf.conv_density;
+    let mut conv_energy_set = false;
+    let mut conv_density_set = false;
+    let mut diis_max_vecs = default_scf.diis_max_vecs;
     let mut solv_model = None;
     let mut solvent = None;
     let mut dispersion = None;
@@ -179,28 +191,47 @@ fn parse_args() -> Result<CliArgs, String> {
                     _ => return Err(format!("Unsupported method '{v}'")),
                 };
             }
-            "--xc" => xc = next_val(&mut i, "--xc")?,
+            "--xc" => {
+                xc = next_val(&mut i, "--xc")?;
+                xc_set = true;
+            }
             "--basis" => basis = next_val(&mut i, "--basis")?,
-            "--grid" => grid = next_val(&mut i, "--grid")?,
+            "--grid" => {
+                grid = next_val(&mut i, "--grid")?;
+                grid_set = true;
+            }
             "--rij" => rij = true,
             "--aux-basis" => {
                 rij = true;
-                jfit_basis = match next_val(&mut i,arg)?.as_str() {
+                let v = next_val(&mut i, arg)?.to_ascii_lowercase();
+                jfit_basis = match v.as_str() {
                     "auto-jfit" => calchem_model::JFitBasis::Auto,
                     "def2-jfit-f" => calchem_model::JFitBasis::Def2UpToF,
-                    v => return Err(format!("Unknown RI-J auxiliary basis '{v}'")),
+                    _ => return Err(format!("Unknown RI-J auxiliary basis '{v}'")),
                 }
             }
             "--gpu" => gpu = true,
-            "--direct" => direct = Some(true),
-            "--stored" => direct = Some(false),
+            "--direct" => {
+                if stored_flag {
+                    return Err("--direct and --stored cannot be combined".into());
+                }
+                direct_flag = true;
+                direct = Some(true);
+            }
+            "--stored" => {
+                if direct_flag {
+                    return Err("--direct and --stored cannot be combined".into());
+                }
+                stored_flag = true;
+                direct = Some(false);
+            }
             "--charge" => {
                 let v = next_val(&mut i, "--charge")?;
                 charge_override = Some(v.parse::<i32>().map_err(|e| format!("Invalid --charge '{v}': {e}"))?);
             }
             "--mult" => {
                 let v = next_val(&mut i, "--mult")?;
-                mult_override = Some(v.parse::<usize>().map_err(|e| format!("Invalid --mult '{v}': {e}"))?);
+                mult_override = Some(positive_count(&v, "--mult")?);
             }
             "--max-iter" => {
                 let v = next_val(&mut i, "--max-iter")?;
@@ -209,35 +240,75 @@ fn parse_args() -> Result<CliArgs, String> {
             "--conv-e" => {
                 let v = next_val(&mut i, "--conv-e")?;
                 conv_energy = positive_float(&v, "--conv-e")?;
+                conv_energy_set = true;
             }
             "--conv-d" => {
                 let v = next_val(&mut i, "--conv-d")?;
                 conv_density = positive_float(&v, "--conv-d")?;
+                conv_density_set = true;
             }
             "--diis-max-vecs" => {
                 let v = next_val(&mut i, "--diis-max-vecs")?;
-                diis_max_vecs = positive_count(&v, "--diis-max-vecs")?;
+                let cnt = positive_count(&v, "--diis-max-vecs")?;
+                if !(2..=64).contains(&cnt) {
+                    return Err(format!("--diis-max-vecs must be between 2 and 64, got {cnt}"));
+                }
+                diis_max_vecs = cnt;
             }
             "--solv" => solv_model = Some(next_val(&mut i, "--solv")?.to_ascii_lowercase()),
             "--solvent" => solvent = Some(next_val(&mut i, "--solvent")?.to_ascii_lowercase()),
             "--disp" => dispersion = Some(next_val(&mut i, "--disp")?.to_ascii_lowercase()),
-            "--td-mode" => tda = match next_val(&mut i,arg)?.as_str() { "tda" => true, "lr" | "rpa" => false, v => return Err(format!("Invalid TD mode '{v}'")) },
-            "--spin" => spin = SpinManifold::from_name(&next_val(&mut i,arg)?).map_err(|e| e.to_string())?,
-            "--threads" => threads = Some(positive_count(&next_val(&mut i,arg)?,arg)?),
-            "--freq-jobs" => freq_jobs = positive_count(&next_val(&mut i,arg)?,arg)?,
-            "--freq-step" => freq_step = positive_float(&next_val(&mut i,arg)?,arg)?,
-            "--max-force" => optimizer.max_force = positive_float(&next_val(&mut i,arg)?,arg)?,
-            "--rms-force" => optimizer.rms_force = positive_float(&next_val(&mut i,arg)?,arg)?,
-            "--max-displacement" => optimizer.max_displacement = positive_float(&next_val(&mut i,arg)?,arg)?,
-            "--max-step-bohr" => optimizer.max_step_bohr = positive_float(&next_val(&mut i,arg)?,arg)?,
-            "--max-line-searches" => optimizer.max_line_searches = positive_count(&next_val(&mut i,arg)?,arg)?,
-            "--checkpoint" => checkpoint = Some(next_val(&mut i,arg)?),
-            "--resume" => resume = Some(next_val(&mut i,arg)?),
+            "--td-mode" => {
+                td_set = true;
+                let v = next_val(&mut i, arg)?.to_ascii_lowercase();
+                tda = match v.as_str() {
+                    "tda" => true,
+                    "lr" | "rpa" => false,
+                    _ => return Err(format!("Invalid TD mode '{v}'")),
+                };
+            }
+            "--spin" => {
+                td_set = true;
+                spin = SpinManifold::from_name(&next_val(&mut i, arg)?).map_err(|e| e.to_string())?;
+            }
+            "--threads" => threads = Some(positive_count(&next_val(&mut i, arg)?, arg)?),
+            "--freq-jobs" => {
+                freq_set = true;
+                freq_jobs = positive_count(&next_val(&mut i, arg)?, arg)?;
+            }
+            "--freq-step" => {
+                freq_set = true;
+                freq_step = positive_float(&next_val(&mut i, arg)?, arg)?;
+            }
+            "--max-force" => {
+                opt_set = true;
+                optimizer.max_force = positive_float(&next_val(&mut i, arg)?, arg)?;
+            }
+            "--rms-force" => {
+                opt_set = true;
+                optimizer.rms_force = positive_float(&next_val(&mut i, arg)?, arg)?;
+            }
+            "--max-displacement" => {
+                opt_set = true;
+                optimizer.max_displacement = positive_float(&next_val(&mut i, arg)?, arg)?;
+            }
+            "--max-step-bohr" => {
+                opt_set = true;
+                optimizer.max_step_bohr = positive_float(&next_val(&mut i, arg)?, arg)?;
+            }
+            "--max-line-searches" => {
+                opt_set = true;
+                optimizer.max_line_searches = positive_count(&next_val(&mut i, arg)?, arg)?;
+            }
+            "--checkpoint" => checkpoint = Some(next_val(&mut i, arg)?),
+            "--resume" => resume = Some(next_val(&mut i, arg)?),
             "--nstates" => {
+                td_set = true;
                 let v = next_val(&mut i, "--nstates")?;
                 nstates = positive_count(&v, "--nstates")?;
             }
             "--opt-max-cycles" => {
+                opt_set = true;
                 let v = next_val(&mut i, "--opt-max-cycles")?;
                 opt_max_cycles = positive_count(&v, "--opt-max-cycles")?;
             }
@@ -254,6 +325,21 @@ fn parse_args() -> Result<CliArgs, String> {
         i += 1;
     }
 
+    if stored_flag && rij {
+        return Err("--stored cannot be combined with --rij or --aux-basis".into());
+    }
+    if matches!(method, Method::Rhf | Method::Uhf) && (xc_set || grid_set) {
+        return Err("--xc/--grid cannot be used with Hartree-Fock methods (rhf/uhf)".into());
+    }
+    if task != Task::TdDft && td_set {
+        return Err("--td-mode/--spin/--nstates require --task tddft".into());
+    }
+    if task != Task::Freq && freq_set {
+        return Err("--freq-step/--freq-jobs require --task freq".into());
+    }
+    if task != Task::Opt && opt_set {
+        return Err("Optimization flags (--opt-max-cycles, --max-force, ...) require --task opt".into());
+    }
     let input_path = input_path.ok_or_else(|| "Missing input .gjf/.xyz file path".to_string())?;
     Ok(CliArgs {
         input_path,
@@ -270,6 +356,8 @@ fn parse_args() -> Result<CliArgs, String> {
         max_iter,
         conv_energy,
         conv_density,
+        conv_energy_set,
+        conv_density_set,
         diis_max_vecs,
         solv_model,
         solvent,
@@ -358,8 +446,9 @@ fn load_molecule(path_str: &str) -> Result<Molecule, String> {
         }
 
         if !title_seen {
-            if !line.is_empty() {
-                title_seen = true;
+            title_seen = true;
+            if line.is_empty() {
+                post_title_blank = true;
             }
             continue;
         }
@@ -447,6 +536,8 @@ struct JsonReport {
     direct_scf: bool,
     density_fitting: bool,
     gpu_requested: bool,
+    gpu_kernel_invocations: usize,
+    gpu_fallback_invocations: usize,
     scf: ScfSummary,
     task_settings: serde_json::Value,
     energy_hartree: f64,
@@ -692,6 +783,10 @@ fn run() -> Result<(), String> {
     let mut zpe_out = None;
     let mut gibbs_out = None;
     let mut excited_states_out = None;
+    let mut total_gpu_kernels_override: Option<usize> = None;
+    let mut total_gpu_fallbacks_override: Option<usize> = None;
+    let mut extra_gpu_kernels = 0usize;
+    let mut extra_gpu_fallbacks = 0usize;
     let final_energy;
     let e_disp;
     match cli.task {
@@ -749,7 +844,16 @@ fn run() -> Result<(), String> {
             e_disp = d3.as_ref().map(|d| d.energy(&mol.atoms)).transpose().map_err(|e|e.to_string())?;
             final_energy = point.energy() + e_disp.unwrap_or(0.0);
             if cli.task == Task::Gradient {
-                let mut g = point.gradient(&mol,&basis).map_err(|e|e.to_string())?;
+                let g_res = point
+                    .gradient_with_telemetry(&mol, &basis, opts.use_gpu)
+                    .map_err(|e| e.to_string())?;
+                extra_gpu_kernels += g_res.gpu_kernel_invocations;
+                extra_gpu_fallbacks += g_res.gpu_fallback_invocations;
+                settings = serde_json::json!({
+                    "gradient_gpu_kernel_invocations": g_res.gpu_kernel_invocations,
+                    "gradient_gpu_fallback_invocations": g_res.gpu_fallback_invocations
+                });
+                let mut g = g_res.gradient;
                 if let Some(d) = &d3 { d.add_gradient(&mol.atoms,&mut g).map_err(|e|e.to_string())?; }
             let mut max_g: f64 = 0.0;
             let mut sum_g2: f64 = 0.0;
@@ -774,11 +878,30 @@ fn run() -> Result<(), String> {
                 scf_options: opts.clone(),
                 ..Default::default()
             };
-            let GasPoint::Restricted(wfn,_) = &point else { return Err("TD requires restricted orbitals".into()); };
-            let td_res = calchem_tddft::run_tddft_from_scf(&mol, &basis, wfn, is_dft.then_some(xc), &td_opts).map_err(|e| e.to_string())?;
+            let GasPoint::Restricted(wfn, xc_grid) = &point else { return Err("TD requires restricted orbitals".into()); };
+            let td_res = calchem_tddft::run_tddft_from_scf_with_grid(
+                &mol,
+                &basis,
+                wfn,
+                xc_grid.as_ref().map(|(f, g)| (*f, g)),
+                &td_opts,
+            )
+            .map_err(|e| e.to_string())?;
             let required = if cli.spin == SpinManifold::Both { 2 } else { 1 };
             if td_res.states.len() / required != cli.nstates { return Err(format!("Requested {} roots per manifold, obtained {} total roots",cli.nstates,td_res.states.len())); }
-            settings = serde_json::json!({"td_mode": if cli.tda {"tda"} else {"lr"}, "manifold":cli.spin, "roots_per_manifold":cli.nstates,"occupied":td_res.n_occ,"virtual":td_res.n_virt,"singlet_iterations":td_res.davidson_iterations_singlet,"triplet_iterations":td_res.davidson_iterations_triplet});
+            extra_gpu_kernels += td_res.gpu_kernel_invocations;
+            extra_gpu_fallbacks += td_res.gpu_fallback_invocations;
+            settings = serde_json::json!({
+                "td_mode": if cli.tda {"tda"} else {"lr"},
+                "manifold": cli.spin,
+                "roots_per_manifold": cli.nstates,
+                "occupied": td_res.n_occ,
+                "virtual": td_res.n_virt,
+                "singlet_iterations": td_res.davidson_iterations_singlet,
+                "triplet_iterations": td_res.davidson_iterations_triplet,
+                "tddft_gpu_kernel_invocations": td_res.gpu_kernel_invocations,
+                "tddft_gpu_fallback_invocations": td_res.gpu_fallback_invocations
+            });
             let mut states = Vec::new();
             for state in &td_res.states {
                 states.push(ExcitedStateJson {
@@ -792,10 +915,21 @@ fn run() -> Result<(), String> {
             }
         }
         Task::Opt => {
+            let mut opt_scf_opts = opts.clone();
+            if !cli.conv_energy_set {
+                opt_scf_opts.conv_energy = opt_scf_opts
+                    .conv_energy
+                    .min(cli.optimizer.scf_options.conv_energy);
+            }
+            if !cli.conv_density_set {
+                opt_scf_opts.conv_density = opt_scf_opts
+                    .conv_density
+                    .min(cli.optimizer.scf_options.conv_density);
+            }
             let opt_opts = calchem_opt::OptOptions {
                 max_steps: cli.opt_max_cycles,
                 reference, grid_level, dispersion: cli.dispersion.clone(),
-                scf_options: opts.clone(), ..cli.optimizer.clone()
+                scf_options: opt_scf_opts, ..cli.optimizer.clone()
             };
             let mut progress = checkpoint::Progress::new(&cli, &mol, &opt_opts)?;
             let resume = progress.load(cli.resume.as_deref())?;
@@ -814,8 +948,17 @@ fn run() -> Result<(), String> {
             task_converged = opt_res.converged;
             final_geom_hash = checkpoint::geometry_sha256(&opt_res.molecule);
             scf = opt_res.final_scf.ok_or("Missing final SCF diagnostics")?;
+            total_gpu_kernels_override = Some(opt_res.gpu_kernel_invocations);
+            total_gpu_fallbacks_override = Some(opt_res.gpu_fallback_invocations);
             e_disp = d3.as_ref().map(|d| d.energy(&opt_res.molecule.atoms)).transpose().map_err(|e|e.to_string())?;
-            settings = serde_json::json!({"options":opt_opts,"steps":opt_res.steps,"history":opt_res.history,"checkpoint":progress.path().map(|p| p.display().to_string())});
+            settings = serde_json::json!({
+                "options": opt_opts,
+                "steps": opt_res.steps,
+                "history": opt_res.history,
+                "checkpoint": progress.path().map(|p| p.display().to_string()),
+                "opt_gpu_kernel_invocations": opt_res.gpu_kernel_invocations,
+                "opt_gpu_fallback_invocations": opt_res.gpu_fallback_invocations
+            });
             if let Some(last) = opt_res.history.last() { max_g_val = Some(last.max_force); rms_g_val = Some(last.rms_force); }
             grad_out = Some(opt_res.gradient);
             final_energy = opt_res.energy_hartree;
@@ -867,8 +1010,17 @@ fn run() -> Result<(), String> {
             .map_err(|e| e.to_string())?;
             final_energy = f_res.energy_hartree;
             scf = center;
+            total_gpu_kernels_override = Some(f_res.gpu_kernel_invocations);
+            total_gpu_fallbacks_override = Some(f_res.gpu_fallback_invocations);
             e_disp = d3.as_ref().map(|_|correction);
-            settings = serde_json::json!({"step_bohr":cli.freq_step,"displacement_jobs":cli.freq_jobs,"displaced_gradients":6 * mol.atoms.len(),"checkpoint_dir":cli.checkpoint});
+            settings = serde_json::json!({
+                "step_bohr": cli.freq_step,
+                "displacement_jobs": cli.freq_jobs,
+                "displaced_gradients": 6 * mol.atoms.len(),
+                "checkpoint_dir": cli.checkpoint,
+                "freq_gpu_kernel_invocations": f_res.gpu_kernel_invocations,
+                "freq_gpu_fallback_invocations": f_res.gpu_fallback_invocations
+            });
             freqs_out = Some(f_res.vibrational_analysis.modes.iter().map(|m| m.frequency_cm).collect());
             zpe_out = Some(f_res.thermochemistry.zpve_hartree);
             gibbs_out = Some(f_res.thermochemistry.gibbs_free_energy_hartree);
@@ -877,6 +1029,13 @@ fn run() -> Result<(), String> {
     }
     let t_post = t_post0.elapsed();
     let all_converged = scf.converged && task_converged;
+    if !all_converged {
+        return Err("Calculation did not converge".into());
+    }
+    let total_gpu_kernels =
+        total_gpu_kernels_override.unwrap_or(scf.diagnostics.gpu_kernel_invocations + extra_gpu_kernels);
+    let total_gpu_fallbacks =
+        total_gpu_fallbacks_override.unwrap_or(scf.diagnostics.gpu_fallback_invocations + extra_gpu_fallbacks);
 
     let report = JsonReport {
         status: if all_converged { "converged" } else { "not_converged" },
@@ -912,8 +1071,14 @@ fn run() -> Result<(), String> {
         electronic_energy_hartree: scf.electronic_energy_hartree,
         nuclear_repulsion_hartree: scf.nuclear_repulsion_hartree,
         dispersion_energy_hartree: e_disp,
-        grid: is_dft.then_some(grid_level), direct_scf: calchem_scf::should_use_direct(&basis,&opts), density_fitting: opts.density_fitting, gpu_requested: opts.use_gpu,
-        scf, task_settings: settings,
+        grid: is_dft.then_some(grid_level),
+        direct_scf: calchem_scf::should_use_direct(&basis, &opts),
+        density_fitting: opts.density_fitting,
+        gpu_requested: opts.use_gpu,
+        gpu_kernel_invocations: total_gpu_kernels,
+        gpu_fallback_invocations: total_gpu_fallbacks,
+        scf,
+        task_settings: settings,
         gradient_atomic_units: grad_out,
         max_gradient_atomic_units: max_g_val,
         rms_gradient_atomic_units: rms_g_val,
