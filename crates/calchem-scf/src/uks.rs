@@ -2,10 +2,10 @@
 //! (radical cations/anions, doublets, triplets, single-electron atoms) in pure Rust.
 
 use crate::diis::DiisState;
-use crate::fock_builder::UksFockBuilder;
+use crate::fock_builder::{UksFockAccumulator, UksFockBuilder};
 use crate::uhf::uhf_s_squared;
 use calchem_basis::BasisSet;
-use calchem_dft::{evaluate_vxc_uks, GridLevel, MolecularGrid, XcFunctional};
+use calchem_dft::{GridLevel, MolecularGrid, UksVxcEngine, XcFunctional};
 use calchem_int::{compute_ecp, compute_kinetic, compute_nuclear, compute_overlap};
 use calchem_model::{CalcError, Molecule, ScfDiagnostics, ScfOptions, UhfWavefunction};
 use calchem_tensor::{eigh_sym, frobenius_norm, matmul, rms_diff, transpose, Matrix2D};
@@ -15,19 +15,22 @@ fn assemble_uks_fock_and_energy(
     pa: &Matrix2D,
     pb: &Matrix2D,
     builder: &UksFockBuilder,
+    vxc_engine: &UksVxcEngine,
     basis: &BasisSet,
     grid: &MolecularGrid,
     xc: XcFunctional,
+    base_thresh: f64,
 ) -> (Matrix2D, Matrix2D, f64, f64) {
     let n = h_core.rows;
-    let (ga, gb) = builder.build_2e(
+    let (ga, gb) = builder.build_2e_with_thresh(
         basis,
         pa,
         pb,
         xc.exact_exchange_fraction(),
         xc.range_separated_params(),
+        base_thresh,
     );
-    let (e_xc, va, vb) = evaluate_vxc_uks(basis, grid, xc, pa, pb);
+    let (e_xc, va, vb) = vxc_engine.evaluate(basis, grid, xc, pa, pb);
 
     let mut fa = Matrix2D::zeros(n, n);
     let mut fb = Matrix2D::zeros(n, n);
@@ -157,6 +160,7 @@ pub fn uks_with_grid_and_guess(
         xc.range_separated_params(),
         opts.jfit_basis,
     )?;
+    let vxc_engine = UksVxcEngine::new_with_gpu(basis, grid, opts.use_gpu);
     let e_nuc = basis.nuclear_repulsion_energy(mol);
     let e_disp = if xc == XcFunctional::Wb97xd {
         calchem_dft::wb97xd_chg_d2_energy_and_gradient(&mol.atoms)?.0
@@ -195,15 +199,21 @@ pub fn uks_with_grid_and_guess(
         }
         _ => None,
     };
-    let (mut pa, mut pb) = if let Some((pa_proj, pb_proj)) = projected {
-        (pa_proj, pb_proj)
+    let (mut pa, mut pb, used_sad_guess) = if let Some((pa_proj, pb_proj)) = projected {
+        (pa_proj, pb_proj, false)
     } else {
-        let (_, _, pa_h) = diagonalize_spin(&h_core, &x, &xt, n_alpha)?;
-        let (_, _, pb_h) = diagonalize_spin(&h_core, &x, &xt, n_beta)?;
-        (pa_h, pb_h)
+        match crate::guess::sad_guess_uhf(mol, basis, &s, n_alpha, n_beta) {
+            Ok((pa_sad, pb_sad)) => (pa_sad, pb_sad, true),
+            Err(_) => {
+                let (_, _, pa_h) = diagonalize_spin(&h_core, &x, &xt, n_alpha)?;
+                let (_, _, pb_h) = diagonalize_spin(&h_core, &x, &xt, n_beta)?;
+                (pa_h, pb_h, false)
+            }
+        }
     };
 
     let mut diis = DiisState::from_scf_options(opts);
+    let mut diis_pushed = 0usize;
     let mut energy_history = Vec::new();
     let mut rms_history = Vec::new();
     let mut diis_err_history = Vec::new();
@@ -212,48 +222,27 @@ pub fn uks_with_grid_and_guess(
     let mut used_iter = 0;
     let mut last_delta_e = f64::INFINITY;
     let mut last_rms_d = f64::INFINITY;
+    let mut prev_diis_err = f64::INFINITY;
 
-    let mut ga_cur = Matrix2D::zeros(n, n);
-    let mut gb_cur = Matrix2D::zeros(n, n);
-    let mut pa_prev = pa.clone();
-    let mut pb_prev = pb.clone();
+    let mut acc = UksFockAccumulator::new(n, &pa, &pb, opts.conv_density);
 
     for iter in 1..=opts.max_iter {
         used_iter = iter;
 
-        if iter == 1 || iter % 8 == 0 || !use_direct || opts.density_fitting {
-            let (ga, gb) = fock_builder.build_2e(
-                basis,
-                &pa,
-                &pb,
-                xc.exact_exchange_fraction(),
-                xc.range_separated_params(),
-            );
-            ga_cur = ga;
-            gb_cur = gb;
-        } else {
-            let mut dpa = Matrix2D::zeros(n, n);
-            let mut dpb = Matrix2D::zeros(n, n);
-            for idx in 0..n * n {
-                dpa.data[idx] = pa.data[idx] - pa_prev.data[idx];
-                dpb.data[idx] = pb.data[idx] - pb_prev.data[idx];
-            }
-            let (dga, dgb) = fock_builder.build_2e(
-                basis,
-                &dpa,
-                &dpb,
-                xc.exact_exchange_fraction(),
-                xc.range_separated_params(),
-            );
-            for idx in 0..n * n {
-                ga_cur.data[idx] += dga.data[idx];
-                gb_cur.data[idx] += dgb.data[idx];
-            }
-        }
-        pa_prev = pa.clone();
-        pb_prev = pb.clone();
+        let (ga_cur, gb_cur) = acc.update(
+            &fock_builder,
+            basis,
+            &pa,
+            &pb,
+            xc.exact_exchange_fraction(),
+            xc.range_separated_params(),
+            iter,
+            use_direct,
+            last_rms_d,
+            prev_diis_err,
+        );
 
-        let (e_xc, va, vb) = evaluate_vxc_uks(basis, grid, xc, &pa, &pb);
+        let (e_xc, va, vb) = vxc_engine.evaluate(basis, grid, xc, &pa, &pb);
         let mut fa = Matrix2D::zeros(n, n);
         let mut fb = Matrix2D::zeros(n, n);
         let mut e_1e_2e = 0.0;
@@ -271,12 +260,14 @@ pub fn uks_with_grid_and_guess(
         let diis_err = frobenius_norm(&err);
         diis_err_history.push(diis_err);
 
+        let skip_diis_this_step = used_sad_guess && iter == 1;
         let f_stacked = stack(&fa, &fb);
-        let (fa_ex, fb_ex) = if opts.use_diis {
+        let (fa_ex, fb_ex) = if opts.use_diis && !skip_diis_this_step {
+            diis_pushed += 1;
             let ex = diis
                 .try_push_and_extrapolate(&f_stacked, &err)
                 .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
-            if iter >= 2 {
+            if diis_pushed >= 2 {
                 unstack(&ex, n)
             } else {
                 (fa.clone(), fb.clone())
@@ -288,11 +279,22 @@ pub fn uks_with_grid_and_guess(
         let (_, _, mut pa_new) = diagonalize_spin(&fa_ex, &x, &xt, n_alpha)?;
         let (_, _, mut pb_new) = diagonalize_spin(&fb_ex, &x, &xt, n_beta)?;
 
-        if opts.damping > 0.0 && opts.damping < 1.0 {
-            let d = opts.damping;
+        let effective_damping = if opts.damping > 0.0 && opts.damping < 1.0 {
+            opts.damping
+        } else if !skip_diis_this_step && diis_err > 0.15 && diis_err > prev_diis_err * 1.2 {
+            0.3
+        } else {
+            0.0
+        };
+        if !skip_diis_this_step {
+            prev_diis_err = diis_err;
+        }
+        if effective_damping > 0.0 {
             for i in 0..pa_new.data.len() {
-                pa_new.data[i] = (1.0 - d) * pa_new.data[i] + d * pa.data[i];
-                pb_new.data[i] = (1.0 - d) * pb_new.data[i] + d * pb.data[i];
+                pa_new.data[i] =
+                    (1.0 - effective_damping) * pa_new.data[i] + effective_damping * pa.data[i];
+                pb_new.data[i] =
+                    (1.0 - effective_damping) * pb_new.data[i] + effective_damping * pb.data[i];
             }
         }
 
@@ -310,16 +312,22 @@ pub fn uks_with_grid_and_guess(
         e_prev = e_tot;
 
         let grad_tol = (opts.conv_density * 100.0).max(1e-6);
-        let tight_plateau = iter > 8
-            && delta_e < (opts.conv_energy * 0.1).min(1e-12)
-            && rms_d < opts.conv_density.max(1e-8)
-            && diis_err < grad_tol;
-        if iter > 1
+        let e_plateau = (1e-11 * (e_tot.abs() / 100.0).max(1.0)).max(opts.conv_energy * 0.1);
+        let d_plateau = (opts.conv_density * 0.5)
+            .max(1e-10)
+            .min(opts.conv_density.max(1e-8));
+        let tight_plateau =
+            iter > 8 && delta_e < e_plateau && rms_d < d_plateau && diis_err < grad_tol;
+        let criteria_met = iter > 1
             && ((delta_e < opts.conv_energy && rms_d < opts.conv_density && diis_err < grad_tol)
-                || tight_plateau)
-        {
-            converged = true;
-            break;
+                || tight_plateau);
+        if criteria_met {
+            if acc.in_tight_pass() || !use_direct {
+                converged = true;
+                break;
+            } else {
+                acc.request_tight_pass();
+            }
         }
     }
 
@@ -331,68 +339,155 @@ pub fn uks_with_grid_and_guess(
         });
     }
 
-    // Gradient-grade fixed-point tightening
-    let (mut fa, mut fb, mut e_elec_final, _) =
-        assemble_uks_fock_and_energy(&h_core, &pa, &pb, &fock_builder, basis, grid, xc);
-    let mut eps_a = Vec::new();
-    let mut eps_b = Vec::new();
-    let mut ca = Matrix2D::zeros(n, n);
-    let mut cb = Matrix2D::zeros(n, n);
+    // Gradient-grade fixed-point verification: 1 clean full tight rebuild at (pa, pb),
+    // skipping Build #2 when commutator and candidate density step already satisfy tolerances.
+    let tight_base = acc.tight_base();
+    let (mut fa, mut fb, mut e_elec_final, _) = assemble_uks_fock_and_energy(
+        &h_core,
+        &pa,
+        &pb,
+        &fock_builder,
+        &vxc_engine,
+        basis,
+        grid,
+        xc,
+        tight_base,
+    );
     let fp_density_tol = opts.conv_density;
     let fp_comm_tol = (opts.conv_density * 100.0).max(1e-6);
-    let mut fp_diis = DiisState::new(opts.diis_max_vecs.max(6));
 
-    for fp_step in 0..60 {
-        let err = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
-        let f_stacked = stack(&fa, &fb);
-        let (fa_step, fb_step) = if fp_step >= 2 {
-            let ex = fp_diis
-                .try_push_and_extrapolate(&f_stacked, &err)
+    let err_0 = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
+    let comm_norm_0 = frobenius_norm(&err_0);
+    let (ea_cand, ca_cand, pa_cand) = diagonalize_spin(&fa, &x, &xt, n_alpha)?;
+    let (eb_cand, cb_cand, pb_cand) = diagonalize_spin(&fb, &x, &xt, n_beta)?;
+    let diff_cand = rms_diff(&pa_cand, &pa).max(rms_diff(&pb_cand, &pb));
+
+    let mut eps_a = ea_cand;
+    let mut eps_b = eb_cand;
+    let mut ca = ca_cand;
+    let mut cb = cb_cand;
+
+    if !(comm_norm_0 <= fp_comm_tol && diff_cand < fp_density_tol) {
+        let mut fp_diis = opts.use_diis.then(|| DiisState::new(opts.diis_max_vecs.max(6)));
+        if let Some(ref mut d) = fp_diis {
+            let _ = d
+                .try_push_and_extrapolate(&stack(&fa, &fb), &err_0)
                 .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
-            unstack(&ex, n)
-        } else {
-            fp_diis
-                .try_push_and_extrapolate(&f_stacked, &err)
-                .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
-            (fa.clone(), fb.clone())
-        };
+        }
+        pa = pa_cand;
+        pb = pb_cand;
+        let (fa_1, fb_1, e_1, _) = assemble_uks_fock_and_energy(
+            &h_core,
+            &pa,
+            &pb,
+            &fock_builder,
+            &vxc_engine,
+            basis,
+            grid,
+            xc,
+            tight_base,
+        );
+        fa = fa_1;
+        fb = fb_1;
+        e_elec_final = e_1;
 
-        let (ea, ca_new, pa_new) = diagonalize_spin(&fa_step, &x, &xt, n_alpha)?;
-        let (eb, cb_new, pb_new) = diagonalize_spin(&fb_step, &x, &xt, n_beta)?;
-        let diff = rms_diff(&pa_new, &pa).max(rms_diff(&pb_new, &pb));
-        pa = pa_new;
-        pb = pb_new;
-        eps_a = ea;
-        eps_b = eb;
-        ca = ca_new;
-        cb = cb_new;
-        let (fa_reb, fb_reb, e_reb, _) =
-            assemble_uks_fock_and_energy(&h_core, &pa, &pb, &fock_builder, basis, grid, xc);
-        fa = fa_reb;
-        fb = fb_reb;
-        e_elec_final = e_reb;
+        for fp_step in 1..60 {
+            let err = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
+            let comm_norm_cur = frobenius_norm(&err);
+            if comm_norm_cur <= fp_comm_tol && fp_step == 1 {
+                let (ea_c, ca_c, pa_c) = diagonalize_spin(&fa, &x, &xt, n_alpha)?;
+                let (eb_c, cb_c, pb_c) = diagonalize_spin(&fb, &x, &xt, n_beta)?;
+                if rms_diff(&pa_c, &pa).max(rms_diff(&pb_c, &pb)) < fp_density_tol {
+                    eps_a = ea_c;
+                    eps_b = eb_c;
+                    ca = ca_c;
+                    cb = cb_c;
+                    break;
+                }
+            }
+            let (fa_step, fb_step) = if let Some(ref mut d) = fp_diis {
+                let f_stacked = stack(&fa, &fb);
+                let ex = d
+                    .try_push_and_extrapolate(&f_stacked, &err)
+                    .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
+                if fp_step >= 2 {
+                    unstack(&ex, n)
+                } else {
+                    (fa.clone(), fb.clone())
+                }
+            } else {
+                (fa.clone(), fb.clone())
+            };
 
-        let err2 = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
-        let comm_norm = frobenius_norm(&err2);
+            let (ea, ca_new, mut pa_new) = diagonalize_spin(&fa_step, &x, &xt, n_alpha)?;
+            let (eb, cb_new, mut pb_new) = diagonalize_spin(&fb_step, &x, &xt, n_beta)?;
+            if !opts.use_diis {
+                let damp = if opts.damping > 0.0 && opts.damping < 1.0 {
+                    opts.damping
+                } else {
+                    0.2
+                };
+                for idx in 0..pa_new.data.len() {
+                    pa_new.data[idx] = (1.0 - damp) * pa_new.data[idx] + damp * pa.data[idx];
+                    pb_new.data[idx] = (1.0 - damp) * pb_new.data[idx] + damp * pb.data[idx];
+                }
+            }
+            let diff = rms_diff(&pa_new, &pa).max(rms_diff(&pb_new, &pb));
+            pa = pa_new;
+            pb = pb_new;
+            eps_a = ea;
+            eps_b = eb;
+            ca = ca_new;
+            cb = cb_new;
+            let (fa_reb, fb_reb, e_reb, _) = assemble_uks_fock_and_energy(
+                &h_core,
+                &pa,
+                &pb,
+                &fock_builder,
+                &vxc_engine,
+                basis,
+                grid,
+                xc,
+                tight_base,
+            );
+            fa = fa_reb;
+            fb = fb_reb;
+            e_elec_final = e_reb;
 
-        if diff < fp_density_tol && comm_norm < fp_comm_tol {
-            let (ea_ex, ca_ex, pa_ex) = diagonalize_spin(&fa, &x, &xt, n_alpha)?;
-            let (eb_ex, cb_ex, pb_ex) = diagonalize_spin(&fb, &x, &xt, n_beta)?;
-            eps_a = ea_ex;
-            eps_b = eb_ex;
-            ca = ca_ex;
-            cb = cb_ex;
-            pa = pa_ex;
-            pb = pb_ex;
-            let (fa_ex, fb_ex, e_ex, _) =
-                assemble_uks_fock_and_energy(&h_core, &pa, &pb, &fock_builder, basis, grid, xc);
-            fa = fa_ex;
-            fb = fb_ex;
-            e_elec_final = e_ex;
-            let exact_comm =
-                frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
-            if exact_comm.is_finite() && exact_comm <= fp_comm_tol {
-                break;
+            let err2 = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
+            let comm_norm = frobenius_norm(&err2);
+
+            if diff < fp_density_tol && comm_norm < fp_comm_tol {
+                if fp_step < 2 {
+                    break;
+                }
+                let (ea_ex, ca_ex, pa_ex) = diagonalize_spin(&fa, &x, &xt, n_alpha)?;
+                let (eb_ex, cb_ex, pb_ex) = diagonalize_spin(&fb, &x, &xt, n_beta)?;
+                eps_a = ea_ex;
+                eps_b = eb_ex;
+                ca = ca_ex;
+                cb = cb_ex;
+                pa = pa_ex;
+                pb = pb_ex;
+                let (fa_ex, fb_ex, e_ex, _) = assemble_uks_fock_and_energy(
+                    &h_core,
+                    &pa,
+                    &pb,
+                    &fock_builder,
+                    &vxc_engine,
+                    basis,
+                    grid,
+                    xc,
+                    tight_base,
+                );
+                fa = fa_ex;
+                fb = fb_ex;
+                e_elec_final = e_ex;
+                let exact_comm =
+                    frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
+                if exact_comm.is_finite() && exact_comm <= fp_comm_tol {
+                    break;
+                }
             }
         }
     }
@@ -409,15 +504,17 @@ pub fn uks_with_grid_and_guess(
     }
 
     let s2 = uhf_s_squared(&pa, &pb, &s, n_alpha, n_beta);
-    let (gpu_kernel_invocations, gpu_fallback_invocations, rij_metric_truncated_modes) =
-        fock_builder.telemetry();
+    let (f_gpu_k, f_gpu_fb, rij_metric_truncated_modes) = fock_builder.telemetry();
+    let (vxc_gpu_k, vxc_gpu_fb) = vxc_engine.telemetry();
+    let gpu_kernel_invocations = f_gpu_k + vxc_gpu_k;
+    let gpu_fallback_invocations = f_gpu_fb + vxc_gpu_fb;
     let diis_disk_backed = diis.is_disk_backed();
 
     Ok(UhfWavefunction {
         density_fitting: opts.density_fitting,
         converged,
         iterations: used_iter,
-        total_energy_hartree: e_elec_final + e_nuc,
+        total_energy_hartree: e_elec_final + e_nuc + e_disp,
         electronic_energy_hartree: e_elec_final,
         nuclear_repulsion_hartree: e_nuc,
         n_ao: n,

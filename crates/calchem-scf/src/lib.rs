@@ -7,8 +7,8 @@ pub mod uhf;
 pub mod uks;
 
 pub use diis::DiisState;
-pub use fock_builder::{RksFockBuilder, UksFockBuilder};
-pub use guess::InitialGuess;
+pub use fock_builder::{RksFockAccumulator, RksFockBuilder, UksFockAccumulator, UksFockBuilder};
+pub use guess::{sad_guess, sad_guess_uhf, InitialGuess};
 pub use rhf::{rhf, rhf_with_guess};
 pub use rks::{rks, rks_with_grid, rks_with_grid_and_guess};
 pub use uhf::{uhf, uhf_s_squared, uhf_with_guess};
@@ -24,7 +24,9 @@ pub fn should_use_direct(
         None => {
             let budget = std::env::var("CALCHEM_MAX_ERI_BYTES").ok()
                 .and_then(|v| v.parse::<u128>().ok()).unwrap_or(4 << 30);
-            opts.density_fitting || stored_eri_estimate(basis).max((basis.n_ao as u128).pow(4) * 8) > budget
+            opts.density_fitting
+                || (opts.use_gpu && calchem_int::is_cuda_available())
+                || stored_eri_estimate(basis).max((basis.n_ao as u128).pow(4) * 8) > budget
         }
     }
 }

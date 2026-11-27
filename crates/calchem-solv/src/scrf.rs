@@ -1,15 +1,16 @@
 //! Self-Consistent Reaction Field (SCRF) solver and post-SCF PCM solvation engines.
 
 use calchem_basis::BasisSet;
-use calchem_dft::{evaluate_vxc_rks, evaluate_vxc_uks, GridLevel, MolecularGrid, XcFunctional};
+use calchem_dft::{GridLevel, MolecularGrid, RksVxcEngine, UksVxcEngine, XcFunctional};
 use calchem_int::{
     compute_ecp, compute_kinetic, compute_nuclear, compute_overlap, overlap_primitive, GaussianPair,
 };
 use calchem_model::{CalcError, Molecule, ScfDiagnostics, ScfOptions, ScfWavefunction, BOHR_TO_ANGSTROM};
 use calchem_scf::{
-    diis::DiisState, should_use_direct, validate_direct_resources_and_options,
-    validate_open_shell_stored_resources, validate_resources_and_options, RksFockBuilder,
-    UksFockBuilder,
+    diis::DiisState, sad_guess, sad_guess_uhf, should_use_direct,
+    validate_direct_resources_and_options, validate_direct_resources_for_method,
+    validate_open_shell_stored_resources, validate_resources_and_options, RksFockAccumulator,
+    RksFockBuilder, UksFockAccumulator, UksFockBuilder,
 };
 use calchem_tensor::{eigh_sym, frobenius_norm, matmul, rms_diff, transpose, Matrix2D};
 use serde::{Deserialize, Serialize};
@@ -107,6 +108,26 @@ pub(crate) enum ReactionFieldSolver {
 
 impl ReactionFieldSolver {
     pub(crate) fn build(mol: &Molecule, basis: &BasisSet, opts: &SolvationOptions) -> Result<Self, CalcError> {
+        if !opts.solvent.epsilon.is_finite() || opts.solvent.epsilon < 1.0 {
+            return Err(CalcError::InvalidMolecule(format!(
+                "Solvent dielectric epsilon must be finite and >= 1.0, got {}",
+                opts.solvent.epsilon
+            )));
+        }
+        if !opts.cavity_opts.scaling_factor.is_finite() || opts.cavity_opts.scaling_factor <= 0.0 {
+            return Err(CalcError::InvalidMolecule(format!(
+                "Cavity scaling_factor must be finite and > 0.0, got {}",
+                opts.cavity_opts.scaling_factor
+            )));
+        }
+        if !opts.cavity_opts.probe_radius_angstrom.is_finite()
+            || opts.cavity_opts.probe_radius_angstrom < 0.0
+        {
+            return Err(CalcError::InvalidMolecule(format!(
+                "Cavity probe_radius_angstrom must be finite and >= 0.0, got {}",
+                opts.cavity_opts.probe_radius_angstrom
+            )));
+        }
         if opts.model == SolventModel::Onsager {
             // Spherical cavity centered at nuclear center of charge, radius = max(|r_A - origin| + R_vdW) + 0.5 A
             let mut sum_z = 0.0;
@@ -327,6 +348,7 @@ pub fn frozen_density_correction(mol: &Molecule, basis: &BasisSet, total_density
     let n = basis.n_ao;
     if total_density.len() != n * n { return Err(CalcError::InvalidMolecule("Invalid PCM density dimensions".into())); }
     opts.model.validate_native()?;
+
     let rf = ReactionFieldSolver::build(mol, basis, opts)?;
     let density_mat = Matrix2D {
         rows: n,
@@ -368,13 +390,7 @@ pub fn run_scrf_rhf(
         validate_resources_and_options(basis, scf_opts)?;
     }
     let n = basis.n_ao;
-    let n_elec = mol.nelectron()?;
-    if n_elec % 2 != 0 {
-        return Err(CalcError::InvalidMolecule(
-            "Closed-shell RHF SCRF requires an even number of electrons".into(),
-        ));
-    }
-    let n_occ = n_elec / 2;
+    let (n_occ, _) = basis.validate_rhf_valence(mol)?;
 
     // 1. One-electron integrals and Fock builder (Stored / Direct / RI-J)
     let s = compute_overlap(basis);
@@ -413,10 +429,14 @@ pub fn run_scrf_rhf(
     let x = matmul(&matmul(&s_vecs, &s_inv_sqrt), &transpose(&s_vecs));
     let xt = transpose(&x);
 
-    // Initial guess from core Hamiltonian
-    let (_, _, mut p) = diagonalize_fock_rhf(&h_core, &x, &xt, n_occ)?;
+    // Initial guess from atomic-block SAD (fallback to core Hamiltonian)
+    let (mut p, used_sad_guess) = match sad_guess(mol, basis, &s, n_occ) {
+        Ok(p_sad) => (p_sad, true),
+        Err(_) => (diagonalize_fock_rhf(&h_core, &x, &xt, n_occ)?.2, false),
+    };
 
     let mut diis = DiisState::from_scf_options(scf_opts);
+    let mut diis_pushed = 0usize;
     let mut energy_history = Vec::new();
     let mut rms_history = Vec::new();
     let mut diis_err_history = Vec::new();
@@ -426,16 +446,25 @@ pub fn run_scrf_rhf(
     let mut used_iter = 0;
     let mut last_delta_e = f64::INFINITY;
     let mut last_rms_d = f64::INFINITY;
-    let mut q_converged = Vec::new();
-    let mut final_evals = Vec::new();
-    let mut final_coeffs = Matrix2D::zeros(n, n);
-    let mut final_fock = Matrix2D::zeros(n, n);
+    let mut prev_diis_err = f64::INFINITY;
+
+    let mut acc = RksFockAccumulator::new(n, &p, scf_opts.conv_density);
 
     for iter in 1..=scf_opts.max_iter {
         used_iter = iter;
 
-        let (e_solv_elec, v_rf, q) = rf.reaction_field(&p)?;
-        let g_2e = fock_builder.build_2e(basis, &p, 1.0, None);
+        let (e_solv_elec, v_rf, _q) = rf.reaction_field(&p)?;
+        let g_2e = acc.update(
+            &fock_builder,
+            basis,
+            &p,
+            1.0,
+            None,
+            iter,
+            use_direct,
+            last_rms_d,
+            prev_diis_err,
+        );
 
         let mut f_0 = Matrix2D::zeros(n, n);
         let mut f = Matrix2D::zeros(n, n);
@@ -459,11 +488,13 @@ pub fn run_scrf_rhf(
         let diis_err = frobenius_norm(&err);
         diis_err_history.push(diis_err);
 
-        let f_extrap = if scf_opts.use_diis {
+        let skip_diis_this_step = used_sad_guess && iter == 1;
+        let f_extrap = if scf_opts.use_diis && !skip_diis_this_step {
+            diis_pushed += 1;
             let extrap = diis
                 .try_push_and_extrapolate(&f, &err)
                 .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
-            if iter >= 2 {
+            if diis_pushed >= 2 {
                 extrap
             } else {
                 f.clone()
@@ -471,15 +502,18 @@ pub fn run_scrf_rhf(
         } else {
             f.clone()
         };
-        let (evals, c, mut p_new) = diagonalize_fock_rhf(&f_extrap, &x, &xt, n_occ)?;
+        let (_evals, _c, mut p_new) = diagonalize_fock_rhf(&f_extrap, &x, &xt, n_occ)?;
 
         let effective_damping = if scf_opts.damping > 0.0 && scf_opts.damping < 1.0 {
             scf_opts.damping
-        } else if n >= 40 {
+        } else if !skip_diis_this_step && diis_err > 0.15 && diis_err > prev_diis_err * 1.2 {
             0.3
         } else {
             0.0
         };
+        if !skip_diis_this_step {
+            prev_diis_err = diis_err;
+        }
         if effective_damping > 0.0 {
             for idx in 0..p_new.data.len() {
                 p_new.data[idx] =
@@ -487,7 +521,11 @@ pub fn run_scrf_rhf(
             }
         }
 
-        let delta_e = (e_tot - e_prev).abs();
+        let delta_e = if iter == 1 {
+            f64::INFINITY
+        } else {
+            (e_tot - e_prev).abs()
+        };
         let rms_d = rms_diff(&p_new, &p);
         rms_history.push(rms_d);
 
@@ -495,18 +533,133 @@ pub fn run_scrf_rhf(
         last_rms_d = rms_d;
         e_prev = e_tot;
         p = p_new;
-        q_converged = q;
-        final_evals = evals;
-        final_coeffs = c;
-        final_fock = f;
 
-        if iter > 1 && delta_e < scf_opts.conv_energy && rms_d < scf_opts.conv_density {
-            converged = true;
-            break;
+        let grad_tol = (scf_opts.conv_density * 100.0).max(1e-6);
+        let e_plateau = (1e-11 * (e_tot.abs() / 100.0).max(1.0)).max(scf_opts.conv_energy * 0.1);
+        let d_plateau = (scf_opts.conv_density * 0.5)
+            .max(1e-10)
+            .min(scf_opts.conv_density.max(1e-8));
+        let tight_plateau =
+            iter > 8 && delta_e < e_plateau && rms_d < d_plateau && diis_err < grad_tol;
+        let criteria_met = iter > 1
+            && ((delta_e < scf_opts.conv_energy
+                && rms_d < scf_opts.conv_density
+                && diis_err < grad_tol)
+                || tight_plateau);
+        if criteria_met {
+            if acc.in_tight_pass() || !use_direct {
+                converged = true;
+                break;
+            } else {
+                acc.request_tight_pass();
+            }
         }
     }
 
     if !converged {
+        return Err(CalcError::NotConverged {
+            iterations: used_iter,
+            delta_e: last_delta_e,
+            rms_d: last_rms_d,
+        });
+    }
+
+    // 1 clean full tight_base rebuild at the converged density `p`, with commutator/density verification.
+    let fp_density_tol = scf_opts.conv_density;
+    let fp_comm_tol = (scf_opts.conv_density * 100.0).max(1e-6);
+    let build_rhf_scrf_fock = |p_cur: &Matrix2D| -> Result<(Vec<f64>, Matrix2D, f64), CalcError> {
+        let (e_solv_elec, v_rf, q) = rf.reaction_field(p_cur)?;
+        let g_2e = fock_builder.build_2e_with_thresh(basis, p_cur, 1.0, None, acc.tight_base());
+        let mut f_0 = Matrix2D::zeros(n, n);
+        let mut f = Matrix2D::zeros(n, n);
+        for i in 0..n * n {
+            let f0_val = h_core.data[i] + g_2e.data[i];
+            f_0.data[i] = f0_val;
+            f.data[i] = f0_val + v_rf.data[i];
+        }
+        let e_tot = compute_electronic_energy_rhf(p_cur, &h_core, &f_0) + e_nuc + e_solv_elec;
+        Ok((q, f, e_tot))
+    };
+    let comm_mat = |f_cur: &Matrix2D, p_cur: &Matrix2D| -> Matrix2D {
+        let fps = matmul(&matmul(f_cur, p_cur), &s);
+        let spf = matmul(&matmul(&s, p_cur), f_cur);
+        let mut err = Matrix2D::zeros(n, n);
+        for i in 0..n * n {
+            err.data[i] = fps.data[i] - spf.data[i];
+        }
+        err
+    };
+
+    let (mut q_converged, mut final_fock, mut e_final) = build_rhf_scrf_fock(&p)?;
+    let comm_0 = comm_mat(&final_fock, &p);
+    let comm_norm_0 = frobenius_norm(&comm_0);
+    let (mut final_evals, mut final_coeffs, p_cand) = diagonalize_fock_rhf(&final_fock, &x, &xt, n_occ)?;
+    let diff_cand = rms_diff(&p_cand, &p);
+    if !(comm_norm_0 <= fp_comm_tol && diff_cand < fp_density_tol) {
+        let mut fp_diis = scf_opts.use_diis.then(|| DiisState::from_scf_options(scf_opts));
+        if let Some(ref mut d) = fp_diis {
+            let _ = d.try_push_and_extrapolate(&final_fock, &comm_0)
+                .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+        }
+        p = p_cand;
+        let (q1, f1, e1) = build_rhf_scrf_fock(&p)?;
+        q_converged = q1;
+        final_fock = f1;
+        e_final = e1;
+        for fp_step in 1..25 {
+            let comm = comm_mat(&final_fock, &p);
+            let comm_norm = frobenius_norm(&comm);
+            if comm_norm <= fp_comm_tol && fp_step == 1 {
+                let (ec, cc, pc) = diagonalize_fock_rhf(&final_fock, &x, &xt, n_occ)?;
+                if rms_diff(&pc, &p) < fp_density_tol {
+                    final_evals = ec;
+                    final_coeffs = cc;
+                    break;
+                }
+            }
+            let f_step = if let Some(ref mut d) = fp_diis {
+                let ex = d.try_push_and_extrapolate(&final_fock, &comm)
+                    .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+                if fp_step >= 2 { ex } else { final_fock.clone() }
+            } else {
+                final_fock.clone()
+            };
+            let (e_new, c_new, mut p_new) = diagonalize_fock_rhf(&f_step, &x, &xt, n_occ)?;
+            if !scf_opts.use_diis {
+                let damp = if scf_opts.damping > 0.0 && scf_opts.damping < 1.0 { scf_opts.damping } else { 0.2 };
+                for idx in 0..p_new.data.len() {
+                    p_new.data[idx] = (1.0 - damp) * p_new.data[idx] + damp * p.data[idx];
+                }
+            }
+            let diff = rms_diff(&p_new, &p);
+            p = p_new;
+            final_evals = e_new;
+            final_coeffs = c_new;
+            let (qn, fn_mat, en) = build_rhf_scrf_fock(&p)?;
+            q_converged = qn;
+            final_fock = fn_mat;
+            e_final = en;
+            let norm_cur = frobenius_norm(&comm_mat(&final_fock, &p));
+            if diff < fp_density_tol && norm_cur <= fp_comm_tol {
+                let (ee, ce, pe) = diagonalize_fock_rhf(&final_fock, &x, &xt, n_occ)?;
+                if rms_diff(&pe, &p) < fp_density_tol {
+                    final_evals = ee;
+                    final_coeffs = ce;
+                    p = pe;
+                    let (qe, fe, e_ex) = build_rhf_scrf_fock(&p)?;
+                    q_converged = qe;
+                    final_fock = fe;
+                    e_final = e_ex;
+                    if frobenius_norm(&comm_mat(&final_fock, &p)) <= fp_comm_tol {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    e_prev = e_final;
+    let final_comm_norm = frobenius_norm(&comm_mat(&final_fock, &p));
+    if !final_comm_norm.is_finite() || final_comm_norm > fp_comm_tol {
         return Err(CalcError::NotConverged {
             iterations: used_iter,
             delta_e: last_delta_e,
@@ -608,13 +761,7 @@ pub fn run_scrf_rks_with_grid(
     }
     xc.validate_native()?;
     let n = basis.n_ao;
-    let n_elec = mol.nelectron()?;
-    if n_elec % 2 != 0 {
-        return Err(CalcError::InvalidMolecule(
-            "Closed-shell RKS SCRF requires an even number of electrons".into(),
-        ));
-    }
-    let n_occ = n_elec / 2;
+    let (n_occ, _) = basis.validate_rhf_valence(mol)?;
 
     let s = compute_overlap(basis);
     let t = compute_kinetic(basis);
@@ -640,6 +787,7 @@ pub fn run_scrf_rks_with_grid(
         0.0
     };
     let grid = MolecularGrid::build_for_basis(mol, basis, grid_level);
+    let vxc_engine = RksVxcEngine::new_with_gpu(basis, &grid, scf_opts.use_gpu);
 
     let rf = ReactionFieldSolver::build(mol, basis, opts)?;
 
@@ -656,9 +804,13 @@ pub fn run_scrf_rks_with_grid(
     let x = matmul(&matmul(&s_vecs, &s_inv_sqrt), &transpose(&s_vecs));
     let xt = transpose(&x);
 
-    let (_, _, mut p) = diagonalize_fock_rhf(&h_core, &x, &xt, n_occ)?;
+    let (mut p, used_sad_guess) = match sad_guess(mol, basis, &s, n_occ) {
+        Ok(p_sad) => (p_sad, true),
+        Err(_) => (diagonalize_fock_rhf(&h_core, &x, &xt, n_occ)?.2, false),
+    };
 
     let mut diis = DiisState::from_scf_options(scf_opts);
+    let mut diis_pushed = 0usize;
     let mut energy_history = Vec::new();
     let mut rms_history = Vec::new();
     let mut diis_err_history = Vec::new();
@@ -668,22 +820,26 @@ pub fn run_scrf_rks_with_grid(
     let mut used_iter = 0;
     let mut last_delta_e = f64::INFINITY;
     let mut last_rms_d = f64::INFINITY;
-    let mut q_converged = Vec::new();
-    let mut final_evals = Vec::new();
-    let mut final_coeffs = Matrix2D::zeros(n, n);
-    let mut final_fock = Matrix2D::zeros(n, n);
+    let mut prev_diis_err = f64::INFINITY;
+
+    let mut acc = RksFockAccumulator::new(n, &p, scf_opts.conv_density);
 
     for iter in 1..=scf_opts.max_iter {
         used_iter = iter;
 
-        let (e_solv_elec, v_rf, q) = rf.reaction_field(&p)?;
-        let g_2e = fock_builder.build_2e(
+        let (e_solv_elec, v_rf, _q) = rf.reaction_field(&p)?;
+        let g_2e = acc.update(
+            &fock_builder,
             basis,
             &p,
             xc.exact_exchange_fraction(),
             xc.range_separated_params(),
+            iter,
+            use_direct,
+            last_rms_d,
+            prev_diis_err,
         );
-        let (e_xc, v_xc) = evaluate_vxc_rks(basis, &grid, xc, &p);
+        let (e_xc, v_xc) = vxc_engine.evaluate(basis, &grid, xc, &p);
 
         let mut f = Matrix2D::zeros(n, n);
         for i in 0..n * n {
@@ -711,11 +867,13 @@ pub fn run_scrf_rks_with_grid(
         let diis_err = frobenius_norm(&err);
         diis_err_history.push(diis_err);
 
-        let f_extrap = if scf_opts.use_diis {
+        let skip_diis_this_step = used_sad_guess && iter == 1;
+        let f_extrap = if scf_opts.use_diis && !skip_diis_this_step {
+            diis_pushed += 1;
             let extrap = diis
                 .try_push_and_extrapolate(&f, &err)
                 .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
-            if iter >= 2 {
+            if diis_pushed >= 2 {
                 extrap
             } else {
                 f.clone()
@@ -723,15 +881,18 @@ pub fn run_scrf_rks_with_grid(
         } else {
             f.clone()
         };
-        let (evals, c, mut p_new) = diagonalize_fock_rhf(&f_extrap, &x, &xt, n_occ)?;
+        let (_evals, _c, mut p_new) = diagonalize_fock_rhf(&f_extrap, &x, &xt, n_occ)?;
 
         let effective_damping = if scf_opts.damping > 0.0 && scf_opts.damping < 1.0 {
             scf_opts.damping
-        } else if n >= 40 {
+        } else if !skip_diis_this_step && diis_err > 0.15 && diis_err > prev_diis_err * 1.2 {
             0.3
         } else {
             0.0
         };
+        if !skip_diis_this_step {
+            prev_diis_err = diis_err;
+        }
         if effective_damping > 0.0 {
             for idx in 0..p_new.data.len() {
                 p_new.data[idx] =
@@ -739,7 +900,11 @@ pub fn run_scrf_rks_with_grid(
             }
         }
 
-        let delta_e = (e_tot - e_prev).abs();
+        let delta_e = if iter == 1 {
+            f64::INFINITY
+        } else {
+            (e_tot - e_prev).abs()
+        };
         let rms_d = rms_diff(&p_new, &p);
         rms_history.push(rms_d);
 
@@ -747,18 +912,139 @@ pub fn run_scrf_rks_with_grid(
         last_rms_d = rms_d;
         e_prev = e_tot;
         p = p_new;
-        q_converged = q;
-        final_evals = evals;
-        final_coeffs = c;
-        final_fock = f;
 
-        if iter > 1 && delta_e < scf_opts.conv_energy && rms_d < scf_opts.conv_density {
-            converged = true;
-            break;
+        let grad_tol = (scf_opts.conv_density * 100.0).max(1e-6);
+        let e_plateau = (1e-11 * (e_tot.abs() / 100.0).max(1.0)).max(scf_opts.conv_energy * 0.1);
+        let d_plateau = (scf_opts.conv_density * 0.5)
+            .max(1e-10)
+            .min(scf_opts.conv_density.max(1e-8));
+        let tight_plateau =
+            iter > 8 && delta_e < e_plateau && rms_d < d_plateau && diis_err < grad_tol;
+        let criteria_met = iter > 1
+            && ((delta_e < scf_opts.conv_energy
+                && rms_d < scf_opts.conv_density
+                && diis_err < grad_tol)
+                || tight_plateau);
+        if criteria_met {
+            if acc.in_tight_pass() || !use_direct {
+                converged = true;
+                break;
+            } else {
+                acc.request_tight_pass();
+            }
         }
     }
 
     if !converged {
+        return Err(CalcError::NotConverged {
+            iterations: used_iter,
+            delta_e: last_delta_e,
+            rms_d: last_rms_d,
+        });
+    }
+
+    // 1 clean full tight_base rebuild at the converged density `p`, with commutator/density verification.
+    let fp_density_tol = scf_opts.conv_density;
+    let fp_comm_tol = (scf_opts.conv_density * 100.0).max(1e-6);
+    let build_rks_scrf_fock = |p_cur: &Matrix2D| -> Result<(Vec<f64>, Matrix2D, f64), CalcError> {
+        let (e_solv_elec, v_rf, q) = rf.reaction_field(p_cur)?;
+        let g_2e = fock_builder.build_2e_with_thresh(
+            basis,
+            p_cur,
+            xc.exact_exchange_fraction(),
+            xc.range_separated_params(),
+            acc.tight_base(),
+        );
+        let (e_xc, v_xc) = vxc_engine.evaluate(basis, &grid, xc, p_cur);
+        let mut f = Matrix2D::zeros(n, n);
+        let mut e_1e_2e = 0.0;
+        for i in 0..n * n {
+            f.data[i] = h_core.data[i] + g_2e.data[i] + v_xc.data[i] + v_rf.data[i];
+            e_1e_2e += p_cur.data[i] * (h_core.data[i] + 0.5 * g_2e.data[i]);
+        }
+        let e_tot = e_1e_2e + e_xc + e_nuc + e_disp + e_solv_elec;
+        Ok((q, f, e_tot))
+    };
+    let comm_mat = |f_cur: &Matrix2D, p_cur: &Matrix2D| -> Matrix2D {
+        let fps = matmul(&matmul(f_cur, p_cur), &s);
+        let spf = matmul(&matmul(&s, p_cur), f_cur);
+        let mut err = Matrix2D::zeros(n, n);
+        for i in 0..n * n {
+            err.data[i] = fps.data[i] - spf.data[i];
+        }
+        err
+    };
+
+    let (mut q_converged, mut final_fock, mut e_final) = build_rks_scrf_fock(&p)?;
+    let comm_0 = comm_mat(&final_fock, &p);
+    let comm_norm_0 = frobenius_norm(&comm_0);
+    let (mut final_evals, mut final_coeffs, p_cand) = diagonalize_fock_rhf(&final_fock, &x, &xt, n_occ)?;
+    let diff_cand = rms_diff(&p_cand, &p);
+    if !(comm_norm_0 <= fp_comm_tol && diff_cand < fp_density_tol) {
+        let mut fp_diis = scf_opts.use_diis.then(|| DiisState::from_scf_options(scf_opts));
+        if let Some(ref mut d) = fp_diis {
+            let _ = d.try_push_and_extrapolate(&final_fock, &comm_0)
+                .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+        }
+        p = p_cand;
+        let (q1, f1, e1) = build_rks_scrf_fock(&p)?;
+        q_converged = q1;
+        final_fock = f1;
+        e_final = e1;
+        for fp_step in 1..25 {
+            let comm = comm_mat(&final_fock, &p);
+            let comm_norm = frobenius_norm(&comm);
+            if comm_norm <= fp_comm_tol && fp_step == 1 {
+                let (ec, cc, pc) = diagonalize_fock_rhf(&final_fock, &x, &xt, n_occ)?;
+                if rms_diff(&pc, &p) < fp_density_tol {
+                    final_evals = ec;
+                    final_coeffs = cc;
+                    break;
+                }
+            }
+            let f_step = if let Some(ref mut d) = fp_diis {
+                let ex = d.try_push_and_extrapolate(&final_fock, &comm)
+                    .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+                if fp_step >= 2 { ex } else { final_fock.clone() }
+            } else {
+                final_fock.clone()
+            };
+            let (e_new, c_new, mut p_new) = diagonalize_fock_rhf(&f_step, &x, &xt, n_occ)?;
+            if !scf_opts.use_diis {
+                let damp = if scf_opts.damping > 0.0 && scf_opts.damping < 1.0 { scf_opts.damping } else { 0.2 };
+                for idx in 0..p_new.data.len() {
+                    p_new.data[idx] = (1.0 - damp) * p_new.data[idx] + damp * p.data[idx];
+                }
+            }
+            let diff = rms_diff(&p_new, &p);
+            p = p_new;
+            final_evals = e_new;
+            final_coeffs = c_new;
+            let (qn, fn_mat, en) = build_rks_scrf_fock(&p)?;
+            q_converged = qn;
+            final_fock = fn_mat;
+            e_final = en;
+            let norm_cur = frobenius_norm(&comm_mat(&final_fock, &p));
+            if diff < fp_density_tol && norm_cur <= fp_comm_tol {
+                let (ee, ce, pe) = diagonalize_fock_rhf(&final_fock, &x, &xt, n_occ)?;
+                if rms_diff(&pe, &p) < fp_density_tol {
+                    final_evals = ee;
+                    final_coeffs = ce;
+                    p = pe;
+                    let (qe, fe, e_ex) = build_rks_scrf_fock(&p)?;
+                    q_converged = qe;
+                    final_fock = fe;
+                    e_final = e_ex;
+                    if frobenius_norm(&comm_mat(&final_fock, &p)) <= fp_comm_tol {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    e_prev = e_final;
+    let final_comm_norm = frobenius_norm(&comm_mat(&final_fock, &p));
+    if !final_comm_norm.is_finite() || final_comm_norm > fp_comm_tol {
         return Err(CalcError::NotConverged {
             iterations: used_iter,
             delta_e: last_delta_e,
@@ -774,7 +1060,10 @@ pub fn run_scrf_rks_with_grid(
     let gas_energy =
         calchem_scf::rks_with_grid(mol, basis, xc, &grid, scf_opts)?.total_energy_hartree;
     let delta_g_solv_hartree = solvated_energy - gas_energy;
-    let (gpu_k, gpu_fb, rij_trunc) = fock_builder.telemetry();
+    let (f_gpu_k, f_gpu_fb, rij_trunc) = fock_builder.telemetry();
+    let (vxc_gpu_k, vxc_gpu_fb) = vxc_engine.telemetry();
+    let gpu_k = f_gpu_k + vxc_gpu_k;
+    let gpu_fb = f_gpu_fb + vxc_gpu_fb;
 
     let diag = ScfDiagnostics {
         iterations: used_iter,
@@ -859,7 +1148,7 @@ pub fn run_scrf_unrestricted_with_grid(
     }
     let use_direct = should_use_direct(basis, scf_opts);
     if use_direct {
-        validate_direct_resources_and_options(basis, scf_opts)?;
+        validate_direct_resources_for_method(basis, scf_opts, true)?;
     } else {
         validate_open_shell_stored_resources(basis, scf_opts)?;
     }
@@ -871,6 +1160,9 @@ pub fn run_scrf_unrestricted_with_grid(
             "Insufficient AO basis functions ({n}) for ({n_alpha}, {n_beta}) electrons"
         )));
     }
+
+    // Validate and construct reaction field solver BEFORE running gas-phase SCF.
+    let rf = ReactionFieldSolver::build(mol, basis, opts)?;
 
     let grid_opt = xc.map(|_| MolecularGrid::build_for_basis(mol, basis, grid_level));
     let gas_wf = match (xc, &grid_opt) {
@@ -905,7 +1197,10 @@ pub fn run_scrf_unrestricted_with_grid(
         0.0
     };
 
-    let rf = ReactionFieldSolver::build(mol, basis, opts)?;
+    let vxc_engine = match (xc, &grid_opt) {
+        (Some(_), Some(grid)) => Some(UksVxcEngine::new_with_gpu(basis, grid, scf_opts.use_gpu)),
+        _ => None,
+    };
 
     let (s_vals, s_vecs) = eigh_sym(&s, 100, 1e-14)?;
     let mut s_inv_sqrt = Matrix2D::zeros(n, n);
@@ -920,32 +1215,61 @@ pub fn run_scrf_unrestricted_with_grid(
     let x = matmul(&matmul(&s_vecs, &s_inv_sqrt), &transpose(&s_vecs));
     let xt = transpose(&x);
 
-    let (_, _, mut pa) = diagonalize_fock_uhf(&h_core, &x, &xt, n_alpha)?;
-    let (_, _, mut pb) = diagonalize_fock_uhf(&h_core, &x, &xt, n_beta)?;
+    let (mut pa, mut pb, used_sad_guess) = match sad_guess_uhf(mol, basis, &s, n_alpha, n_beta) {
+        Ok((pa_sad, pb_sad)) => (pa_sad, pb_sad, true),
+        Err(_) => {
+            let (_, _, pa_h) = diagonalize_fock_uhf(&h_core, &x, &xt, n_alpha)?;
+            let (_, _, pb_h) = diagonalize_fock_uhf(&h_core, &x, &xt, n_beta)?;
+            (pa_h, pb_h, false)
+        }
+    };
 
-    let mut diis_a = DiisState::from_scf_options(scf_opts);
-    let mut diis_b = DiisState::from_scf_options(scf_opts);
+    let stack_mat = |a: &Matrix2D, b: &Matrix2D| -> Matrix2D {
+        let mut out = Matrix2D::zeros(a.rows + b.rows, a.cols);
+        out.data[..a.data.len()].copy_from_slice(&a.data);
+        out.data[a.data.len()..].copy_from_slice(&b.data);
+        out
+    };
+    let unstack_mat = |m: &Matrix2D| -> (Matrix2D, Matrix2D) {
+        let mut a = Matrix2D::zeros(n, n);
+        let mut b = Matrix2D::zeros(n, n);
+        a.data.copy_from_slice(&m.data[..n * n]);
+        b.data.copy_from_slice(&m.data[n * n..]);
+        (a, b)
+    };
+
+    let mut diis = DiisState::from_scf_options(scf_opts);
+    let mut diis_pushed = 0usize;
     let mut e_prev = 0.0f64;
     let mut converged = false;
     let mut used_iter = 0usize;
     let mut last_delta_e = f64::INFINITY;
     let mut last_rms_d = f64::INFINITY;
-    let mut final_evals = vec![0.0; n];
-    let mut final_coeffs = Matrix2D::zeros(n, n);
-    let mut final_fa = h_core.clone();
-    let mut q_converged = Vec::new();
+    let mut prev_diis_err = f64::INFINITY;
     let mut energy_history = Vec::new();
     let mut rms_history = Vec::new();
     let mut diis_err_history = Vec::new();
 
     let exx_frac = xc.map_or(1.0, |f| f.exact_exchange_fraction());
     let range_sep = xc.and_then(|f| f.range_separated_params());
+    let mut acc = UksFockAccumulator::new(n, &pa, &pb, scf_opts.conv_density);
 
     for iter in 1..=scf_opts.max_iter {
         used_iter = iter;
-        let (ga, gb) = fock_builder.build_2e(basis, &pa, &pb, exx_frac, range_sep);
-        let (e_xc, va_xc, vb_xc) = match (xc, &grid_opt) {
-            (Some(func), Some(grid)) => evaluate_vxc_uks(basis, grid, func, &pa, &pb),
+        let (ga, gb) = acc.update(
+            &fock_builder,
+            basis,
+            &pa,
+            &pb,
+            exx_frac,
+            range_sep,
+            iter,
+            use_direct,
+            last_rms_d,
+            prev_diis_err,
+        );
+        let (e_xc, va_xc, vb_xc) = match (xc, &grid_opt, &vxc_engine) {
+            (Some(func), Some(grid), Some(eng)) => eng.evaluate(basis, grid, func, &pa, &pb),
             _ => (0.0, Matrix2D::zeros(n, n), Matrix2D::zeros(n, n)),
         };
 
@@ -953,8 +1277,7 @@ pub fn run_scrf_unrestricted_with_grid(
         for idx in 0..n * n {
             p_tot.data[idx] = pa.data[idx] + pb.data[idx];
         }
-        let (e_solv_elec, v_rf, q) = rf.reaction_field(&p_tot)?;
-        q_converged = q;
+        let (e_solv_elec, v_rf, _q) = rf.reaction_field(&p_tot)?;
 
         let mut fa = Matrix2D::zeros(n, n);
         let mut fb = Matrix2D::zeros(n, n);
@@ -967,7 +1290,6 @@ pub fn run_scrf_unrestricted_with_grid(
         }
         let e_tot = e_1e_2e + e_xc + e_nuc + e_disp + e_solv_elec;
         energy_history.push(e_tot);
-        final_fa = fa.clone();
 
         let err_a = {
             let fps = matmul(&matmul(&fa, &pa), &s);
@@ -987,46 +1309,38 @@ pub fn run_scrf_unrestricted_with_grid(
             }
             err
         };
-        let diis_err = frobenius_norm(&err_a).max(frobenius_norm(&err_b));
+        let err_stacked = stack_mat(&err_a, &err_b);
+        let diis_err = frobenius_norm(&err_stacked);
         diis_err_history.push(diis_err);
 
-        let fa_extrap = if scf_opts.use_diis {
-            let e = diis_a
-                .try_push_and_extrapolate(&fa, &err_a)
+        let skip_diis_this_step = used_sad_guess && iter == 1;
+        let (fa_extrap, fb_extrap) = if scf_opts.use_diis && !skip_diis_this_step {
+            diis_pushed += 1;
+            let ex = diis
+                .try_push_and_extrapolate(&stack_mat(&fa, &fb), &err_stacked)
                 .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
-            if iter >= 2 {
-                e
+            if diis_pushed >= 2 {
+                unstack_mat(&ex)
             } else {
-                fa.clone()
+                (fa.clone(), fb.clone())
             }
         } else {
-            fa.clone()
-        };
-        let fb_extrap = if scf_opts.use_diis {
-            let e = diis_b
-                .try_push_and_extrapolate(&fb, &err_b)
-                .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
-            if iter >= 2 {
-                e
-            } else {
-                fb.clone()
-            }
-        } else {
-            fb.clone()
+            (fa.clone(), fb.clone())
         };
 
-        let (eps_a, ca_new, mut pa_new) = diagonalize_fock_uhf(&fa_extrap, &x, &xt, n_alpha)?;
+        let (_eps_a, _ca_new, mut pa_new) = diagonalize_fock_uhf(&fa_extrap, &x, &xt, n_alpha)?;
         let (_eps_b, _cb_new, mut pb_new) = diagonalize_fock_uhf(&fb_extrap, &x, &xt, n_beta)?;
-        final_evals = eps_a;
-        final_coeffs = ca_new;
 
         let damping = if scf_opts.damping > 0.0 && scf_opts.damping < 1.0 {
             scf_opts.damping
-        } else if n >= 40 && (iter <= 10 || diis_err > 0.05) {
+        } else if !skip_diis_this_step && diis_err > 0.15 && diis_err > prev_diis_err * 1.2 {
             0.3
         } else {
             0.0
         };
+        if !skip_diis_this_step {
+            prev_diis_err = diis_err;
+        }
         if damping > 0.0 {
             for idx in 0..pa_new.data.len() {
                 pa_new.data[idx] = (1.0 - damping) * pa_new.data[idx] + damping * pa.data[idx];
@@ -1048,13 +1362,162 @@ pub fn run_scrf_unrestricted_with_grid(
         e_prev = e_tot;
 
         let grad_tol = (scf_opts.conv_density * 100.0).max(1e-6);
-        if iter > 1 && delta_e < scf_opts.conv_energy && rms_d < scf_opts.conv_density && diis_err < grad_tol {
-            converged = true;
-            break;
+        let e_plateau = (1e-11 * (e_tot.abs() / 100.0).max(1.0)).max(scf_opts.conv_energy * 0.1);
+        let d_plateau = (scf_opts.conv_density * 0.5)
+            .max(1e-10)
+            .min(scf_opts.conv_density.max(1e-8));
+        let tight_plateau =
+            iter > 8 && delta_e < e_plateau && rms_d < d_plateau && diis_err < grad_tol;
+        let criteria_met = iter > 1
+            && ((delta_e < scf_opts.conv_energy
+                && rms_d < scf_opts.conv_density
+                && diis_err < grad_tol)
+                || tight_plateau);
+        if criteria_met {
+            if acc.in_tight_pass() || !use_direct {
+                converged = true;
+                break;
+            } else {
+                acc.request_tight_pass();
+            }
         }
     }
 
     if !converged {
+        return Err(CalcError::NotConverged {
+            iterations: used_iter,
+            delta_e: last_delta_e,
+            rms_d: last_rms_d,
+        });
+    }
+
+    // 1 clean full tight_base rebuild at converged (pa, pb), with commutator/density verification.
+    let fp_density_tol = scf_opts.conv_density;
+    let fp_comm_tol = (scf_opts.conv_density * 100.0).max(1e-6);
+    let build_uks_scrf_fock = |pa_cur: &Matrix2D, pb_cur: &Matrix2D| -> Result<(Vec<f64>, Matrix2D, Matrix2D, f64), CalcError> {
+        let (ga_full, gb_full) = fock_builder.build_2e_with_thresh(
+            basis,
+            pa_cur,
+            pb_cur,
+            exx_frac,
+            range_sep,
+            acc.tight_base(),
+        );
+        let (e_xc, va_xc, vb_xc) = match (xc, &grid_opt, &vxc_engine) {
+            (Some(func), Some(grid), Some(eng)) => eng.evaluate(basis, grid, func, pa_cur, pb_cur),
+            _ => (0.0, Matrix2D::zeros(n, n), Matrix2D::zeros(n, n)),
+        };
+        let mut p_tot = Matrix2D::zeros(n, n);
+        for idx in 0..n * n {
+            p_tot.data[idx] = pa_cur.data[idx] + pb_cur.data[idx];
+        }
+        let (e_solv_elec, v_rf, q) = rf.reaction_field(&p_tot)?;
+        let mut fa = Matrix2D::zeros(n, n);
+        let mut fb = Matrix2D::zeros(n, n);
+        let mut e_1e_2e = 0.0;
+        for i in 0..n * n {
+            fa.data[i] = h_core.data[i] + ga_full.data[i] + va_xc.data[i] + v_rf.data[i];
+            fb.data[i] = h_core.data[i] + gb_full.data[i] + vb_xc.data[i] + v_rf.data[i];
+            e_1e_2e += pa_cur.data[i] * (h_core.data[i] + 0.5 * ga_full.data[i])
+                + pb_cur.data[i] * (h_core.data[i] + 0.5 * gb_full.data[i]);
+        }
+        let e_tot = e_1e_2e + e_xc + e_nuc + e_disp + e_solv_elec;
+        Ok((q, fa, fb, e_tot))
+    };
+    let comm_spin = |f_cur: &Matrix2D, p_cur: &Matrix2D| -> Matrix2D {
+        let fps = matmul(&matmul(f_cur, p_cur), &s);
+        let spf = matmul(&matmul(&s, p_cur), f_cur);
+        let mut err = Matrix2D::zeros(n, n);
+        for i in 0..n * n {
+            err.data[i] = fps.data[i] - spf.data[i];
+        }
+        err
+    };
+
+    let (mut q_converged, mut final_fa, mut final_fb, mut e_final) = build_uks_scrf_fock(&pa, &pb)?;
+    let err_0 = stack_mat(&comm_spin(&final_fa, &pa), &comm_spin(&final_fb, &pb));
+    let comm_norm_0 = frobenius_norm(&err_0);
+    let (mut final_evals, mut final_coeffs, pa_cand) = diagonalize_fock_uhf(&final_fa, &x, &xt, n_alpha)?;
+    let (_, _, pb_cand) = diagonalize_fock_uhf(&final_fb, &x, &xt, n_beta)?;
+    let diff_cand = rms_diff(&pa_cand, &pa).max(rms_diff(&pb_cand, &pb));
+
+    if !(comm_norm_0 <= fp_comm_tol && diff_cand < fp_density_tol) {
+        let mut fp_diis = scf_opts.use_diis.then(|| DiisState::from_scf_options(scf_opts));
+        if let Some(ref mut d) = fp_diis {
+            let _ = d.try_push_and_extrapolate(&stack_mat(&final_fa, &final_fb), &err_0)
+                .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+        }
+        pa = pa_cand;
+        pb = pb_cand;
+        let (q1, fa1, fb1, e1) = build_uks_scrf_fock(&pa, &pb)?;
+        q_converged = q1;
+        final_fa = fa1;
+        final_fb = fb1;
+        e_final = e1;
+
+        for fp_step in 1..25 {
+            let err_cur = stack_mat(&comm_spin(&final_fa, &pa), &comm_spin(&final_fb, &pb));
+            let comm_norm = frobenius_norm(&err_cur);
+            if comm_norm <= fp_comm_tol && fp_step == 1 {
+                let (ea_c, ca_c, pa_c) = diagonalize_fock_uhf(&final_fa, &x, &xt, n_alpha)?;
+                let (_, _, pb_c) = diagonalize_fock_uhf(&final_fb, &x, &xt, n_beta)?;
+                if rms_diff(&pa_c, &pa).max(rms_diff(&pb_c, &pb)) < fp_density_tol {
+                    final_evals = ea_c;
+                    final_coeffs = ca_c;
+                    break;
+                }
+            }
+            let (fa_step, fb_step) = if let Some(ref mut d) = fp_diis {
+                let ex = d.try_push_and_extrapolate(&stack_mat(&final_fa, &final_fb), &err_cur)
+                    .map_err(|e| CalcError::Internal(format!("SCRF DIIS disk spill I/O error: {e}")))?;
+                if fp_step >= 2 { unstack_mat(&ex) } else { (final_fa.clone(), final_fb.clone()) }
+            } else {
+                (final_fa.clone(), final_fb.clone())
+            };
+            let (ea_n, ca_n, mut pa_n) = diagonalize_fock_uhf(&fa_step, &x, &xt, n_alpha)?;
+            let (_, _, mut pb_n) = diagonalize_fock_uhf(&fb_step, &x, &xt, n_beta)?;
+            if !scf_opts.use_diis {
+                let damp = if scf_opts.damping > 0.0 && scf_opts.damping < 1.0 { scf_opts.damping } else { 0.2 };
+                for idx in 0..pa_n.data.len() {
+                    pa_n.data[idx] = (1.0 - damp) * pa_n.data[idx] + damp * pa.data[idx];
+                    pb_n.data[idx] = (1.0 - damp) * pb_n.data[idx] + damp * pb.data[idx];
+                }
+            }
+            let diff = rms_diff(&pa_n, &pa).max(rms_diff(&pb_n, &pb));
+            pa = pa_n;
+            pb = pb_n;
+            final_evals = ea_n;
+            final_coeffs = ca_n;
+            let (qn, fan, fbn, en) = build_uks_scrf_fock(&pa, &pb)?;
+            q_converged = qn;
+            final_fa = fan;
+            final_fb = fbn;
+            e_final = en;
+            let norm_cur = frobenius_norm(&stack_mat(&comm_spin(&final_fa, &pa), &comm_spin(&final_fb, &pb)));
+            if diff < fp_density_tol && norm_cur <= fp_comm_tol {
+                let (ea_e, ca_e, pa_e) = diagonalize_fock_uhf(&final_fa, &x, &xt, n_alpha)?;
+                let (_, _, pb_e) = diagonalize_fock_uhf(&final_fb, &x, &xt, n_beta)?;
+                if rms_diff(&pa_e, &pa).max(rms_diff(&pb_e, &pb)) < fp_density_tol {
+                    final_evals = ea_e;
+                    final_coeffs = ca_e;
+                    pa = pa_e;
+                    pb = pb_e;
+                    let (qe, fae, fbe, ee) = build_uks_scrf_fock(&pa, &pb)?;
+                    q_converged = qe;
+                    final_fa = fae;
+                    final_fb = fbe;
+                    e_final = ee;
+                    let norm_ex = frobenius_norm(&stack_mat(&comm_spin(&final_fa, &pa), &comm_spin(&final_fb, &pb)));
+                    if norm_ex <= fp_comm_tol {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    e_prev = e_final;
+    let final_comm_norm = frobenius_norm(&stack_mat(&comm_spin(&final_fa, &pa), &comm_spin(&final_fb, &pb)));
+    if !final_comm_norm.is_finite() || final_comm_norm > fp_comm_tol {
         return Err(CalcError::NotConverged {
             iterations: used_iter,
             delta_e: last_delta_e,
@@ -1068,7 +1531,10 @@ pub fn run_scrf_unrestricted_with_grid(
     let solvated_energy = e_prev + cds_hartree;
     let delta_g_solv_hartree = solvated_energy - gas_energy;
 
-    let (gpu_k, gpu_fb, rij_trunc) = fock_builder.telemetry();
+    let (f_gpu_k, f_gpu_fb, rij_trunc) = fock_builder.telemetry();
+    let (vxc_gpu_k, vxc_gpu_fb) = vxc_engine.as_ref().map_or((0, 0), |e| e.telemetry());
+    let gpu_k = f_gpu_k + vxc_gpu_k;
+    let gpu_fb = f_gpu_fb + vxc_gpu_fb;
     let diag = ScfDiagnostics {
         iterations: used_iter,
         energy_history,
@@ -1076,7 +1542,7 @@ pub fn run_scrf_unrestricted_with_grid(
         diis_error_history: diis_err_history,
         gpu_kernel_invocations: gpu_k,
         gpu_fallback_invocations: gpu_fb,
-        diis_disk_backed: diis_a.is_disk_backed() || diis_b.is_disk_backed(),
+        diis_disk_backed: diis.is_disk_backed(),
         rij_metric_truncated_modes: rij_trunc,
         jfit_basis: scf_opts.jfit_basis,
     };

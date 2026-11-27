@@ -217,3 +217,50 @@ fn test_cartesian_d_shell_one_electron_reference() {
         assert!((v_ds.get(i, 0) - expected).abs() < 1e-12);
     }
 }
+
+#[test]
+fn test_cartesian_f_shell_one_electron_symmetry_and_zero_charge() {
+    use calchem_basis::{primitive_norm, BasisSet, Primitive, Shell, ShellType};
+    use calchem_int::{compute_kinetic, compute_nuclear, compute_overlap, shell_nuclear_block_with_charges};
+    use calchem_model::{Atom, Molecule};
+
+    let mol = Molecule::new(
+        vec![
+            Atom::from_bohr("Fe", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("O", [0.0, 0.0, 3.2]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let bs = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+    assert!(bs.shells.iter().any(|s| s.shell_type == ShellType::F));
+
+    let s = compute_overlap(&bs);
+    let t = compute_kinetic(&bs);
+    let v = compute_nuclear(&bs, &mol);
+    for i in 0..bs.n_ao {
+        assert!((s.get(i, i) - 1.0).abs() < 1e-12, "S diagonal != 1 at {i}: {}", s.get(i, i));
+        assert!(t.get(i, i) > 0.0);
+        assert!(v.get(i, i) < 0.0);
+        for j in 0..i {
+            assert!((s.get(i, j) - s.get(j, i)).abs() < 1e-13);
+            assert!((t.get(i, j) - t.get(j, i)).abs() < 1e-13);
+            assert!((v.get(i, j) - v.get(j, i)).abs() < 1e-13);
+        }
+    }
+
+    let f_sh = Shell {
+        atom_index: 0,
+        center: [0.0, 0.0, 0.0],
+        shell_type: ShellType::F,
+        primitives: vec![Primitive {
+            exponent: 1.2,
+            coeff: 1.0,
+            raw_coeff: 1.0,
+            norm: primitive_norm(1.2, [3, 0, 0]),
+        }],
+        ao_offset: 0,
+    };
+    let v_zero = shell_nuclear_block_with_charges(&f_sh, &f_sh, &mol, &[0.0, 0.0]);
+    assert!(v_zero.data.iter().all(|&x| x == 0.0));
+}

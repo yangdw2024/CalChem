@@ -4,7 +4,7 @@
 //! global hybrid functionals (`B3LYP`, `B3LYP5`, `PBE0`) as well as scalar relativistic ECPs.
 
 use crate::diis::DiisState;
-use crate::fock_builder::RksFockBuilder;
+use crate::fock_builder::{RksFockAccumulator, RksFockBuilder};
 use calchem_basis::BasisSet;
 use calchem_dft::{GridLevel, MolecularGrid, RksVxcEngine, XcFunctional};
 use calchem_int::{compute_ecp, compute_kinetic, compute_nuclear, compute_overlap};
@@ -20,13 +20,15 @@ fn assemble_rks_fock_and_energy(
     basis: &BasisSet,
     grid: &MolecularGrid,
     xc: XcFunctional,
+    base_thresh: f64,
 ) -> (Matrix2D, f64, f64) {
     let n = h_core.rows;
-    let g_2e = builder.build_2e(
+    let g_2e = builder.build_2e_with_thresh(
         basis,
         p,
         xc.exact_exchange_fraction(),
         xc.range_separated_params(),
+        base_thresh,
     );
     let (e_xc, v_xc) = vxc_engine.evaluate(basis, grid, xc, p);
 
@@ -248,37 +250,24 @@ pub fn rks_with_grid_and_guess(
     let mut last_rms_d = f64::INFINITY;
     let mut prev_diis_err = f64::INFINITY;
 
-    let mut g_2e = Matrix2D::zeros(n, n);
-    let mut p_prev = p.clone();
+    let mut acc = RksFockAccumulator::new(n, &p, opts.conv_density);
 
     for iter in 1..=opts.max_iter {
         used_iter = iter;
 
         let t_2e0 = Instant::now();
-        if iter == 1 || iter % 8 == 0 || !use_direct {
-            g_2e = fock_builder.build_2e(
-                basis,
-                &p,
-                xc.exact_exchange_fraction(),
-                xc.range_separated_params(),
-            );
-        } else {
-            let mut delta_p = Matrix2D::zeros(n, n);
-            for idx in 0..n * n {
-                delta_p.data[idx] = p.data[idx] - p_prev.data[idx];
-            }
-            let delta_g = fock_builder.build_2e(
-                basis,
-                &delta_p,
-                xc.exact_exchange_fraction(),
-                xc.range_separated_params(),
-            );
-            for idx in 0..n * n {
-                g_2e.data[idx] += delta_g.data[idx];
-            }
-        }
+        let g_2e = acc.update(
+            &fock_builder,
+            basis,
+            &p,
+            xc.exact_exchange_fraction(),
+            xc.range_separated_params(),
+            iter,
+            use_direct,
+            last_rms_d,
+            prev_diis_err,
+        );
         d_2e += t_2e0.elapsed();
-        p_prev = p.clone();
 
         let t_vx0 = Instant::now();
         let (e_xc, v_xc) = vxc_engine.evaluate(basis, grid, xc, &p);
@@ -366,16 +355,22 @@ pub fn rks_with_grid_and_guess(
         e_prev = e_tot;
 
         let grad_tol = (opts.conv_density * 100.0).max(1e-6);
-        let tight_plateau = iter > 8
-            && delta_e < (opts.conv_energy * 0.1).min(1e-12)
-            && rms_d < opts.conv_density.max(1e-8)
-            && diis_err < grad_tol;
-        if iter > 1
+        let e_plateau = (1e-11 * (e_tot.abs() / 100.0).max(1.0)).max(opts.conv_energy * 0.1);
+        let d_plateau = (opts.conv_density * 0.5)
+            .max(1e-10)
+            .min(opts.conv_density.max(1e-8));
+        let tight_plateau =
+            iter > 8 && delta_e < e_plateau && rms_d < d_plateau && diis_err < grad_tol;
+        let criteria_met = iter > 1
             && ((delta_e < opts.conv_energy && rms_d < opts.conv_density && diis_err < grad_tol)
-                || tight_plateau)
-        {
-            converged = true;
-            break;
+                || tight_plateau);
+        if criteria_met {
+            if acc.in_tight_pass() || !use_direct {
+                converged = true;
+                break;
+            } else {
+                acc.request_tight_pass();
+            }
         }
     }
 
@@ -387,84 +382,158 @@ pub fn rks_with_grid_and_guess(
         });
     }
 
-    // Gradient-grade fixed-point tightening (using DIIS-assisted polishing if needed).
+    // Gradient-grade fixed-point verification: 1 clean full tight rebuild at P,
+    // skipping Build #2 when commutator and candidate density step already satisfy tolerances.
     let t_pol0 = Instant::now();
-    let (mut final_f, mut e_elec_final, _) =
-        assemble_rks_fock_and_energy(&h_core, &p, &fock_builder, &vxc_engine, basis, grid, xc);
-    let mut final_eps = Vec::new();
-    let mut final_c = Matrix2D::zeros(n, n);
+    let tight_base = acc.tight_base();
+    let (mut final_f, mut e_elec_final, _) = assemble_rks_fock_and_energy(
+        &h_core,
+        &p,
+        &fock_builder,
+        &vxc_engine,
+        basis,
+        grid,
+        xc,
+        tight_base,
+    );
     let mut final_p = p.clone();
     let fp_density_tol = opts.conv_density;
-    // A fixed quadrature defines a deterministic discretized functional. Integration
-    // error relative to the continuum is not permission to accept an arbitrary SCF residual.
     let fp_comm_tol = (opts.conv_density * 100.0).max(1e-6);
-    let mut fp_diis = DiisState::new(opts.diis_max_vecs.max(6));
-    let max_fp_steps = 50;
 
-    for fp_step in 0..max_fp_steps {
+    let comm_0 = {
         let fps = matmul(&matmul(&final_f, &final_p), &s);
         let spf = matmul(&matmul(&s, &final_p), &final_f);
         let mut comm = Matrix2D::zeros(n, n);
         for i in 0..n * n {
             comm.data[i] = fps.data[i] - spf.data[i];
         }
-        let _comm_norm = frobenius_norm(&comm);
-        let f_step = if fp_step >= 2 {
-            fp_diis
-                .try_push_and_extrapolate(&final_f, &comm)
-                .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?
-        } else {
-            fp_diis
-                .try_push_and_extrapolate(&final_f, &comm)
+        comm
+    };
+    let comm_norm_0 = frobenius_norm(&comm_0);
+    let (eps_cand, c_cand, p_cand) = diagonalize_fock(&final_f, &x, &xt, n_occ)?;
+    let diff_cand = rms_diff(&p_cand, &final_p);
+    let mut final_eps = eps_cand;
+    let mut final_c = c_cand;
+
+    if !(comm_norm_0 <= fp_comm_tol && diff_cand < fp_density_tol) {
+        let mut fp_diis = opts.use_diis.then(|| DiisState::new(opts.diis_max_vecs.max(6)));
+        if let Some(ref mut d) = fp_diis {
+            let _ = d
+                .try_push_and_extrapolate(&final_f, &comm_0)
                 .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
-            final_f.clone()
-        };
-
-        let (eps_new, c_new, p_new) = diagonalize_fock(&f_step, &x, &xt, n_occ)?;
-        let diff = rms_diff(&p_new, &final_p);
-        final_p = p_new;
-        final_eps = eps_new;
-        final_c = c_new;
-        let (f_rebuilt, e_rebuilt, _) =
-            assemble_rks_fock_and_energy(&h_core, &final_p, &fock_builder, &vxc_engine, basis, grid, xc);
-        final_f = f_rebuilt;
-        e_elec_final = e_rebuilt;
-
-        let fps2 = matmul(&matmul(&final_f, &final_p), &s);
-        let spf2 = matmul(&matmul(&s, &final_p), &final_f);
-        let mut comm2 = Matrix2D::zeros(n, n);
-        for i in 0..n * n {
-            comm2.data[i] = fps2.data[i] - spf2.data[i];
         }
-        let comm_norm2 = frobenius_norm(&comm2);
+        final_p = p_cand;
+        let (f_1, e_1, _) = assemble_rks_fock_and_energy(
+            &h_core,
+            &final_p,
+            &fock_builder,
+            &vxc_engine,
+            basis,
+            grid,
+            xc,
+            tight_base,
+        );
+        final_f = f_1;
+        e_elec_final = e_1;
 
-        if diff < fp_density_tol && comm_norm2 < fp_comm_tol {
-            // A physical (non-extrapolated) diagonalization already produced these orbitals.
-            if fp_step < 2 {
-                break;
+        let max_fp_steps = 50;
+        for fp_step in 1..max_fp_steps {
+            let fps = matmul(&matmul(&final_f, &final_p), &s);
+            let spf = matmul(&matmul(&s, &final_p), &final_f);
+            let mut comm = Matrix2D::zeros(n, n);
+            for i in 0..n * n {
+                comm.data[i] = fps.data[i] - spf.data[i];
             }
-            // Do one final pure diagonalization of `final_f = F[final_p]` so (C, eps) match F[P]
-            let (eps_exact, c_exact, p_exact) = diagonalize_fock(&final_f, &x, &xt, n_occ)?;
-            final_eps = eps_exact;
-            final_c = c_exact;
-            final_p = p_exact;
-            let (f_exact, e_exact, _) =
-                assemble_rks_fock_and_energy(&h_core, &final_p, &fock_builder, &vxc_engine, basis, grid, xc);
-            final_f = f_exact;
-            e_elec_final = e_exact;
-            // A pure canonicalization can amplify a small DIIS residual. Verify
-            // the rebuilt physical Fock again instead of accepting that extra step.
-            let fps_exact = matmul(&matmul(&final_f, &final_p), &s);
-            let spf_exact = matmul(&matmul(&s, &final_p), &final_f);
-            let norm_exact = fps_exact
-                .data
-                .iter()
-                .zip(&spf_exact.data)
-                .map(|(a, b)| (a - b).powi(2))
-                .sum::<f64>()
-                .sqrt();
-            if norm_exact.is_finite() && norm_exact <= fp_comm_tol {
-                break;
+            let comm_norm = frobenius_norm(&comm);
+            if comm_norm <= fp_comm_tol && fp_step == 1 {
+                let (eps_c, c_c, p_c) = diagonalize_fock(&final_f, &x, &xt, n_occ)?;
+                if rms_diff(&p_c, &final_p) < fp_density_tol {
+                    final_eps = eps_c;
+                    final_c = c_c;
+                    break;
+                }
+            }
+            let f_step = if let Some(ref mut d) = fp_diis {
+                let ex = d
+                    .try_push_and_extrapolate(&final_f, &comm)
+                    .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
+                if fp_step >= 2 {
+                    ex
+                } else {
+                    final_f.clone()
+                }
+            } else {
+                final_f.clone()
+            };
+
+            let (eps_new, c_new, mut p_new) = diagonalize_fock(&f_step, &x, &xt, n_occ)?;
+            if !opts.use_diis {
+                let damp = if opts.damping > 0.0 && opts.damping < 1.0 {
+                    opts.damping
+                } else {
+                    0.2
+                };
+                for idx in 0..p_new.data.len() {
+                    p_new.data[idx] = (1.0 - damp) * p_new.data[idx] + damp * final_p.data[idx];
+                }
+            }
+            let diff = rms_diff(&p_new, &final_p);
+            final_p = p_new;
+            final_eps = eps_new;
+            final_c = c_new;
+            let (f_rebuilt, e_rebuilt, _) = assemble_rks_fock_and_energy(
+                &h_core,
+                &final_p,
+                &fock_builder,
+                &vxc_engine,
+                basis,
+                grid,
+                xc,
+                tight_base,
+            );
+            final_f = f_rebuilt;
+            e_elec_final = e_rebuilt;
+
+            let fps2 = matmul(&matmul(&final_f, &final_p), &s);
+            let spf2 = matmul(&matmul(&s, &final_p), &final_f);
+            let mut comm2 = Matrix2D::zeros(n, n);
+            for i in 0..n * n {
+                comm2.data[i] = fps2.data[i] - spf2.data[i];
+            }
+            let comm_norm2 = frobenius_norm(&comm2);
+
+            if diff < fp_density_tol && comm_norm2 < fp_comm_tol {
+                if fp_step < 2 {
+                    break;
+                }
+                let (eps_exact, c_exact, p_exact) = diagonalize_fock(&final_f, &x, &xt, n_occ)?;
+                final_eps = eps_exact;
+                final_c = c_exact;
+                final_p = p_exact;
+                let (f_exact, e_exact, _) = assemble_rks_fock_and_energy(
+                    &h_core,
+                    &final_p,
+                    &fock_builder,
+                    &vxc_engine,
+                    basis,
+                    grid,
+                    xc,
+                    tight_base,
+                );
+                final_f = f_exact;
+                e_elec_final = e_exact;
+                let fps_exact = matmul(&matmul(&final_f, &final_p), &s);
+                let spf_exact = matmul(&matmul(&s, &final_p), &final_f);
+                let norm_exact = fps_exact
+                    .data
+                    .iter()
+                    .zip(&spf_exact.data)
+                    .map(|(a, b)| (a - b).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
+                if norm_exact.is_finite() && norm_exact <= fp_comm_tol {
+                    break;
+                }
             }
         }
     }
@@ -502,14 +571,16 @@ pub fn rks_with_grid_and_guess(
         );
     }
 
-    let e_tot_final = e_elec_final + e_nuc;
+    let e_tot_final = e_elec_final + e_nuc + e_disp;
     let mut occ = vec![0.0; n];
     for slot in occ.iter_mut().take(n_occ) {
         *slot = 2.0;
     }
 
-    let (gpu_kernel_invocations, gpu_fallback_invocations, rij_metric_truncated_modes) =
-        fock_builder.telemetry();
+    let (f_gpu_k, f_gpu_fb, rij_metric_truncated_modes) = fock_builder.telemetry();
+    let (vxc_gpu_k, vxc_gpu_fb) = vxc_engine.telemetry();
+    let gpu_kernel_invocations = f_gpu_k + vxc_gpu_k;
+    let gpu_fallback_invocations = f_gpu_fb + vxc_gpu_fb;
     let diis_disk_backed = diis.is_disk_backed();
 
     Ok(ScfWavefunction {

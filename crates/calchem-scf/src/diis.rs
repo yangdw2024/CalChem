@@ -40,11 +40,11 @@ impl DiskDiisStore {
                 return PathBuf::from(trimmed).join("diis_spill");
             }
         }
-        let repo_runtime = PathBuf::from(r"E:\YDW\Trae_Gaussian\build_target\runtime\diis_spill");
-        if PathBuf::from(r"E:\YDW\Trae_Gaussian").exists() {
-            return repo_runtime;
+        let d_drive = PathBuf::from(r"D:\");
+        if d_drive.exists() {
+            return PathBuf::from(r"D:\YDW\Calc\calchem_diis_spill");
         }
-        std::env::temp_dir()
+        std::env::temp_dir().join("calchem_diis_spill")
     }
 
     fn create(max_vecs: usize, rows: usize, cols: usize) -> std::io::Result<Self> {

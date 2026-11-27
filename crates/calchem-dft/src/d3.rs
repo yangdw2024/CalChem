@@ -47,9 +47,15 @@ fn pair_index(a: usize, b: usize) -> usize {
     hi * (hi - 1) / 2 + lo - 1
 }
 pub fn covalent_radius_bohr(z: u8) -> f64 {
+    if z == 0 || (z as usize) > data::COVALENT_ANGSTROM.len() {
+        return 0.0;
+    }
     data::COVALENT_ANGSTROM[z as usize - 1] * 4.0 / (3.0 * A0_ANGSTROM)
 }
 pub fn vdw_radius_bohr(z: u8) -> f64 {
+    if z == 0 || (z as usize) > 103 {
+        return 0.0;
+    }
     data::VDW_PAIR_ANGSTROM[pair_index(z as usize, z as usize)] / (2.0 * A0_ANGSTROM)
 }
 fn r4r2(z: u8) -> f64 {
@@ -139,7 +145,7 @@ impl D3Model {
                 a1: 0.4289,
                 a2: 4.4407,
             },
-            "pbe0" => DampingScheme::BeckeJohnson {
+            "pbe0" | "pbe1pbe" => DampingScheme::BeckeJohnson {
                 s6: 1.0,
                 s8: 1.2177,
                 a1: 0.4145,
@@ -211,7 +217,7 @@ impl D3Model {
                 alpha6: 14.0,
                 alpha8: 16.0,
             },
-            "pbe0" => DampingScheme::Zero {
+            "pbe0" | "pbe1pbe" => DampingScheme::Zero {
                 s6: 1.0,
                 s8: 0.928,
                 sr6: 1.287,

@@ -319,8 +319,8 @@ pub fn eri_primitive(
 /// Stack-allocated primitive pair with contraction * leading radial norm weight.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct EgpPair {
-    pair: GaussianPair,
-    w: f64,
+    pub(crate) pair: GaussianPair,
+    pub(crate) w: f64,
 }
 
 pub(crate) fn collect_egp_pairs(sh_a: &Shell, sh_b: &Shell) -> Vec<EgpPair> {

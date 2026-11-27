@@ -13,6 +13,7 @@ use calchem_tensor::Tensor4D;
 use rayon::prelude::*;
 
 pub use boys::{boys, boys_batch, erf_approx};
+pub use calchem_cuda::is_cuda_available;
 pub use density_fitting::{
     compute_2center_coulomb_metric, eri_2center_primitive, eri_3center_primitive,
     invert_coulomb_metric, shell_2center_block, shell_3center_block, AuxiliaryBasisSet,
@@ -20,7 +21,8 @@ pub use density_fitting::{
 };
 pub use direct_fock::{
     compute_shell_pair_l1_density, compute_shell_pair_max_density, contract_quartet_k,
-    find_significant_shell_pairs, DirectFockEngine, DirectFockStats, ShellPair,
+    find_significant_shell_pairs, DirectFockEngine, DirectFockStats, DirectJkBatchOptions,
+    DirectJkBatchOutput, ShellPair,
 };
 pub use ecp::{
     compute_ecp, ecp_atom_primitive, ecp_local_primitive, ecp_semilocal_primitive,
@@ -483,3 +485,6 @@ pub fn compute_sparse_eri_with_options(
 pub fn compute_sparse_eri(basis: &BasisSet) -> SparseSymmetricEri {
     compute_sparse_eri_with_options(basis, &IntegralOptions::default())
 }
+
+#[cfg(test)]
+pub(crate) static GPU_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

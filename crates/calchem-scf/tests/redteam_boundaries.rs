@@ -117,3 +117,89 @@ fn disk_diis_io_failure_is_propagated_by_scf_solvers() {
         );
     }
 }
+
+#[test]
+fn incremental_fock_drift_reset_and_stage_transition_match_full_build() {
+    use calchem_scf::{RksFockAccumulator, RksFockBuilder, UksFockAccumulator, UksFockBuilder};
+    use calchem_tensor::Matrix2D;
+
+    let mol = Molecule::new(
+        vec![
+            Atom::from_angstrom("O", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_angstrom("H", [0.0, 0.757, 0.586]).unwrap(),
+            Atom::from_angstrom("H", [0.0, -0.757, 0.586]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let bs = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+    let n = bs.n_ao;
+    let r_builder = RksFockBuilder::new_with_options(&mol, &bs, true, false, false, None).unwrap();
+    let u_builder = UksFockBuilder::new_with_options(&mol, &bs, true, false, false, None).unwrap();
+
+    let mut p = Matrix2D::zeros(n, n);
+    for i in 0..n {
+        p.set(i, i, 0.2);
+    }
+    let mut acc = RksFockAccumulator::new(n, &p, 1e-8);
+    assert!(!acc.in_tight_pass());
+    for iter in 1..=10usize {
+        if iter > 1 {
+            p.set(0, 0, p.get(0, 0) + 1e-5);
+        }
+        let tight_base = acc.tight_base();
+        let g = acc.update(&r_builder, &bs, &p, 0.20, None, iter, true, 1e-3, 1e-2);
+        let g_ref = r_builder.build_2e_with_thresh(&bs, &p, 0.20, None, tight_base);
+        let max_err = g.data.iter().zip(&g_ref.data).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+        assert!(max_err < 1e-6, "RKS iter {iter} drift err={max_err:.3e}");
+    }
+    let tight_base = acc.tight_base();
+    let g_tight = acc.update(&r_builder, &bs, &p, 0.20, None, 11, true, 1e-5, 1e-4).clone();
+    assert!(acc.in_tight_pass());
+    let g_ref = r_builder.build_2e_with_thresh(&bs, &p, 0.20, None, tight_base);
+    let tight_err = g_tight.data.iter().zip(&g_ref.data).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+    assert!(tight_err < 1e-12, "Stage-1 tight err={tight_err:.3e}");
+
+    let mut pa = Matrix2D::zeros(n, n);
+    let mut pb = Matrix2D::zeros(n, n);
+    for i in 0..n {
+        pa.set(i, i, 0.12);
+        pb.set(i, i, 0.08);
+    }
+    let mut u_acc = UksFockAccumulator::new(n, &pa, &pb, 1e-8);
+    for iter in 1..=10usize {
+        if iter > 1 {
+            pa.set(0, 0, pa.get(0, 0) + 1e-5);
+        }
+        let u_tight_base = u_acc.tight_base();
+        let (ga, gb) = u_acc.update(&u_builder, &bs, &pa, &pb, 0.20, None, iter, true, 1e-3, 1e-2);
+        let (ga_ref, gb_ref) = u_builder.build_2e_with_thresh(&bs, &pa, &pb, 0.20, None, u_tight_base);
+        let err_a = ga.data.iter().zip(&ga_ref.data).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+        let err_b = gb.data.iter().zip(&gb_ref.data).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+        assert!(err_a < 1e-6 && err_b < 1e-6, "UKS iter {iter} drift err=({err_a:.3e},{err_b:.3e})");
+    }
+}
+
+#[test]
+fn sad_guess_rejects_zero_electrons_and_handles_no_diis_scf() {
+    let h2 = Molecule::new(
+        vec![
+            Atom::from_bohr("H", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("H", [0.0, 0.0, 1.4]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let bs = BasisSet::from_name("sto-3g", &h2).unwrap();
+    let s = calchem_int::compute_overlap(&bs);
+    assert!(calchem_scf::sad_guess(&h2, &bs, &s, 0).is_err());
+    assert!(calchem_scf::sad_guess_uhf(&h2, &bs, &s, 0, 0).is_err());
+
+    let no_diis = ScfOptions {
+        use_diis: false,
+        damping: 0.2,
+        ..Default::default()
+    };
+    let wfn = calchem_scf::rks(&h2, &bs, XcFunctional::Pbe, GridLevel::Coarse, &no_diis).unwrap();
+    assert!(wfn.converged);
+}

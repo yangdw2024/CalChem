@@ -21,5 +21,8 @@ pub use d3::{
 };
 pub use fxc::FxcKernel;
 pub use grid::{GridLevel, GridPoint, MolecularGrid};
-pub use vxc::{evaluate_vxc_rks, evaluate_vxc_uks, xc_nuclear_gradient, RksVxcEngine};
+pub use vxc::{
+    evaluate_vxc_rks, evaluate_vxc_uks, xc_nuclear_gradient, xc_nuclear_gradient_with_gpu,
+    RksVxcEngine, UksVxcEngine,
+};
 pub use xc::{eval_xc_spin, XcFunctional, XcPointOut};

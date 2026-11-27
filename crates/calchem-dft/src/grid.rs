@@ -584,12 +584,35 @@ pub fn becke_weight_nuclear_gradient(
 }
 
 impl MolecularGrid {
-    pub fn build(mol: &Molecule, level: GridLevel) -> Self {
+    fn should_stream(mol: &Molecule, level: GridLevel, radial_min: usize) -> bool {
         let force_stream = std::env::var("CALCHEM_STREAM_GRID")
             .ok()
             .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
-        if force_stream || level == GridLevel::UltraFine || mol.atoms.len() >= 600 {
+        if force_stream || mol.atoms.len() >= 600 {
+            return true;
+        }
+        let est_raw_pts: usize = mol
+            .atoms
+            .iter()
+            .map(|a| radial_shell_count(a.z, level).max(radial_min).saturating_mul(590))
+            .fold(0usize, usize::saturating_add);
+        if level == GridLevel::UltraFine && est_raw_pts > 2_000_000 {
+            return true;
+        }
+        if std::env::var("CALCHEM_MAX_MEMORY_BYTES")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .filter(|&m| m > 0)
+            .is_some_and(|max_mem| est_raw_pts.saturating_mul(160) > max_mem / 2)
+        {
+            return true;
+        }
+        false
+    }
+
+    pub fn build(mol: &Molecule, level: GridLevel) -> Self {
+        if Self::should_stream(mol, level, 0) {
             Self::build_streaming_with_radial_min(mol, level, 0)
         } else {
             Self::build_with_radial_min(mol, level, 0)
@@ -603,11 +626,7 @@ impl MolecularGrid {
         level: GridLevel,
     ) -> Self {
         let radial_min = Self::radial_min_for_basis(basis);
-        let force_stream = std::env::var("CALCHEM_STREAM_GRID")
-            .ok()
-            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-            .unwrap_or(false);
-        if force_stream || level == GridLevel::UltraFine || mol.atoms.len() >= 600 {
+        if Self::should_stream(mol, level, radial_min) {
             Self::build_streaming_with_radial_min(mol, level, radial_min)
         } else {
             Self::build_with_radial_min(mol, level, radial_min)
@@ -665,7 +684,7 @@ impl MolecularGrid {
             return Vec::new();
         };
         let base_min = if matches!(self.level, GridLevel::Fine) {
-            150
+            99
         } else {
             0
         };
@@ -724,7 +743,7 @@ impl MolecularGrid {
         let atom = &mol.atoms[atom_idx];
         let r_bs = bragg_slater_radius_bohr(atom.z);
         let base_min = if matches!(level, GridLevel::Fine) {
-            150
+            99
         } else {
             0
         };
@@ -771,7 +790,7 @@ impl MolecularGrid {
                 |scratch, atom_idx| {
                     let atom = &mol.atoms[atom_idx];
                     let base_min = if matches!(level, GridLevel::Fine) {
-                        150
+                        99
                     } else {
                         0
                     };
@@ -909,5 +928,41 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_ultrafine_streaming_threshold() {
+        // 9-atom C4H4S (thiophene) -> <= 1.062M raw pts -> materialized (non-streaming)
+        let c4h4s = Molecule::new(
+            vec![
+                Atom::from_angstrom("S", [0.0000, 0.0000, 1.1965]).unwrap(),
+                Atom::from_angstrom("C", [0.0000, 1.2400, 0.0150]).unwrap(),
+                Atom::from_angstrom("C", [0.0000, 0.7130, -1.2490]).unwrap(),
+                Atom::from_angstrom("C", [0.0000, -0.7130, -1.2490]).unwrap(),
+                Atom::from_angstrom("C", [0.0000, -1.2400, 0.0150]).unwrap(),
+                Atom::from_angstrom("H", [0.0000, 2.2900, 0.2700]).unwrap(),
+                Atom::from_angstrom("H", [0.0000, 1.3200, -2.1450]).unwrap(),
+                Atom::from_angstrom("H", [0.0000, -1.3200, -2.1450]).unwrap(),
+                Atom::from_angstrom("H", [0.0000, -2.2900, 0.2700]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        let grid_small = MolecularGrid::build(&c4h4s, GridLevel::UltraFine);
+        assert!(
+            !grid_small.is_streaming() && !grid_small.points.is_empty(),
+            "9-atom C4H4S UltraFine should materialize instead of streaming"
+        );
+
+        // 22-atom molecule -> 22 * 200 * 590 = 2.596M raw pts > 2.0M -> stays streaming
+        let atoms_22: Vec<Atom> = (0..22)
+            .map(|i| Atom::from_angstrom("C", [i as f64 * 1.5, 0.0, 0.0]).unwrap())
+            .collect();
+        let mol_22 = Molecule::new(atoms_22, 0, 1);
+        let grid_large = MolecularGrid::build(&mol_22, GridLevel::UltraFine);
+        assert!(
+            grid_large.is_streaming() && grid_large.points.is_empty(),
+            "22-atom UltraFine should stay streaming"
+        );
     }
 }

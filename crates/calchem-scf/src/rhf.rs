@@ -1,5 +1,5 @@
 use crate::diis::DiisState;
-use crate::fock_builder::RksFockBuilder;
+use crate::fock_builder::{RksFockAccumulator, RksFockBuilder};
 use calchem_basis::BasisSet;
 use calchem_int::{compute_ecp, compute_kinetic, compute_nuclear, compute_overlap};
 use calchem_model::{CalcError, Molecule, ScfDiagnostics, ScfOptions, ScfWavefunction};
@@ -120,17 +120,18 @@ pub fn rhf_with_guess(
         }) if *n_ao == n => crate::guess::project_occupied_density(mo_coefficients, n, n_occ, &s, 2.0),
         _ => None,
     };
-    let mut p = if let Some(p_proj) = projected {
-        p_proj
+    let (mut p, used_sad_guess) = if let Some(p_proj) = projected {
+        (p_proj, false)
     } else {
         match crate::guess::sad_guess(mol, basis, &s, n_occ) {
-            Ok(p_sad) => p_sad,
-            Err(_) => diagonalize_fock(&h_core, &x, &xt, n_occ)?.2,
+            Ok(p_sad) => (p_sad, true),
+            Err(_) => (diagonalize_fock(&h_core, &x, &xt, n_occ)?.2, false),
         }
     };
     let mut f;
 
     let mut diis = DiisState::from_scf_options(opts);
+    let mut diis_pushed = 0usize;
     let mut energy_history = Vec::new();
     let mut rms_history = Vec::new();
     let mut diis_err_history = Vec::new();
@@ -142,25 +143,22 @@ pub fn rhf_with_guess(
     let mut last_rms_d = f64::INFINITY;
     let mut prev_diis_err = f64::INFINITY;
 
-    let mut g_2e = Matrix2D::zeros(n, n);
-    let mut p_prev = p.clone();
+    let mut acc = RksFockAccumulator::new(n, &p, opts.conv_density);
 
     for iter in 1..=opts.max_iter {
         used_iter = iter;
 
-        if iter == 1 || iter % 8 == 0 || !use_direct || opts.density_fitting {
-            g_2e = fock_builder.build_2e(basis, &p, 1.0, None);
-        } else {
-            let mut delta_p = Matrix2D::zeros(n, n);
-            for idx in 0..n * n {
-                delta_p.data[idx] = p.data[idx] - p_prev.data[idx];
-            }
-            let delta_g = fock_builder.build_2e(basis, &delta_p, 1.0, None);
-            for idx in 0..n * n {
-                g_2e.data[idx] += delta_g.data[idx];
-            }
-        }
-        p_prev = p.clone();
+        let g_2e = acc.update(
+            &fock_builder,
+            basis,
+            &p,
+            1.0,
+            None,
+            iter,
+            use_direct,
+            last_rms_d,
+            prev_diis_err,
+        );
 
         f = Matrix2D::zeros(n, n);
         for idx in 0..n * n {
@@ -181,14 +179,18 @@ pub fn rhf_with_guess(
         let diis_err = frobenius_norm(&err);
         diis_err_history.push(diis_err);
 
-        let f_extrap = if opts.use_diis && iter >= 2 {
-            diis.try_push_and_extrapolate(&f, &err)
-                .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?
-        } else {
-            if opts.use_diis {
-                diis.try_push_and_extrapolate(&f, &err)
-                    .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
+        let skip_diis_this_step = used_sad_guess && iter == 1;
+        let f_extrap = if opts.use_diis && !skip_diis_this_step {
+            diis_pushed += 1;
+            let extrap = diis
+                .try_push_and_extrapolate(&f, &err)
+                .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
+            if diis_pushed >= 2 {
+                extrap
+            } else {
+                f.clone()
             }
+        } else {
             f.clone()
         };
 
@@ -196,12 +198,14 @@ pub fn rhf_with_guess(
 
         let effective_damping = if opts.damping > 0.0 && opts.damping < 1.0 {
             opts.damping
-        } else if diis_err > 0.1 && diis_err > prev_diis_err * 1.15 {
+        } else if !skip_diis_this_step && diis_err > 0.1 && diis_err > prev_diis_err * 1.15 {
             0.3 // damp only if DIIS oscillates or diverges
         } else {
             0.0 // full DIIS speed
         };
-        prev_diis_err = diis_err;
+        if !skip_diis_this_step {
+            prev_diis_err = diis_err;
+        }
         if effective_damping > 0.0 {
             for idx in 0..p_new.data.len() {
                 p_new.data[idx] =
@@ -223,16 +227,22 @@ pub fn rhf_with_guess(
         e_prev = e_tot;
 
         let grad_tol = (opts.conv_density * 100.0).max(1e-6);
-        let tight_plateau = iter > 8
-            && delta_e < (opts.conv_energy * 0.1).min(1e-12)
-            && rms_d < opts.conv_density.max(1e-8)
-            && diis_err < grad_tol;
-        if iter > 1
+        let e_plateau = (1e-11 * (e_tot.abs() / 100.0).max(1.0)).max(opts.conv_energy * 0.1);
+        let d_plateau = (opts.conv_density * 0.5)
+            .max(1e-10)
+            .min(opts.conv_density.max(1e-8));
+        let tight_plateau =
+            iter > 8 && delta_e < e_plateau && rms_d < d_plateau && diis_err < grad_tol;
+        let criteria_met = iter > 1
             && ((delta_e < opts.conv_energy && rms_d < opts.conv_density && diis_err < grad_tol)
-                || tight_plateau)
-        {
-            converged = true;
-            break;
+                || tight_plateau);
+        if criteria_met {
+            if acc.in_tight_pass() || !use_direct {
+                converged = true;
+                break;
+            } else {
+                acc.request_tight_pass();
+            }
         }
     }
 
@@ -244,53 +254,84 @@ pub fn rhf_with_guess(
         });
     }
 
-    // Tighten the final fixed-point step to ensure gradient-grade stationarity:
-    // canonical (C, epsilon, P, F) with F = F[P], P = 2 C_occ C_occ^T,
-    // and ||FPS - SPF|| below gradient tolerance.
-    let mut final_f = fock_builder.build_fock(&h_core, basis, &p, 1.0);
-    let (eps_init, c_init, p_init) = diagonalize_fock(&final_f, &x, &xt, n_occ)?;
-    let f_init = fock_builder.build_fock(&h_core, basis, &p_init, 1.0);
-    let fps_init = matmul(&matmul(&f_init, &p_init), &s);
-    let spf_init = matmul(&matmul(&s, &p_init), &f_init);
-    let mut comm_init = Matrix2D::zeros(n, n);
-    for idx in 0..n * n {
-        comm_init.data[idx] = fps_init.data[idx] - spf_init.data[idx];
-    }
-    let comm_norm_init = frobenius_norm(&comm_init);
-
+    // Tighten the final fixed-point step to ensure gradient-grade stationarity with 1 clean build.
+    let tight_base = acc.tight_base();
+    let mut final_f = fock_builder.build_fock_with_thresh(&h_core, basis, &p, 1.0, tight_base);
+    let mut final_p = p.clone();
     let fp_density_tol = opts.conv_density;
     let fp_comm_tol = (opts.conv_density * 100.0).max(1e-6);
 
-    let mut final_eps = eps_init;
-    let mut final_c = c_init;
-    let mut final_p = p_init;
-    final_f = f_init;
+    let comm_0 = {
+        let fps = matmul(&matmul(&final_f, &final_p), &s);
+        let spf = matmul(&matmul(&s, &final_p), &final_f);
+        let mut comm = Matrix2D::zeros(n, n);
+        for idx in 0..n * n {
+            comm.data[idx] = fps.data[idx] - spf.data[idx];
+        }
+        comm
+    };
+    let comm_norm_0 = frobenius_norm(&comm_0);
+    let (eps_cand, c_cand, p_cand) = diagonalize_fock(&final_f, &x, &xt, n_occ)?;
+    let diff_cand = rms_diff(&p_cand, &final_p);
 
-    if comm_norm_init > fp_comm_tol {
-        let mut fp_diis = DiisState::new(opts.diis_max_vecs.max(6));
-        for fp_step in 0..20 {
+    let mut final_eps = eps_cand;
+    let mut final_c = c_cand;
+
+    if !(comm_norm_0 <= fp_comm_tol && diff_cand < fp_density_tol) {
+        let mut fp_diis = opts.use_diis.then(|| DiisState::new(opts.diis_max_vecs.max(6)));
+        if let Some(ref mut d) = fp_diis {
+            let _ = d
+                .try_push_and_extrapolate(&final_f, &comm_0)
+                .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
+        }
+        final_p = p_cand;
+        final_f = fock_builder.build_fock_with_thresh(&h_core, basis, &final_p, 1.0, tight_base);
+
+        for fp_step in 1..20 {
             let fps = matmul(&matmul(&final_f, &final_p), &s);
             let spf = matmul(&matmul(&s, &final_p), &final_f);
             let mut comm = Matrix2D::zeros(n, n);
             for idx in 0..n * n {
                 comm.data[idx] = fps.data[idx] - spf.data[idx];
             }
-            let f_step = if fp_step >= 2 {
-                fp_diis
-                    .try_push_and_extrapolate(&final_f, &comm)
-                    .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?
-            } else {
-                fp_diis
+            let comm_norm = frobenius_norm(&comm);
+            if comm_norm <= fp_comm_tol && fp_step == 1 {
+                let (eps_c, c_c, p_c) = diagonalize_fock(&final_f, &x, &xt, n_occ)?;
+                if rms_diff(&p_c, &final_p) < fp_density_tol {
+                    final_eps = eps_c;
+                    final_c = c_c;
+                    break;
+                }
+            }
+            let f_step = if let Some(ref mut d) = fp_diis {
+                let ex = d
                     .try_push_and_extrapolate(&final_f, &comm)
                     .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
+                if fp_step >= 2 {
+                    ex
+                } else {
+                    final_f.clone()
+                }
+            } else {
                 final_f.clone()
             };
-            let (eps_new, c_new, p_new) = diagonalize_fock(&f_step, &x, &xt, n_occ)?;
+            let (eps_new, c_new, mut p_new) = diagonalize_fock(&f_step, &x, &xt, n_occ)?;
+            if !opts.use_diis {
+                let damp = if opts.damping > 0.0 && opts.damping < 1.0 {
+                    opts.damping
+                } else {
+                    0.2
+                };
+                for idx in 0..p_new.data.len() {
+                    p_new.data[idx] = (1.0 - damp) * p_new.data[idx] + damp * final_p.data[idx];
+                }
+            }
             let diff = rms_diff(&p_new, &final_p);
             final_p = p_new;
             final_eps = eps_new;
             final_c = c_new;
-            final_f = fock_builder.build_fock(&h_core, basis, &final_p, 1.0);
+            final_f =
+                fock_builder.build_fock_with_thresh(&h_core, basis, &final_p, 1.0, tight_base);
             let fps2 = matmul(&matmul(&final_f, &final_p), &s);
             let spf2 = matmul(&matmul(&s, &final_p), &final_f);
             let mut comm2 = Matrix2D::zeros(n, n);
@@ -299,11 +340,15 @@ pub fn rhf_with_guess(
             }
             let comm_norm2 = frobenius_norm(&comm2);
             if diff < fp_density_tol && comm_norm2 < fp_comm_tol {
+                if fp_step < 2 {
+                    break;
+                }
                 let (eps_exact, c_exact, p_exact) = diagonalize_fock(&final_f, &x, &xt, n_occ)?;
                 final_eps = eps_exact;
                 final_c = c_exact;
                 final_p = p_exact;
-                final_f = fock_builder.build_fock(&h_core, basis, &final_p, 1.0);
+                final_f = fock_builder
+                    .build_fock_with_thresh(&h_core, basis, &final_p, 1.0, tight_base);
                 let fps_exact = matmul(&matmul(&final_f, &final_p), &s);
                 let spf_exact = matmul(&matmul(&s, &final_p), &final_f);
                 let norm_exact = fps_exact

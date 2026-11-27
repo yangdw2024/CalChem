@@ -37,11 +37,18 @@
       {
         "shell_type": "p",
         "exponents": [
-          2.0281365,
+          2.0281365
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "p",
+        "exponents": [
           0.535873
         ],
         "coefficients": [
-          1.0,
           1.0
         ]
       },
@@ -812,11 +819,18 @@
       {
         "shell_type": "f",
         "exponents": [
-          2.6420115,
+          2.6420115
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
           0.7345613
         ],
         "coefficients": [
-          1.0,
           1.0
         ]
       },
@@ -967,11 +981,18 @@
       {
         "shell_type": "f",
         "exponents": [
-          2.8301877,
+          2.8301877
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
           0.9155962
         ],
         "coefficients": [
-          1.0,
           1.0
         ]
       },
@@ -1492,11 +1513,18 @@
       {
         "shell_type": "f",
         "exponents": [
-          1.080986,
+          1.080986
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
           0.4161474
         ],
         "coefficients": [
-          1.0,
           1.0
         ]
       },
@@ -1667,11 +1695,18 @@
       {
         "shell_type": "f",
         "exponents": [
-          1.2035685,
+          1.2035685
+        ],
+        "coefficients": [
+          1.0
+        ]
+      },
+      {
+        "shell_type": "f",
+        "exponents": [
           0.47
         ],
         "coefficients": [
-          1.0,
           1.0
         ]
       },

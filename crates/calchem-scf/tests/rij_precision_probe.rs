@@ -1,5 +1,5 @@
 use calchem_basis::BasisSet;
-use calchem_dft::{GridLevel, XcFunctional};
+use calchem_dft::{GridLevel, MolecularGrid, XcFunctional};
 use calchem_int::density_fitting::RiJEngine;
 use calchem_model::{Atom, Molecule, ScfOptions};
 use calchem_scf::rks;
@@ -146,7 +146,7 @@ fn sulfur_631gd_auto_jfit_full_rank_and_accurate() {
 }
 
 #[test]
-fn gpu_rij_polarized_aux_f_shell_records_cpu_fallback() {
+fn gpu_rij_polarized_aux_f_shell_executes_on_gpu_and_matches_cpu() {
     let h2o = Molecule::new(
         vec![
             Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
@@ -157,25 +157,65 @@ fn gpu_rij_polarized_aux_f_shell_records_cpu_fallback() {
         1,
     );
     let basis = BasisSet::from_name("6-31g(d)", &h2o).unwrap();
+    let grid = MolecularGrid::build_for_basis(&h2o, &basis, GridLevel::Fine);
     for choice in [
         calchem_model::JFitBasis::Auto,
         calchem_model::JFitBasis::Def2UpToF,
     ] {
-        let engine = RiJEngine::with_basis(&h2o, &basis, true, choice).unwrap();
+        let opts_cpu = ScfOptions {
+            density_fitting: true,
+            jfit_basis: choice,
+            use_gpu: false,
+            ..Default::default()
+        };
+        let opts_gpu = ScfOptions {
+            density_fitting: true,
+            jfit_basis: choice,
+            use_gpu: true,
+            ..Default::default()
+        };
+        let opts_exact = ScfOptions {
+            density_fitting: false,
+            use_gpu: false,
+            ..Default::default()
+        };
+        let cpu = calchem_scf::rks_with_grid(&h2o, &basis, XcFunctional::B3lyp, &grid, &opts_cpu).unwrap();
+        let gpu = calchem_scf::rks_with_grid(&h2o, &basis, XcFunctional::B3lyp, &grid, &opts_gpu).unwrap();
+        let exact = calchem_scf::rks_with_grid(&h2o, &basis, XcFunctional::B3lyp, &grid, &opts_exact).unwrap();
         assert!(
-            engine
+            calchem_int::RiJEngine::with_basis(&h2o, &basis, false, choice)
+                .unwrap()
                 .aux_basis
                 .shells
                 .iter()
-                .any(|s| s.shell_type.angular_momentum() > 2),
-            "Expected polarized 6-31G(d) auxiliary basis ({choice:?}) to contain F-shells (L > 2)"
+                .any(|s| s.shell_type.angular_momentum() == 3),
+            "Expected polarized 6-31G(d) auxiliary basis ({choice:?}) to contain F-shells (L=3)"
         );
-        let fb = engine
-            .gpu_fallback_invocations
-            .load(std::sync::atomic::Ordering::Relaxed);
+        let de_cpu_gpu = (gpu.total_energy_hartree - cpu.total_energy_hartree).abs();
         assert!(
-            fb >= 1,
-            "Expected --rij --gpu with L_aux > 2 to record CPU fallback for 3c build under {choice:?}, got {fb}"
+            de_cpu_gpu < 1e-10,
+            "H2O B3LYP/6-31G(d) RI-J GPU vs CPU ({choice:?}) |dE| = {de_cpu_gpu:.3e} Eh >= 1e-10 Eh"
         );
+        let de_exact = (gpu.total_energy_hartree - exact.total_energy_hartree).abs();
+        let exact_tol = match choice {
+            calchem_model::JFitBasis::Auto => 1.5e-4,
+            calchem_model::JFitBasis::Def2UpToF => 2.0e-4,
+        };
+        assert!(
+            de_exact < exact_tol,
+            "H2O B3LYP/6-31G(d) RI-J GPU vs Exact4c ({choice:?}) |dE| = {de_exact:.3e} Eh >= {exact_tol:.1e} Eh"
+        );
+        if calchem_int::is_cuda_available() {
+            assert!(
+                gpu.diagnostics.gpu_kernel_invocations >= 1,
+                "Expected GPU F-shell RI-J kernel invocations >= 1 under {choice:?}, got {}",
+                gpu.diagnostics.gpu_kernel_invocations
+            );
+            assert_eq!(
+                gpu.diagnostics.gpu_fallback_invocations, 0,
+                "Expected zero GPU fallback under {choice:?}, got {}",
+                gpu.diagnostics.gpu_fallback_invocations
+            );
+        }
     }
 }

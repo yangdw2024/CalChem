@@ -685,3 +685,51 @@ fn test_scrf_closed_shell_respects_use_diis_false() {
         rks_no_diis.solvated_energy
     );
 }
+
+#[test]
+fn test_scrf_rejects_invalid_dielectric_cavity_and_triplet_on_restricted_entry() {
+    let water = Molecule::new(
+        vec![
+            Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_bohr("H", [0.0, 1.4304, -1.1072]).unwrap(),
+            Atom::from_bohr("H", [0.0, -1.4304, -1.1072]).unwrap(),
+        ],
+        0,
+        1,
+    );
+    let bs = BasisSet::from_name("sto-3g", &water).unwrap();
+    let scf_opts = ScfOptions::default();
+
+    for bad_eps in [0.0, -4.0, 0.5, f64::NAN] {
+        let opts = SolvationOptions {
+            solvent: Solvent::custom("bad", bad_eps, 1.3, 0.0, 1.4),
+            ..Default::default()
+        };
+        assert!(
+            run_scrf_rhf(&water, &bs, &scf_opts, &opts).is_err(),
+            "Expected error for invalid epsilon={bad_eps}"
+        );
+    }
+
+    let bad_scale = SolvationOptions {
+        cavity_opts: CavityOptions {
+            scaling_factor: -1.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    assert!(run_scrf_rhf(&water, &bs, &scf_opts, &bad_scale).is_err());
+
+    let o2_triplet = Molecule::new(
+        vec![
+            Atom::from_angstrom("O", [0.0, 0.0, 0.0]).unwrap(),
+            Atom::from_angstrom("O", [0.0, 0.0, 1.21]).unwrap(),
+        ],
+        0,
+        3,
+    );
+    let bs_o2 = BasisSet::from_name("sto-3g", &o2_triplet).unwrap();
+    let solv_opts = SolvationOptions::default();
+    assert!(run_scrf_rhf(&o2_triplet, &bs_o2, &scf_opts, &solv_opts).is_err());
+    assert!(run_scrf_rks(&o2_triplet, &bs_o2, &scf_opts, &solv_opts, XcFunctional::B3lyp).is_err());
+}

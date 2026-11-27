@@ -8,21 +8,22 @@
 //! one set of extrapolation coefficients.
 
 use crate::diis::DiisState;
-use crate::fock_builder::UksFockBuilder;
+use crate::fock_builder::{UksFockAccumulator, UksFockBuilder};
 use calchem_basis::BasisSet;
 use calchem_int::{compute_ecp, compute_kinetic, compute_nuclear, compute_overlap};
 use calchem_model::{CalcError, Molecule, ScfDiagnostics, ScfOptions, UhfWavefunction};
 use calchem_tensor::{eigh_sym, frobenius_norm, matmul, rms_diff, transpose, Matrix2D};
 
-/// Builds `(F^a, F^b)` from per-spin densities.
-fn build_uhf_fock(
+/// Builds `(F^a, F^b)` from per-spin densities with explicit ERI screening threshold.
+fn build_uhf_fock_with_thresh(
     h_core: &Matrix2D,
     pa: &Matrix2D,
     pb: &Matrix2D,
     builder: &UksFockBuilder,
     basis: &BasisSet,
+    base_thresh: f64,
 ) -> (Matrix2D, Matrix2D) {
-    let (ga, gb) = builder.build_2e(basis, pa, pb, 1.0, None);
+    let (ga, gb) = builder.build_2e_with_thresh(basis, pa, pb, 1.0, None, base_thresh);
     let n = h_core.rows;
     let mut fa = Matrix2D::zeros(n, n);
     let mut fb = Matrix2D::zeros(n, n);
@@ -194,15 +195,21 @@ pub fn uhf_with_guess(
         }
         _ => None,
     };
-    let (mut pa, mut pb) = if let Some((pa_proj, pb_proj)) = projected {
-        (pa_proj, pb_proj)
+    let (mut pa, mut pb, used_sad_guess) = if let Some((pa_proj, pb_proj)) = projected {
+        (pa_proj, pb_proj, false)
     } else {
-        let (_, _, pa_h) = diagonalize_spin(&h_core, &x, &xt, n_alpha)?;
-        let (_, _, pb_h) = diagonalize_spin(&h_core, &x, &xt, n_beta)?;
-        (pa_h, pb_h)
+        match crate::guess::sad_guess_uhf(mol, basis, &s, n_alpha, n_beta) {
+            Ok((pa_sad, pb_sad)) => (pa_sad, pb_sad, true),
+            Err(_) => {
+                let (_, _, pa_h) = diagonalize_spin(&h_core, &x, &xt, n_alpha)?;
+                let (_, _, pb_h) = diagonalize_spin(&h_core, &x, &xt, n_beta)?;
+                (pa_h, pb_h, false)
+            }
+        }
     };
 
     let mut diis = DiisState::from_scf_options(opts);
+    let mut diis_pushed = 0usize;
     let mut energy_history = Vec::new();
     let mut rms_history = Vec::new();
     let mut diis_err_history = Vec::new();
@@ -211,34 +218,25 @@ pub fn uhf_with_guess(
     let mut used_iter = 0;
     let mut last_delta_e = f64::INFINITY;
     let mut last_rms_d = f64::INFINITY;
+    let mut prev_diis_err = f64::INFINITY;
 
-    let mut ga_cur = Matrix2D::zeros(n, n);
-    let mut gb_cur = Matrix2D::zeros(n, n);
-    let mut pa_prev = pa.clone();
-    let mut pb_prev = pb.clone();
+    let mut acc = UksFockAccumulator::new(n, &pa, &pb, opts.conv_density);
 
     for iter in 1..=opts.max_iter {
         used_iter = iter;
 
-        if iter == 1 || iter % 8 == 0 || !use_direct || opts.density_fitting {
-            let (ga, gb) = fock_builder.build_2e(basis, &pa, &pb, 1.0, None);
-            ga_cur = ga;
-            gb_cur = gb;
-        } else {
-            let mut dpa = Matrix2D::zeros(n, n);
-            let mut dpb = Matrix2D::zeros(n, n);
-            for idx in 0..n * n {
-                dpa.data[idx] = pa.data[idx] - pa_prev.data[idx];
-                dpb.data[idx] = pb.data[idx] - pb_prev.data[idx];
-            }
-            let (dga, dgb) = fock_builder.build_2e(basis, &dpa, &dpb, 1.0, None);
-            for idx in 0..n * n {
-                ga_cur.data[idx] += dga.data[idx];
-                gb_cur.data[idx] += dgb.data[idx];
-            }
-        }
-        pa_prev = pa.clone();
-        pb_prev = pb.clone();
+        let (ga_cur, gb_cur) = acc.update(
+            &fock_builder,
+            basis,
+            &pa,
+            &pb,
+            1.0,
+            None,
+            iter,
+            use_direct,
+            last_rms_d,
+            prev_diis_err,
+        );
 
         let mut fa = Matrix2D::zeros(n, n);
         let mut fb = Matrix2D::zeros(n, n);
@@ -254,12 +252,14 @@ pub fn uhf_with_guess(
         let diis_err = frobenius_norm(&err);
         diis_err_history.push(diis_err);
 
+        let skip_diis_this_step = used_sad_guess && iter == 1;
         let f_stacked = stack(&fa, &fb);
-        let (fa_ex, fb_ex) = if opts.use_diis {
+        let (fa_ex, fb_ex) = if opts.use_diis && !skip_diis_this_step {
+            diis_pushed += 1;
             let ex = diis
                 .try_push_and_extrapolate(&f_stacked, &err)
                 .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
-            if iter >= 2 {
+            if diis_pushed >= 2 {
                 unstack(&ex, n)
             } else {
                 (fa.clone(), fb.clone())
@@ -271,11 +271,22 @@ pub fn uhf_with_guess(
         let (_, _, mut pa_new) = diagonalize_spin(&fa_ex, &x, &xt, n_alpha)?;
         let (_, _, mut pb_new) = diagonalize_spin(&fb_ex, &x, &xt, n_beta)?;
 
-        if opts.damping > 0.0 && opts.damping < 1.0 {
-            let d = opts.damping;
+        let effective_damping = if opts.damping > 0.0 && opts.damping < 1.0 {
+            opts.damping
+        } else if !skip_diis_this_step && diis_err > 0.15 && diis_err > prev_diis_err * 1.2 {
+            0.3
+        } else {
+            0.0
+        };
+        if !skip_diis_this_step {
+            prev_diis_err = diis_err;
+        }
+        if effective_damping > 0.0 {
             for i in 0..pa_new.data.len() {
-                pa_new.data[i] = (1.0 - d) * pa_new.data[i] + d * pa.data[i];
-                pb_new.data[i] = (1.0 - d) * pb_new.data[i] + d * pb.data[i];
+                pa_new.data[i] =
+                    (1.0 - effective_damping) * pa_new.data[i] + effective_damping * pa.data[i];
+                pb_new.data[i] =
+                    (1.0 - effective_damping) * pb_new.data[i] + effective_damping * pb.data[i];
             }
         }
 
@@ -293,16 +304,22 @@ pub fn uhf_with_guess(
         e_prev = e_tot;
 
         let grad_tol = (opts.conv_density * 100.0).max(1e-6);
-        let tight_plateau = iter > 8
-            && delta_e < (opts.conv_energy * 0.1).min(1e-12)
-            && rms_d < opts.conv_density.max(1e-8)
-            && diis_err < grad_tol;
-        if iter > 1
+        let e_plateau = (1e-11 * (e_tot.abs() / 100.0).max(1.0)).max(opts.conv_energy * 0.1);
+        let d_plateau = (opts.conv_density * 0.5)
+            .max(1e-10)
+            .min(opts.conv_density.max(1e-8));
+        let tight_plateau =
+            iter > 8 && delta_e < e_plateau && rms_d < d_plateau && diis_err < grad_tol;
+        let criteria_met = iter > 1
             && ((delta_e < opts.conv_energy && rms_d < opts.conv_density && diis_err < grad_tol)
-                || tight_plateau)
-        {
-            converged = true;
-            break;
+                || tight_plateau);
+        if criteria_met {
+            if acc.in_tight_pass() || !use_direct {
+                converged = true;
+                break;
+            } else {
+                acc.request_tight_pass();
+            }
         }
     }
 
@@ -314,42 +331,78 @@ pub fn uhf_with_guess(
         });
     }
 
-    // Fixed-point tightening so (C, eps, P, F) are mutually consistent (gradient-grade).
-    let (fa_init_b, fb_init_b) = build_uhf_fock(&h_core, &pa, &pb, &fock_builder, basis);
-    let (ea_0, ca_0, pa_0) = diagonalize_spin(&fa_init_b, &x, &xt, n_alpha)?;
-    let (eb_0, cb_0, pb_0) = diagonalize_spin(&fb_init_b, &x, &xt, n_beta)?;
-    let (fa_0, fb_0) = build_uhf_fock(&h_core, &pa_0, &pb_0, &fock_builder, basis);
-    let comm_0 = frobenius_norm(&stack(
-        &commutator(&fa_0, &pa_0, &s),
-        &commutator(&fb_0, &pb_0, &s),
-    ));
-
-    let mut fa = fa_0;
-    let mut fb = fb_0;
-    let mut pa = pa_0;
-    let mut pb = pb_0;
-    let mut eps_a = ea_0;
-    let mut eps_b = eb_0;
-    let mut ca = ca_0;
-    let mut cb = cb_0;
+    // Fixed-point verification: 1 clean full tight rebuild at (pa, pb), skipping Build #2 when already converged.
+    let tight_base = acc.tight_base();
+    let (mut fa, mut fb) =
+        build_uhf_fock_with_thresh(&h_core, &pa, &pb, &fock_builder, basis, tight_base);
     let fp_density_tol = opts.conv_density;
     let fp_comm_tol = (opts.conv_density * 100.0).max(1e-6);
 
-    if comm_0 > fp_comm_tol {
-        let mut polish_diis = DiisState::new(opts.diis_max_vecs.max(6));
-        for fp_step in 0..60 {
+    let err_0 = stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s));
+    let comm_0 = frobenius_norm(&err_0);
+    let (ea_cand, ca_cand, pa_cand) = diagonalize_spin(&fa, &x, &xt, n_alpha)?;
+    let (eb_cand, cb_cand, pb_cand) = diagonalize_spin(&fb, &x, &xt, n_beta)?;
+    let diff_cand = rms_diff(&pa_cand, &pa).max(rms_diff(&pb_cand, &pb));
+
+    let mut eps_a = ea_cand;
+    let mut eps_b = eb_cand;
+    let mut ca = ca_cand;
+    let mut cb = cb_cand;
+
+    if !(comm_0 <= fp_comm_tol && diff_cand < fp_density_tol) {
+        let mut polish_diis = opts.use_diis.then(|| DiisState::new(opts.diis_max_vecs.max(6)));
+        if let Some(ref mut d) = polish_diis {
+            let _ = d
+                .try_push_and_extrapolate(&stack(&fa, &fb), &err_0)
+                .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
+        }
+        pa = pa_cand;
+        pb = pb_cand;
+        let (fa_1, fb_1) =
+            build_uhf_fock_with_thresh(&h_core, &pa, &pb, &fock_builder, basis, tight_base);
+        fa = fa_1;
+        fb = fb_1;
+
+        for fp_step in 1..60 {
             let err_a = commutator(&fa, &pa, &s);
             let err_b = commutator(&fb, &pb, &s);
-            let extrap = polish_diis
-                .try_push_and_extrapolate(&stack(&fa, &fb), &stack(&err_a, &err_b))
-                .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
-            let (fa_step, fb_step) = if fp_step >= 2 {
-                unstack(&extrap, n)
+            let err_st = stack(&err_a, &err_b);
+            if frobenius_norm(&err_st) <= fp_comm_tol && fp_step == 1 {
+                let (ea_c, ca_c, pa_c) = diagonalize_spin(&fa, &x, &xt, n_alpha)?;
+                let (eb_c, cb_c, pb_c) = diagonalize_spin(&fb, &x, &xt, n_beta)?;
+                if rms_diff(&pa_c, &pa).max(rms_diff(&pb_c, &pb)) < fp_density_tol {
+                    eps_a = ea_c;
+                    eps_b = eb_c;
+                    ca = ca_c;
+                    cb = cb_c;
+                    break;
+                }
+            }
+            let (fa_step, fb_step) = if let Some(ref mut d) = polish_diis {
+                let extrap = d
+                    .try_push_and_extrapolate(&stack(&fa, &fb), &err_st)
+                    .map_err(|e| CalcError::Internal(format!("DIIS disk spill I/O error: {e}")))?;
+                if fp_step >= 2 {
+                    unstack(&extrap, n)
+                } else {
+                    (fa.clone(), fb.clone())
+                }
             } else {
                 (fa.clone(), fb.clone())
             };
-            let (ea, ca_new, pa_new) = diagonalize_spin(&fa_step, &x, &xt, n_alpha)?;
-            let (eb, cb_new, pb_new) = diagonalize_spin(&fb_step, &x, &xt, n_beta)?;
+            let (ea, ca_new, mut pa_new) = diagonalize_spin(&fa_step, &x, &xt, n_alpha)?;
+            let (eb, cb_new, mut pb_new) = diagonalize_spin(&fb_step, &x, &xt, n_beta)?;
+            if !opts.use_diis {
+                let damp = if opts.damping > 0.0 && opts.damping < 1.0 {
+                    opts.damping
+                } else {
+                    0.2
+                };
+                for idx in 0..pa_new.data.len() {
+                    pa_new.data[idx] = (1.0 - damp) * pa_new.data[idx] + damp * pa.data[idx];
+                    pb_new.data[idx] = (1.0 - damp) * pb_new.data[idx] + damp * pb.data[idx];
+                }
+            }
             let diff = rms_diff(&pa_new, &pa).max(rms_diff(&pb_new, &pb));
             pa = pa_new;
             pb = pb_new;
@@ -357,12 +410,16 @@ pub fn uhf_with_guess(
             eps_b = eb;
             ca = ca_new;
             cb = cb_new;
-            let (fa_n, fb_n) = build_uhf_fock(&h_core, &pa, &pb, &fock_builder, basis);
+            let (fa_n, fb_n) =
+                build_uhf_fock_with_thresh(&h_core, &pa, &pb, &fock_builder, basis, tight_base);
             fa = fa_n;
             fb = fb_n;
             let comm_norm =
                 frobenius_norm(&stack(&commutator(&fa, &pa, &s), &commutator(&fb, &pb, &s)));
             if diff < fp_density_tol && comm_norm < fp_comm_tol {
+                if fp_step < 2 {
+                    break;
+                }
                 let (ea_ex, ca_ex, pa_ex) = diagonalize_spin(&fa, &x, &xt, n_alpha)?;
                 let (eb_ex, cb_ex, pb_ex) = diagonalize_spin(&fb, &x, &xt, n_beta)?;
                 eps_a = ea_ex;
@@ -371,7 +428,14 @@ pub fn uhf_with_guess(
                 cb = cb_ex;
                 pa = pa_ex;
                 pb = pb_ex;
-                let (fa_ex, fb_ex) = build_uhf_fock(&h_core, &pa, &pb, &fock_builder, basis);
+                let (fa_ex, fb_ex) = build_uhf_fock_with_thresh(
+                    &h_core,
+                    &pa,
+                    &pb,
+                    &fock_builder,
+                    basis,
+                    tight_base,
+                );
                 fa = fa_ex;
                 fb = fb_ex;
                 let exact_comm =

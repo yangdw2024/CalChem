@@ -96,6 +96,13 @@ impl AuxiliaryBasisSet {
             }
         };
 
+        let primary_max_l: u8 = primary
+            .shells
+            .iter()
+            .map(|s| s.shell_type.angular_momentum())
+            .max()
+            .unwrap_or(0);
+
         for (atom_idx, _atom) in mol.atoms.iter().enumerate() {
             let atom_shells: Vec<&Shell> = primary
                 .shells
@@ -142,8 +149,8 @@ impl AuxiliaryBasisSet {
                 max_exp = min_exp * 5.0;
             }
 
-            // Compact stride for >30-atom unpolarized S/P molecules keeps N_aux bounded for GPU ERI3C.
-            let compact_large = mol.atoms.len() > 30 && max_l <= 1;
+            // Compact stride for >30-atom globally unpolarized S/P molecules keeps N_aux bounded for GPU ERI3C.
+            let compact_large = mol.atoms.len() > 30 && primary_max_l <= 1;
 
             // L = 0 (S): spans full orbital-product exponent range [1.55*min_exp, 2.0*max_exp].
             let s_lo = min_exp * 1.55;
@@ -1076,6 +1083,11 @@ pub fn shell_3center_block(p_shell: &AuxiliaryShell, i_shell: &Shell, j_shell: &
 // RI-J Coulomb Matrix Builder
 // ---------------------------------------------------------------------------
 
+struct GpuRijStreamState {
+    streamer: calchem_cuda::GpuRijStreamer,
+    chunks: Vec<(usize, usize, usize, usize)>,
+}
+
 /// RI-J Coulomb Engine managing auxiliary basis, metric inversion, and
 /// fast O(N^3) Coulomb matrix accumulation with optional 3-center tensor caching
 /// and Schwarz screening.
@@ -1086,6 +1098,7 @@ pub struct RiJEngine {
     pub metric_truncated_modes: usize,
     pub cached_b: Option<Vec<f64>>,
     packed_b: Option<calchem_cuda::ResidentRijTensor>,
+    gpu_streamer: Option<GpuRijStreamState>,
     // One entry per independent AO product, indexing the full density and its transpose.
     packed_pairs: Vec<(usize, usize)>,
     pub n_ao: usize,
@@ -1115,7 +1128,14 @@ impl RiJEngine {
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(4usize << 30);
-        Self::build(mol, primary, cache_limit, use_gpu, choice)
+        Self::build(mol, primary, cache_limit, use_gpu, choice, true)
+    }
+
+    /// Lightweight RI-J engine constructor for standalone gradient calls: skips building
+    /// or caching the full 3-center `B` tensor in host/GPU memory while keeping full metric
+    /// factorization and GPU 3c gradient support.
+    pub fn with_basis_for_gradient(mol: &Molecule, primary: &BasisSet, use_gpu: bool, choice: calchem_model::JFitBasis) -> Result<Self, CalcError> {
+        Self::build(mol, primary, 0, use_gpu, choice, false)
     }
 
     #[allow(dead_code)]
@@ -1129,10 +1149,10 @@ impl RiJEngine {
         cache_limit: usize,
         use_gpu: bool,
     ) -> Result<Self, CalcError> {
-        Self::build(mol, primary, cache_limit, use_gpu, calchem_model::JFitBasis::Auto)
+        Self::build(mol, primary, cache_limit, use_gpu, calchem_model::JFitBasis::Auto, true)
     }
 
-    fn build(mol: &Molecule, primary: &BasisSet, cache_limit: usize, use_gpu: bool, choice: calchem_model::JFitBasis) -> Result<Self, CalcError> {
+    fn build(mol: &Molecule, primary: &BasisSet, cache_limit: usize, use_gpu: bool, choice: calchem_model::JFitBasis, build_3c_cache: bool) -> Result<Self, CalcError> {
         let aux_basis = match choice {
             calchem_model::JFitBasis::Auto => AuxiliaryBasisSet::build_auto_jfit(mol, primary),
             calchem_model::JFitBasis::Def2UpToF => {
@@ -1189,11 +1209,39 @@ impl RiJEngine {
             })
             .collect();
 
+        if !build_3c_cache {
+            return Ok(Self {
+                use_gpu,
+                aux_basis,
+                metric_factor,
+                metric_truncated_modes,
+                cached_b: None,
+                packed_b: None,
+                gpu_streamer: None,
+                packed_pairs: Vec::new(),
+                n_ao,
+                aux_diag_bounds,
+                gpu_kernel_invocations: AtomicUsize::new(0),
+                gpu_fallback_invocations: AtomicUsize::new(0),
+            });
+        }
+
+        let has_unsupported_gpu_l = aux_basis
+            .shells
+            .iter()
+            .any(|s| s.shell_type.angular_momentum() > 3)
+            || primary
+                .shells
+                .iter()
+                .any(|s| s.shell_type.angular_momentum() > 2);
+        let cuda_avail = calchem_cuda::is_cuda_available();
+
         let primary_bounds = shell_pair_bounds(primary);
         let n_primary_shells = primary.shells.len();
         let mut packed_pairs = Vec::new();
         let mut shell_offsets = vec![usize::MAX; n_primary_shells*n_primary_shells];
-        let packed = req_bytes > max_df_bytes.min(256 << 20);
+        let packed = (use_gpu && cuda_avail && !has_unsupported_gpu_l)
+            || req_bytes > max_df_bytes.min(256 << 20);
         let max_bound = aux_diag_bounds.iter().copied().fold(0.0_f64, f64::max);
         let mut sig_ij_list: Vec<(usize, usize, f64, usize, Vec<PrecomputedPrimPair3C>)> = Vec::new();
         for (i,a) in primary.shells.iter().enumerate() {
@@ -1231,22 +1279,14 @@ impl RiJEngine {
             );
         }
         let t_3c0 = std::time::Instant::now();
-        let has_unsupported_gpu_l = aux_basis
-            .shells
-            .iter()
-            .any(|s| s.shell_type.angular_momentum() > 2)
-            || primary
-                .shells
-                .iter()
-                .any(|s| s.shell_type.angular_momentum() > 2);
         let gpu_eligible = use_gpu
             && packed
             && width > 0
-            && bytes <= max_df_bytes as u128
-            && calchem_cuda::is_cuda_available()
+            && cuda_avail
             && !has_unsupported_gpu_l;
 
         let mut gpu_packed_b: Option<calchem_cuda::ResidentRijTensor> = None;
+        let mut gpu_streamer: Option<GpuRijStreamState> = None;
         if gpu_eligible {
             let mut gpu_aux_shells = Vec::with_capacity(aux_basis.shells.len());
             let mut gpu_aux_prims = Vec::new();
@@ -1255,7 +1295,7 @@ impl RiJEngine {
                 let p_comps = p_shell.components();
                 for (pp_i, &gamma_p) in p_shell.exponents.iter().enumerate() {
                     let c_base = p_shell.coeffs[pp_i];
-                    let mut cp_norm = [0.0f64; 6];
+                    let mut cp_norm = [0.0f64; 10];
                     for (pf, &lmn) in p_comps.iter().enumerate() {
                         cp_norm[pf] = c_base * primitive_norm(gamma_p, lmn);
                     }
@@ -1303,14 +1343,74 @@ impl RiJEngine {
                 });
             }
 
-            gpu_packed_b = calchem_cuda::ResidentRijTensor::build_eri3c_gpu(
-                &gpu_aux_shells,
-                &gpu_aux_prims,
-                &gpu_shell_pairs,
-                &gpu_prim_pairs,
-                n_aux,
-                width,
-            );
+            let gpu_limit = calchem_cuda::resolve_gpu_memory_limit();
+            let vram_res_cap = (gpu_limit.saturating_sub(512usize << 20))
+                .max(256usize << 20)
+                .min(gpu_limit);
+            let resident_cap = (max_df_bytes as u128).min(vram_res_cap as u128);
+            if bytes <= resident_cap {
+                gpu_packed_b = calchem_cuda::ResidentRijTensor::build_eri3c_gpu_resident(
+                    &gpu_aux_shells,
+                    &gpu_aux_prims,
+                    &gpu_shell_pairs,
+                    &gpu_prim_pairs,
+                    n_aux,
+                    width,
+                );
+            }
+            if gpu_packed_b.is_none() {
+                let row_bytes = width * 8;
+                let max_sh_n = aux_basis
+                    .shells
+                    .iter()
+                    .map(|s| s.n_functions())
+                    .max()
+                    .unwrap_or(1);
+                let chunk_cap = (512usize << 20)
+                    .min((gpu_limit / 4).max(16usize << 20))
+                    .min(max_df_bytes.max(row_bytes * max_sh_n));
+                let mut chunks = Vec::new();
+                let mut sh_start = 0usize;
+                let mut ao_start = 0usize;
+                let mut cur_sh = 0usize;
+                let mut cur_aux = 0usize;
+                for sh in &aux_basis.shells {
+                    let nf = sh.n_functions();
+                    if cur_sh > 0 && (cur_aux + nf) * row_bytes > chunk_cap {
+                        chunks.push((sh_start, cur_sh, ao_start, cur_aux));
+                        sh_start += cur_sh;
+                        ao_start += cur_aux;
+                        cur_sh = 0;
+                        cur_aux = 0;
+                    }
+                    cur_sh += 1;
+                    cur_aux += nf;
+                }
+                if cur_sh > 0 {
+                    chunks.push((sh_start, cur_sh, ao_start, cur_aux));
+                }
+                let max_chunk_n_aux = chunks.iter().map(|c| c.3).max().unwrap_or(0);
+                if max_chunk_n_aux > 0 {
+                    if let Some(streamer) = calchem_cuda::GpuRijStreamer::upload(
+                        &gpu_aux_shells,
+                        &gpu_aux_prims,
+                        &gpu_shell_pairs,
+                        &gpu_prim_pairs,
+                        max_chunk_n_aux,
+                        width,
+                    ) {
+                        if profile {
+                            eprintln!(
+                                "[rij] gpu_streamer chunks={} max_chunk_n_aux={} width={}",
+                                chunks.len(),
+                                max_chunk_n_aux,
+                                width
+                            );
+                        }
+                        gpu_streamer = Some(GpuRijStreamState { streamer, chunks });
+                    }
+                }
+            }
         }
 
         let (cached_b, packed_b, initial_gpu_kernels, initial_gpu_fallbacks) =
@@ -1319,6 +1419,8 @@ impl RiJEngine {
                     eprintln!("[rij] eri_3c_build_gpu={:.3}s", t_3c0.elapsed().as_secs_f64());
                 }
                 (None, Some(tensor), 1usize, 0usize)
+            } else if gpu_streamer.is_some() {
+                (None, None, 0usize, 0usize)
             } else {
                 let cache = if width > 0 && bytes <= max_df_bytes as u128 {
                     let mut b_flat = vec![0.0; n_aux * width];
@@ -1400,10 +1502,9 @@ impl RiJEngine {
                 }
                 let fallback_inc = if use_gpu
                     && width > 0
-                    && bytes <= max_df_bytes as u128
                     && (has_unsupported_gpu_l
                         || gpu_eligible
-                        || (packed && !calchem_cuda::is_cuda_available()))
+                        || (packed && !cuda_avail))
                 {
                     1usize
                 } else {
@@ -1425,7 +1526,7 @@ impl RiJEngine {
             aux_basis,
             metric_factor,
             metric_truncated_modes,
-            cached_b, packed_b, packed_pairs,
+            cached_b, packed_b, gpu_streamer, packed_pairs,
             n_ao,
             aux_diag_bounds,
             gpu_kernel_invocations: AtomicUsize::new(initial_gpu_kernels),
@@ -1463,12 +1564,17 @@ impl RiJEngine {
             aux_basis,
             metric_factor,
             metric_truncated_modes,
-            cached_b: None, packed_b: None, packed_pairs: Vec::new(),
+            cached_b: None, packed_b: None, gpu_streamer: None, packed_pairs: Vec::new(),
             n_ao,
             aux_diag_bounds,
             gpu_kernel_invocations: AtomicUsize::new(0),
             gpu_fallback_invocations: AtomicUsize::new(0),
         })
+    }
+
+    #[inline]
+    pub fn has_cached_tensor(&self) -> bool {
+        self.cached_b.is_some() || self.packed_b.is_some() || self.gpu_streamer.is_some()
     }
 
     fn pack_density(&self, density: &Matrix2D) -> Vec<f64> {
@@ -1492,32 +1598,152 @@ impl RiJEngine {
         let n_ao = primary.n_ao;
         let n_aux = self.aux_basis.n_aux;
 
-        if let Some(b_tensor) = self.cached_b.as_deref().or_else(|| self.packed_b.as_ref().map(|b| b.as_slice())) {
-            let gpu_tensor = self.packed_b.as_ref().map(|b| b.view())
-                .unwrap_or_else(|| calchem_cuda::RijTensorView::from(b_tensor));
-            let compact;
-            let density_data = if self.packed_b.is_some() {
-                compact = self.pack_density(density);
-                compact.as_slice()
-            } else { density.data.as_slice() };
-            let width = density_data.len();
-            // Fast O(N^3) GPU/parallel path with precomputed 3-center tensor
+        if let Some(ref packed_tensor) = self.packed_b {
+            let compact = self.pack_density(density);
+            let width = compact.len();
             let gpu_ready = self.use_gpu && calchem_cuda::is_cuda_available();
-
-            // 1. v_P = ∑_{μν} B_{P, μν} P_{μν}
             let mut v_vec = vec![0.0; n_aux];
             let mut used_gpu_v = false;
+            let mut fallback_recorded = false;
             if gpu_ready {
-                used_gpu_v = gpu_tensor.contract_v(
-                    density_data,
-                    &mut v_vec,
-                    n_aux,
-                    width,
-                );
+                used_gpu_v = packed_tensor.view().contract_v(&compact, &mut v_vec, n_aux, width);
                 if used_gpu_v {
                     self.gpu_kernel_invocations.fetch_add(1, Ordering::Relaxed);
                 } else {
                     self.gpu_fallback_invocations.fetch_add(1, Ordering::Relaxed);
+                    fallback_recorded = true;
+                }
+            } else if self.use_gpu && packed_tensor.is_device_only() {
+                self.gpu_fallback_invocations.fetch_add(1, Ordering::Relaxed);
+                fallback_recorded = true;
+            }
+            if !used_gpu_v && !packed_tensor.is_device_only() {
+                let b_tensor = packed_tensor.as_slice();
+                v_vec = (0..n_aux)
+                    .into_par_iter()
+                    .map(|p| {
+                        let b_slice = &b_tensor[p * width..(p + 1) * width];
+                        let mut sum = 0.0;
+                        for k in 0..width {
+                            sum += b_slice[k] * compact[k];
+                        }
+                        sum
+                    })
+                    .collect();
+                used_gpu_v = true; // host slice valid
+            }
+            if used_gpu_v {
+                let x_vec = self.metric_factor.solve(&v_vec);
+                let mut j_data = vec![0.0; width];
+                let mut used_gpu_j = false;
+                if self.use_gpu {
+                    if gpu_ready {
+                        used_gpu_j = packed_tensor.view().contract_coulomb(&x_vec, &mut j_data, n_aux, width);
+                    }
+                    if used_gpu_j {
+                        self.gpu_kernel_invocations.fetch_add(1, Ordering::Relaxed);
+                    } else if !fallback_recorded {
+                        self.gpu_fallback_invocations.fetch_add(1, Ordering::Relaxed);
+                        fallback_recorded = true;
+                    }
+                }
+                if !used_gpu_j && !packed_tensor.is_device_only() {
+                    let b_tensor = packed_tensor.as_slice();
+                    let chunk_size = 512;
+                    j_data
+                        .par_chunks_mut(chunk_size)
+                        .enumerate()
+                        .for_each(|(c_idx, chunk)| {
+                            let base = c_idx * chunk_size;
+                            for (k, val) in chunk.iter_mut().enumerate() {
+                                let idx = base + k;
+                                let mut sum = 0.0;
+                                for p in 0..n_aux {
+                                    sum += x_vec[p] * b_tensor[p * width + idx];
+                                }
+                                *val = sum;
+                            }
+                        });
+                    used_gpu_j = true;
+                }
+                if used_gpu_j {
+                    let mut j = Matrix2D::zeros(n_ao, n_ao);
+                    for (&(uv, vu), value) in self.packed_pairs.iter().zip(j_data) {
+                        j.data[uv] = value;
+                        j.data[vu] = value;
+                    }
+                    return j;
+                }
+            }
+            if self.use_gpu && !fallback_recorded {
+                self.gpu_fallback_invocations.fetch_add(1, Ordering::Relaxed);
+            }
+        } else if let Some(ref stream_state) = self.gpu_streamer {
+            let compact = self.pack_density(density);
+            let width = compact.len();
+            let mut v_vec = vec![0.0; n_aux];
+            let mut ok = stream_state.streamer.pass1_begin(&compact);
+            if ok {
+                for &(sh_start, sh_len, ao_start, chunk_n_aux) in &stream_state.chunks {
+                    if stream_state.streamer.pass1_v_resident(
+                        sh_start,
+                        sh_len,
+                        ao_start,
+                        &mut v_vec[ao_start..ao_start + chunk_n_aux],
+                    ) {
+                        self.gpu_kernel_invocations.fetch_add(1, Ordering::Relaxed);
+                    } else {
+                        ok = false;
+                        break;
+                    }
+                }
+            }
+            if ok {
+                let x_vec = self.metric_factor.solve(&v_vec);
+                let mut j_data = vec![0.0; width];
+                if stream_state.streamer.pass2_begin() {
+                    for &(sh_start, sh_len, ao_start, chunk_n_aux) in &stream_state.chunks {
+                        if stream_state.streamer.pass2_accum(
+                            &x_vec[ao_start..ao_start + chunk_n_aux],
+                            sh_start,
+                            sh_len,
+                            ao_start,
+                        ) {
+                            self.gpu_kernel_invocations.fetch_add(1, Ordering::Relaxed);
+                        } else {
+                            ok = false;
+                            break;
+                        }
+                    }
+                    if ok && stream_state.streamer.pass2_finish(&mut j_data) {
+                        let mut j = Matrix2D::zeros(n_ao, n_ao);
+                        for (&(uv, vu), value) in self.packed_pairs.iter().zip(j_data) {
+                            j.data[uv] = value;
+                            j.data[vu] = value;
+                        }
+                        return j;
+                    }
+                }
+            }
+            if self.use_gpu {
+                self.gpu_fallback_invocations.fetch_add(1, Ordering::Relaxed);
+            }
+        } else if let Some(b_tensor) = self.cached_b.as_deref() {
+            let density_data = density.data.as_slice();
+            let width = density_data.len();
+            let gpu_tensor = calchem_cuda::RijTensorView::from(b_tensor);
+            let gpu_ready = self.use_gpu && calchem_cuda::is_cuda_available();
+
+            let mut v_vec = vec![0.0; n_aux];
+            let mut used_gpu_v = false;
+            let mut fallback_recorded = false;
+            if gpu_ready {
+                used_gpu_v = gpu_tensor.contract_v(density_data, &mut v_vec, n_aux, width);
+                if used_gpu_v {
+                    self.gpu_kernel_invocations.fetch_add(1, Ordering::Relaxed);
+                } else {
+                    self.gpu_fallback_invocations.fetch_add(1, Ordering::Relaxed);
+                    fallback_recorded = true;
                 }
             }
             if !used_gpu_v {
@@ -1534,24 +1760,16 @@ impl RiJEngine {
                     .collect();
             }
 
-            // 2. Solve V x = v via Cholesky factor (or pseudoinverse fallback)
             let x_vec = self.metric_factor.solve(&v_vec);
-
-            // 3. J_{μν} = ∑_P x_P B_{P, μν}
             let mut j_data = vec![0.0; width];
             let mut used_gpu = false;
             if self.use_gpu {
                 if gpu_ready {
-                    used_gpu = gpu_tensor.contract_coulomb(
-                        &x_vec,
-                        &mut j_data,
-                        n_aux,
-                        width,
-                    );
+                    used_gpu = gpu_tensor.contract_coulomb(&x_vec, &mut j_data, n_aux, width);
                 }
                 if used_gpu {
                     self.gpu_kernel_invocations.fetch_add(1, Ordering::Relaxed);
-                } else {
+                } else if !fallback_recorded {
                     self.gpu_fallback_invocations.fetch_add(1, Ordering::Relaxed);
                 }
             }
@@ -1574,25 +1792,16 @@ impl RiJEngine {
                     });
             }
 
-            if self.packed_b.is_some() {
-                let mut j = Matrix2D::zeros(n_ao,n_ao);
-                for (&(uv,vu),value) in self.packed_pairs.iter().zip(j_data) {
-                    j.data[uv]=value;
-                    j.data[vu]=value;
-                }
-                return j;
-            }
             return Matrix2D {
                 rows: n_ao,
                 cols: n_ao,
                 data: j_data,
             };
+        } else if self.use_gpu {
+            self.gpu_fallback_invocations.fetch_add(1, Ordering::Relaxed);
         }
 
         // Screened parallel on-the-fly path for large systems
-        if self.use_gpu {
-            self.gpu_fallback_invocations.fetch_add(1, Ordering::Relaxed);
-        }
         let n_primary_shells = primary.shells.len();
         let primary_bounds = shell_pair_bounds(primary);
 
@@ -1718,6 +1927,16 @@ impl RiJEngine {
         primary: &BasisSet,
         density: &Matrix2D,
     ) -> Result<Vec<[f64; 3]>, CalcError> {
+        Ok(self.compute_coulomb_gradient_with_telemetry(n_atoms, primary, density)?.0)
+    }
+
+    /// Evaluates the RI-J Coulomb nuclear gradient and returns `(grad, gpu_kernels, gpu_fallbacks)`.
+    pub fn compute_coulomb_gradient_with_telemetry(
+        &self,
+        n_atoms: usize,
+        primary: &BasisSet,
+        density: &Matrix2D,
+    ) -> Result<(Vec<[f64; 3]>, usize, usize), CalcError> {
         if self.metric_truncated_modes > 0 {
             return Err(CalcError::LinearAlgebra(format!(
                 "Analytical RI-J nuclear gradient is undefined when Coulomb metric inversion truncated {} near-singular eigenmode(s); full-rank metric required",
@@ -1739,10 +1958,250 @@ impl RiJEngine {
         let n_primary_shells = primary.shells.len();
         let primary_bounds = shell_pair_bounds(primary);
 
+        let mut gpu_k = 0usize;
+        let mut gpu_fb = 0usize;
+        let mut fallback_recorded = false;
+        let max_aux_bound = self.aux_diag_bounds.iter().copied().fold(0.0_f64, f64::max);
+        let has_grad3c_work = !self.aux_basis.shells.is_empty()
+            && (0..n_primary_shells).any(|i_idx| {
+                (0..=i_idx).any(|j_idx| max_aux_bound * primary_bounds[i_idx * n_primary_shells + j_idx] >= 1e-12)
+            });
+        let has_unsupported_gpu_l = self
+            .aux_basis
+            .shells
+            .iter()
+            .any(|s| s.shell_type.angular_momentum() > 3)
+            || primary
+                .shells
+                .iter()
+                .any(|s| s.shell_type.angular_momentum() > 2);
+        let cuda_avail = calchem_cuda::is_cuda_available();
+
+        // Build Grad3c GPU metadata lazily if GPU is active and angular momenta are supported.
+        struct Grad3cGpuMeta {
+            aux_shells: Vec<calchem_cuda::Grad3cAuxShellGpu>,
+            aux_prims: Vec<calchem_cuda::Grad3cAuxPrimGpu>,
+            shell_pairs: Vec<calchem_cuda::Grad3cShellPairGpu>,
+            prim_pairs: Vec<calchem_cuda::Grad3cPrimPairGpu>,
+        }
+        let grad3c_meta: Option<Grad3cGpuMeta> = if self.use_gpu && cuda_avail && !has_unsupported_gpu_l && n_atoms > 1 {
+            let max_bound = self.aux_diag_bounds.iter().copied().fold(0.0_f64, f64::max);
+            let mut aux_shells = Vec::with_capacity(self.aux_basis.shells.len());
+            let mut aux_prims = Vec::new();
+            for (p_idx, p_shell) in self.aux_basis.shells.iter().enumerate() {
+                let prim_start = aux_prims.len() as i32;
+                let lp = p_shell.shell_type.angular_momentum();
+                let p_comps = p_shell.components();
+                let lead_norm_1 = primitive_norm(1.0, [lp, 0, 0]);
+                let mut comp_scales = [0.0f64; 10];
+                for (pf, &lmn) in p_comps.iter().enumerate() {
+                    comp_scales[pf] = primitive_norm(1.0, lmn) / lead_norm_1;
+                }
+                for (pp_i, &gamma_p) in p_shell.exponents.iter().enumerate() {
+                    let cp_lead = p_shell.coeffs[pp_i] * primitive_norm(gamma_p, [lp, 0, 0]);
+                    aux_prims.push(calchem_cuda::Grad3cAuxPrimGpu { gamma_p, cp_lead });
+                }
+                aux_shells.push(calchem_cuda::Grad3cAuxShellGpu {
+                    center: p_shell.center,
+                    bound: self.aux_diag_bounds[p_idx],
+                    comp_scales,
+                    lp: lp as i32,
+                    ao_offset: p_shell.ao_offset as i32,
+                    prim_start,
+                    n_prims: p_shell.exponents.len() as i32,
+                    atom_index: p_shell.atom_index as i32,
+                    _pad: 0,
+                });
+            }
+
+            let two_pi25 = 2.0 * PI.powf(2.5);
+            let mut shell_pairs = Vec::new();
+            let mut prim_pairs = Vec::new();
+            for i_idx in 0..n_primary_shells {
+                let i_shell = &primary.shells[i_idx];
+                let li = i_shell.shell_type.angular_momentum();
+                let mut comp_scales_i = [0.0f64; 6];
+                if let Some(p0) = i_shell.primitives.first() {
+                    if p0.norm > 0.0 {
+                        for (ii, &c) in i_shell.components().iter().enumerate() {
+                            comp_scales_i[ii] = i_shell.primitive_norm_for(0, c) / p0.norm;
+                        }
+                    }
+                }
+                for j_idx in 0..=i_idx {
+                    let q_ij = primary_bounds[i_idx * n_primary_shells + j_idx];
+                    if max_bound * q_ij < 1e-12 {
+                        continue;
+                    }
+                    let j_shell = &primary.shells[j_idx];
+                    let lj = j_shell.shell_type.angular_momentum();
+                    let mut comp_scales_j = [0.0f64; 6];
+                    if let Some(p0) = j_shell.primitives.first() {
+                        if p0.norm > 0.0 {
+                            for (jj, &c) in j_shell.components().iter().enumerate() {
+                                comp_scales_j[jj] = j_shell.primitive_norm_for(0, c) / p0.norm;
+                            }
+                        }
+                    }
+                    let prim_start = prim_pairs.len() as i32;
+                    for prim_i in &i_shell.primitives {
+                        let wi = prim_i.coeff * prim_i.norm;
+                        for prim_j in &j_shell.primitives {
+                            let pair_cd = GaussianPair::new(
+                                prim_i.exponent,
+                                i_shell.center,
+                                prim_j.exponent,
+                                j_shell.center,
+                            );
+                            if pair_cd.kab < 1e-18 {
+                                continue;
+                            }
+                            let wj = prim_j.coeff * prim_j.norm;
+                            prim_pairs.push(calchem_cuda::Grad3cPrimPairGpu {
+                                q: pair_cd.gamma,
+                                alpha: prim_i.exponent,
+                                beta: prim_j.exponent,
+                                two_pi25_kab_w_over_q: two_pi25 * pair_cd.kab * wi * wj / pair_cd.gamma,
+                                p_center: pair_cd.p,
+                                qc: pair_cd.pa,
+                            });
+                        }
+                    }
+                    let n_prims = prim_pairs.len() as i32 - prim_start;
+                    if n_prims > 0 {
+                        shell_pairs.push(calchem_cuda::Grad3cShellPairGpu {
+                            q_ij,
+                            ab_vec: [
+                                i_shell.center[0] - j_shell.center[0],
+                                i_shell.center[1] - j_shell.center[1],
+                                i_shell.center[2] - j_shell.center[2],
+                            ],
+                            comp_scales_i,
+                            comp_scales_j,
+                            li: li as i32,
+                            lj: lj as i32,
+                            same_shell: if i_idx == j_idx { 1 } else { 0 },
+                            atom_i: i_shell.atom_index as i32,
+                            atom_j: j_shell.atom_index as i32,
+                            ao_off_i: i_shell.ao_offset as i32,
+                            ao_off_j: j_shell.ao_offset as i32,
+                            prim_start,
+                            n_prims,
+                            _pad: 0,
+                        });
+                    }
+                }
+            }
+            if !aux_shells.is_empty() && !aux_prims.is_empty() && !shell_pairs.is_empty() && !prim_pairs.is_empty() {
+                Some(Grad3cGpuMeta {
+                    aux_shells,
+                    aux_prims,
+                    shell_pairs,
+                    prim_pairs,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         // 1. Compute v_P = sum_{mu,nu} (P|mu nu) P_{mu,nu}
-        let v_vec: Vec<f64> = if let Some(packed) = &self.packed_b {
+        let mut gpu_v_opt: Option<Vec<f64>> = None;
+        if let Some(packed) = &self.packed_b {
             let d = self.pack_density(density);
-            packed.as_slice().par_chunks_exact(d.len()).map(|b| b.iter().zip(&d).map(|(x,y)|x*y).sum()).collect()
+            if packed.is_device_only() {
+                if self.use_gpu && cuda_avail {
+                    let mut v_gpu = vec![0.0; n_aux];
+                    if packed.view().contract_v(&d, &mut v_gpu, n_aux, d.len()) {
+                        gpu_k += 1;
+                        gpu_v_opt = Some(v_gpu);
+                    } else {
+                        gpu_fb += 1;
+                        fallback_recorded = true;
+                    }
+                } else if self.use_gpu {
+                    gpu_fb += 1;
+                    fallback_recorded = true;
+                }
+            } else {
+                if self.use_gpu && cuda_avail {
+                    let mut v_gpu = vec![0.0; n_aux];
+                    if packed.view().contract_v(&d, &mut v_gpu, n_aux, d.len()) {
+                        gpu_k += 1;
+                        gpu_v_opt = Some(v_gpu);
+                    } else {
+                        gpu_fb += 1;
+                        fallback_recorded = true;
+                    }
+                } else if self.use_gpu {
+                    gpu_fb += 1;
+                    fallback_recorded = true;
+                }
+                if gpu_v_opt.is_none() {
+                    gpu_v_opt = Some(
+                        packed
+                            .as_slice()
+                            .par_chunks_exact(d.len())
+                            .map(|b| b.iter().zip(&d).map(|(x, y)| x * y).sum())
+                            .collect(),
+                    );
+                }
+            }
+        } else if let Some(ref stream_state) = self.gpu_streamer {
+            if self.use_gpu && cuda_avail {
+                let d = self.pack_density(density);
+                let mut v_gpu = vec![0.0; n_aux];
+                let mut ok = stream_state.streamer.pass1_begin(&d);
+                let mut chunk_k = 0usize;
+                if ok {
+                    for &(sh_start, sh_len, ao_start, chunk_n_aux) in &stream_state.chunks {
+                        if !stream_state.streamer.pass1_v_resident(
+                            sh_start,
+                            sh_len,
+                            ao_start,
+                            &mut v_gpu[ao_start..ao_start + chunk_n_aux],
+                        ) {
+                            ok = false;
+                            break;
+                        }
+                        chunk_k += 1;
+                    }
+                }
+                if ok {
+                    gpu_k += chunk_k;
+                    gpu_v_opt = Some(v_gpu);
+                } else {
+                    gpu_fb += 1;
+                    fallback_recorded = true;
+                }
+            } else if self.use_gpu {
+                gpu_fb += 1;
+                fallback_recorded = true;
+            }
+        } else if let Some(ref meta) = grad3c_meta {
+            let mut v_gpu = vec![0.0; n_aux];
+            if calchem_cuda::cuda_rij_grad_v(
+                &meta.aux_shells,
+                &meta.aux_prims,
+                &meta.shell_pairs,
+                &meta.prim_pairs,
+                &density.data,
+                &mut v_gpu,
+                n_ao,
+            ) {
+                gpu_k += 1;
+                gpu_v_opt = Some(v_gpu);
+            } else {
+                gpu_fb += 1;
+                fallback_recorded = true;
+            }
+        } else if self.use_gpu && n_atoms > 1 && has_grad3c_work {
+            gpu_fb += 1;
+            fallback_recorded = true;
+        }
+        let v_vec: Vec<f64> = if let Some(v_gpu) = gpu_v_opt {
+            v_gpu
         } else if let Some(ref b_tensor) = self.cached_b {
             (0..n_aux)
                 .into_par_iter()
@@ -1804,14 +2263,38 @@ impl RiJEngine {
         let x_vec = self.metric_factor.solve(&v_vec);
 
         // 3. 3-center derivative contribution: sum_{P,mu,nu} x_P P_{mu,nu} d(P|mu nu)/dR
-        let mut grad = self
-            .aux_basis
-            .shells
-            .par_iter()
-            .enumerate()
-            .fold(
-                || vec![[0.0; 3]; n_atoms],
-                |mut local_grad, (p_idx, p_shell)| {
+        let mut grad_3c_opt: Option<Vec<[f64; 3]>> = None;
+        if let Some(ref meta) = grad3c_meta {
+            let mut grad_flat = vec![0.0f64; n_atoms * 3];
+            if calchem_cuda::cuda_rij_grad_3c(
+                &meta.aux_shells,
+                &meta.aux_prims,
+                &meta.shell_pairs,
+                &meta.prim_pairs,
+                &x_vec,
+                &density.data,
+                &mut grad_flat,
+                n_ao,
+            ) {
+                gpu_k += 1;
+                grad_3c_opt = Some(grad_flat.as_chunks::<3>().0.to_vec());
+            } else if !fallback_recorded {
+                gpu_fb += 1;
+            }
+        } else if self.use_gpu && n_atoms > 1 && has_grad3c_work && !fallback_recorded {
+            gpu_fb += 1;
+        }
+
+        let grad_3c = if let Some(g) = grad_3c_opt {
+            g
+        } else {
+            self.aux_basis
+                .shells
+                .par_iter()
+                .enumerate()
+                .fold(
+                    || vec![[0.0; 3]; n_atoms],
+                    |mut local_grad, (p_idx, p_shell)| {
                     let p_b = self.aux_diag_bounds[p_idx];
                     let p_off = p_shell.ao_offset;
                     let p_comps = p_shell.components();
@@ -1971,83 +2454,110 @@ impl RiJEngine {
                     }
                     a
                 },
-            );
+            )
+        };
 
-        // 4. 2-center metric derivative contribution: -1/2 sum_{P,Q} x_P x_Q d(P|Q)/dR
+        // 4. 2-center metric derivative contribution: -1/2 sum_{P,Q} x_P x_Q d(P|Q)/dR (parallelized on CPU)
         let n_aux_shells = self.aux_basis.shells.len();
-        for p_idx in 0..n_aux_shells {
-            let p_shell = &self.aux_basis.shells[p_idx];
-            let p_off = p_shell.ao_offset;
-            let p_comps = p_shell.components();
-            let max_p = p_shell.shell_type.angular_momentum() as usize + 1;
+        let grad_2c = (0..n_aux_shells)
+            .into_par_iter()
+            .fold(
+                || vec![[0.0; 3]; n_atoms],
+                |mut local_grad, p_idx| {
+                    let p_shell = &self.aux_basis.shells[p_idx];
+                    let p_off = p_shell.ao_offset;
+                    let p_comps = p_shell.components();
+                    let max_p = p_shell.shell_type.angular_momentum() as usize + 1;
 
-            for q_idx in 0..p_idx {
-                let q_shell = &self.aux_basis.shells[q_idx];
-                if p_shell.atom_index == q_shell.atom_index {
-                    continue;
-                }
-                let q_off = q_shell.ao_offset;
-                let q_comps = q_shell.components();
-                let max_q = q_shell.shell_type.angular_momentum() as usize + 1;
+                    for q_idx in 0..p_idx {
+                        let q_shell = &self.aux_basis.shells[q_idx];
+                        if p_shell.atom_index == q_shell.atom_index {
+                            continue;
+                        }
+                        let q_off = q_shell.ao_offset;
+                        let q_comps = q_shell.components();
+                        let max_q = q_shell.shell_type.angular_momentum() as usize + 1;
 
-                for (p_prim, &gamma_p) in p_shell.exponents.iter().enumerate() {
-                    let cp_raw = p_shell.coeffs[p_prim];
-                    for (q_prim, &gamma_q) in q_shell.exponents.iter().enumerate() {
-                        let cq_raw = q_shell.coeffs[q_prim];
-                        let mut data = Eri2CenterData::new(
-                            gamma_p,
-                            p_shell.center,
-                            gamma_q,
-                            q_shell.center,
-                            max_p,
-                            max_q,
-                        );
+                        for (p_prim, &gamma_p) in p_shell.exponents.iter().enumerate() {
+                            let cp_raw = p_shell.coeffs[p_prim];
+                            for (q_prim, &gamma_q) in q_shell.exponents.iter().enumerate() {
+                                let cq_raw = q_shell.coeffs[q_prim];
+                                let mut data = Eri2CenterData::new(
+                                    gamma_p,
+                                    p_shell.center,
+                                    gamma_q,
+                                    q_shell.center,
+                                    max_p,
+                                    max_q,
+                                );
 
-                        for (p_fn, &p_lmn) in p_comps.iter().enumerate() {
-                            let xp = x_vec[p_off + p_fn];
-                            if xp.abs() < 1e-18 {
-                                continue;
-                            }
-                            let cp = cp_raw * primitive_norm(gamma_p, p_lmn);
-                            for (q_fn, &q_lmn) in q_comps.iter().enumerate() {
-                                let xq = x_vec[q_off + q_fn];
-                                let cq = cq_raw * primitive_norm(gamma_q, q_lmn);
-                                // Factor of 2 for off-diagonal (P,Q) and (Q,P) cancels the 1/2 in -1/2 x_P x_Q dV_{PQ}.
-                                let w_2c = -xp * xq * cp * cq;
-                                if w_2c.abs() < 1e-18 {
-                                    continue;
-                                }
-
-                                for axis in 0..3 {
-                                    let mut p_plus = p_lmn;
-                                    p_plus[axis] += 1;
-                                    let mut dp = 2.0 * gamma_p * data.vrr(p_plus, q_lmn, 0);
-                                    if p_lmn[axis] > 0 {
-                                        let mut p_minus = p_lmn;
-                                        p_minus[axis] -= 1;
-                                        dp -= (p_lmn[axis] as f64) * data.vrr(p_minus, q_lmn, 0);
+                                for (p_fn, &p_lmn) in p_comps.iter().enumerate() {
+                                    let xp = x_vec[p_off + p_fn];
+                                    if xp.abs() < 1e-18 {
+                                        continue;
                                     }
+                                    let cp = cp_raw * primitive_norm(gamma_p, p_lmn);
+                                    for (q_fn, &q_lmn) in q_comps.iter().enumerate() {
+                                        let xq = x_vec[q_off + q_fn];
+                                        let cq = cq_raw * primitive_norm(gamma_q, q_lmn);
+                                        // Factor of 2 for off-diagonal (P,Q) and (Q,P) cancels the 1/2 in -1/2 x_P x_Q dV_{PQ}.
+                                        let w_2c = -xp * xq * cp * cq;
+                                        if w_2c.abs() < 1e-18 {
+                                            continue;
+                                        }
 
-                                    let mut q_plus = q_lmn;
-                                    q_plus[axis] += 1;
-                                    let mut dq = 2.0 * gamma_q * data.vrr(p_lmn, q_plus, 0);
-                                    if q_lmn[axis] > 0 {
-                                        let mut q_minus = q_lmn;
-                                        q_minus[axis] -= 1;
-                                        dq -= (q_lmn[axis] as f64) * data.vrr(p_lmn, q_minus, 0);
+                                        for axis in 0..3 {
+                                            let mut p_plus = p_lmn;
+                                            p_plus[axis] += 1;
+                                            let mut dp = 2.0 * gamma_p * data.vrr(p_plus, q_lmn, 0);
+                                            if p_lmn[axis] > 0 {
+                                                let mut p_minus = p_lmn;
+                                                p_minus[axis] -= 1;
+                                                dp -= (p_lmn[axis] as f64) * data.vrr(p_minus, q_lmn, 0);
+                                            }
+
+                                            let mut q_plus = q_lmn;
+                                            q_plus[axis] += 1;
+                                            let mut dq = 2.0 * gamma_q * data.vrr(p_lmn, q_plus, 0);
+                                            if q_lmn[axis] > 0 {
+                                                let mut q_minus = q_lmn;
+                                                q_minus[axis] -= 1;
+                                                dq -= (q_lmn[axis] as f64) * data.vrr(p_lmn, q_minus, 0);
+                                            }
+
+                                            local_grad[p_shell.atom_index][axis] += w_2c * dp;
+                                            local_grad[q_shell.atom_index][axis] += w_2c * dq;
+                                        }
                                     }
-
-                                    grad[p_shell.atom_index][axis] += w_2c * dp;
-                                    grad[q_shell.atom_index][axis] += w_2c * dq;
                                 }
                             }
                         }
                     }
-                }
+                    local_grad
+                },
+            )
+            .reduce(
+                || vec![[0.0; 3]; n_atoms],
+                |mut a, b| {
+                    for idx in 0..n_atoms {
+                        for axis in 0..3 {
+                            a[idx][axis] += b[idx][axis];
+                        }
+                    }
+                    a
+                },
+            );
+
+        let mut grad = grad_3c;
+        for idx in 0..n_atoms {
+            for axis in 0..3 {
+                grad[idx][axis] += grad_2c[idx][axis];
             }
         }
 
-        Ok(grad)
+        self.gpu_kernel_invocations.fetch_add(gpu_k, Ordering::Relaxed);
+        self.gpu_fallback_invocations.fetch_add(gpu_fb, Ordering::Relaxed);
+        Ok((grad, gpu_k, gpu_fb))
     }
 }
 
@@ -2165,6 +2675,7 @@ mod tests {
 
     #[test]
     fn test_gpu_eri3c_matches_cpu_to_machine_precision() {
+        let _gpu_guard = crate::GPU_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         if !calchem_cuda::is_cuda_available() {
             return;
         }
@@ -2246,7 +2757,7 @@ mod tests {
             let comps = p_sh.components();
             for (pp_i, &gp) in p_sh.exponents.iter().enumerate() {
                 let c_base = p_sh.coeffs[pp_i];
-                let mut cp_norm = [0.0f64; 6];
+                let mut cp_norm = [0.0f64; 10];
                 for (pf, &lmn) in comps.iter().enumerate() {
                     cp_norm[pf] = c_base * primitive_norm(gp, lmn);
                 }
@@ -2320,6 +2831,7 @@ mod tests {
 
     #[test]
     fn test_gpu_eri3c_d_orbitals_matches_cpu_to_machine_precision() {
+        let _gpu_guard = crate::GPU_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         if !calchem_cuda::is_cuda_available() {
             return;
         }
@@ -2403,7 +2915,7 @@ mod tests {
             let comps = p_sh.components();
             for (pp_i, &gp) in p_sh.exponents.iter().enumerate() {
                 let c_base = p_sh.coeffs[pp_i];
-                let mut cp_norm = [0.0f64; 6];
+                let mut cp_norm = [0.0f64; 10];
                 for (pf, &lmn) in comps.iter().enumerate() {
                     cp_norm[pf] = c_base * primitive_norm(gp, lmn);
                 }
@@ -2474,5 +2986,403 @@ mod tests {
             "GPU vs CPU 3-center ERI mismatch for D orbitals: max_err={max_err:.3e} at (p={}, c={}) gpu={:.12e} cpu={:.12e}",
             worst.0, worst.1, worst.2, worst.3
         );
+    }
+
+    #[test]
+    fn test_gpu_eri3c_f_shell_aux_matches_cpu_to_machine_precision() {
+        let _gpu_guard = crate::GPU_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        if !calchem_cuda::is_cuda_available() {
+            return;
+        }
+        let mol = Molecule::new(
+            vec![
+                Atom::from_bohr("S", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("C", [3.2, 0.1, -0.2]).unwrap(),
+                Atom::from_bohr("F", [5.6, 0.4, 0.3]).unwrap(),
+                Atom::from_bohr("H", [3.1, -1.9, 0.5]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        let bs = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+        for choice in [
+            calchem_model::JFitBasis::Auto,
+            calchem_model::JFitBasis::Def2UpToF,
+        ] {
+            let cpu = RiJEngine::with_basis(&mol, &bs, false, choice).unwrap();
+            let aux_basis = &cpu.aux_basis;
+            assert!(
+                aux_basis.shells.iter().any(|s| s.shell_type.angular_momentum() == 3),
+                "Expected aux F-shell (L=3) under {choice:?}"
+            );
+            let n_aux = aux_basis.n_aux;
+            let primary_bounds = shell_pair_bounds(&bs);
+            let n_sh = bs.shells.len();
+            let max_b = cpu.aux_diag_bounds.iter().copied().fold(0.0_f64, f64::max);
+
+            let mut sig_ij = Vec::new();
+            let mut col_off = 0usize;
+            for (i, a) in bs.shells.iter().enumerate() {
+                for (j, b) in bs.shells[..=i].iter().enumerate() {
+                    let q_ij = primary_bounds[i * n_sh + j];
+                    if max_b * q_ij < 1e-12 { continue; }
+                    let pps = precompute_prim_pairs_3c(a, b);
+                    if pps.is_empty() { continue; }
+                    let n_cols = if i == j {
+                        a.n_functions() * (a.n_functions() + 1) / 2
+                    } else {
+                        a.n_functions() * b.n_functions()
+                    };
+                    sig_ij.push((i, j, q_ij, col_off, pps));
+                    col_off += n_cols;
+                }
+            }
+            let width = col_off;
+            let mut cpu_b = vec![0.0f64; n_aux * width];
+            let mut blk = Vec::new();
+            let mut vrr = Vec::new();
+            for (p_idx, p_sh) in aux_basis.shells.iter().enumerate() {
+                let np = p_sh.n_functions();
+                let pb = cpu.aux_diag_bounds[p_idx];
+                for &(i, j, q_ij, off, ref pps) in &sig_ij {
+                    if pb * q_ij < 1e-12 { continue; }
+                    let (a, b) = (&bs.shells[i], &bs.shells[j]);
+                    let (ni, nj) = (a.n_functions(), b.n_functions());
+                    shell_3center_block_precomputed(p_sh, a, b, pps, &mut blk, &mut vrr);
+                    for pf in 0..np {
+                        let row = (p_sh.ao_offset + pf) * width + off;
+                        let p_blk = pf * ni * nj;
+                        if i == j {
+                            let mut pos = 0;
+                            for mu in 0..ni {
+                                for nu in 0..=mu {
+                                    cpu_b[row + pos] = blk[p_blk + mu * nj + nu];
+                                    pos += 1;
+                                }
+                            }
+                        } else {
+                            cpu_b[row..row + ni * nj].copy_from_slice(&blk[p_blk..p_blk + ni * nj]);
+                        }
+                    }
+                }
+            }
+
+            let mut gpu_aux_sh = Vec::new();
+            let mut gpu_aux_pr = Vec::new();
+            for (p_idx, p_sh) in aux_basis.shells.iter().enumerate() {
+                let prim_start = gpu_aux_pr.len() as i32;
+                let comps = p_sh.components();
+                for (pp_i, &gp) in p_sh.exponents.iter().enumerate() {
+                    let c_base = p_sh.coeffs[pp_i];
+                    let mut cp_norm = [0.0f64; 10];
+                    for (pf, &lmn) in comps.iter().enumerate() {
+                        cp_norm[pf] = c_base * primitive_norm(gp, lmn);
+                    }
+                    gpu_aux_pr.push(calchem_cuda::AuxPrimGpu { gamma_p: gp, cp_norm });
+                }
+                gpu_aux_sh.push(calchem_cuda::AuxShellGpu {
+                    center: p_sh.center,
+                    bound: cpu.aux_diag_bounds[p_idx],
+                    lp: p_sh.shell_type.angular_momentum() as i32,
+                    ao_offset: p_sh.ao_offset as i32,
+                    prim_start,
+                    n_prims: p_sh.exponents.len() as i32,
+                });
+            }
+            let mut gpu_sp = Vec::new();
+            let mut gpu_pp = Vec::new();
+            for &(i, j, q_ij, off, ref pps) in &sig_ij {
+                let prim_start = gpu_pp.len() as i32;
+                let ni = bs.shells[i].n_functions();
+                let nj = bs.shells[j].n_functions();
+                for pp in pps {
+                    let mut ci_norm = [0.0f64; 6];
+                    ci_norm[..ni].copy_from_slice(&pp.ci_norm[..ni]);
+                    let mut cj_norm = [0.0f64; 6];
+                    cj_norm[..nj].copy_from_slice(&pp.cj_norm[..nj]);
+                    gpu_pp.push(calchem_cuda::PrimPair3CGpu {
+                        q: pp.q,
+                        p_center: pp.p_center,
+                        qc: pp.qc,
+                        qd: pp.qd,
+                        two_pi25_kab_over_q: pp.two_pi25_kab_over_q,
+                        ci_norm,
+                        cj_norm,
+                    });
+                }
+                gpu_sp.push(calchem_cuda::ShellPair3CGpu {
+                    q_ij,
+                    li: bs.shells[i].shell_type.angular_momentum() as i32,
+                    lj: bs.shells[j].shell_type.angular_momentum() as i32,
+                    same_shell: if i == j { 1 } else { 0 },
+                    col_offset: off as i32,
+                    prim_start,
+                    n_prims: pps.len() as i32,
+                });
+            }
+            let gpu_tensor = calchem_cuda::ResidentRijTensor::build_eri3c_gpu(
+                &gpu_aux_sh, &gpu_aux_pr, &gpu_sp, &gpu_pp, n_aux, width,
+            ).expect("GPU F-shell 3c ERI builder should succeed");
+            let gpu_b = gpu_tensor.as_slice();
+            let mut max_err = 0.0f64;
+            for idx in 0..n_aux * width {
+                max_err = max_err.max((gpu_b[idx] - cpu_b[idx]).abs());
+            }
+            assert!(
+                max_err < 1e-11,
+                "GPU vs CPU F-shell ({choice:?}) 3c ERI max_err={max_err:.3e} >= 1e-11"
+            );
+        }
+    }
+
+    #[test]
+    fn test_gpu_rij_chunked_streaming_matches_dense_cpu() {
+        let _gpu_guard = crate::GPU_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        if !calchem_cuda::is_cuda_available() {
+            return;
+        }
+        let mol = Molecule::new(
+            vec![
+                Atom::from_bohr("S", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("C", [3.2, 0.1, -0.2]).unwrap(),
+                Atom::from_bohr("F", [5.6, 0.4, 0.3]).unwrap(),
+                Atom::from_bohr("H", [3.1, -1.9, 0.5]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        let bs = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+        let cpu = RiJEngine::with_cache_limit_gpu(&mol, &bs, 4usize << 30, false).unwrap();
+        // Force aux-chunked GPU streaming by capping resident cache below full B size (1 MiB)
+        let gpu_stream = RiJEngine::with_cache_limit_gpu(&mol, &bs, 1usize << 20, true).unwrap();
+        assert!(gpu_stream.gpu_streamer.is_some(), "Expected GpuRijStreamer to activate");
+
+        let n = bs.n_ao;
+        let mut p = Matrix2D::zeros(n, n);
+        for i in 0..n {
+            for j in 0..=i {
+                let v = 0.05 / (1.0 + ((i as f64 - j as f64).abs()));
+                p.set(i, j, v);
+                p.set(j, i, v);
+            }
+        }
+        let j_cpu = cpu.build_coulomb(&bs, &p);
+        let j_gpu = gpu_stream.build_coulomb(&bs, &p);
+        let mut max_err = 0.0f64;
+        for idx in 0..n * n {
+            max_err = max_err.max((j_cpu.data[idx] - j_gpu.data[idx]).abs());
+        }
+        assert!(max_err < 1e-11, "Chunked GPU RI-J max_err={max_err:.3e} >= 1e-11");
+        let k = gpu_stream.gpu_kernel_invocations.load(Ordering::Relaxed);
+        let fb = gpu_stream.gpu_fallback_invocations.load(Ordering::Relaxed);
+        assert!(k > 0 && fb == 0, "Expected GPU streaming telemetry k>0 fb==0, got k={k} fb={fb}");
+    }
+
+    #[test]
+    fn test_gpu_rij_coulomb_gradient_parity_and_disable_gpu_telemetry() {
+        let _gpu_guard = crate::GPU_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let mol = Molecule::new(
+            vec![
+                Atom::from_bohr("S", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("C", [3.2, 0.1, -0.2]).unwrap(),
+                Atom::from_bohr("F", [5.6, 0.4, 0.3]).unwrap(),
+                Atom::from_bohr("H", [3.1, -1.9, 0.5]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        let bs = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+        let n = bs.n_ao;
+        let mut p = Matrix2D::zeros(n, n);
+        for i in 0..n {
+            for j in 0..=i {
+                let v = 0.03 / (1.0 + (i as f64 - j as f64).abs());
+                p.set(i, j, v);
+                p.set(j, i, v);
+            }
+        }
+
+        if calchem_cuda::is_cuda_available() {
+            for choice in [
+                calchem_model::JFitBasis::Auto,
+                calchem_model::JFitBasis::Def2UpToF,
+            ] {
+                let cpu = RiJEngine::with_basis_for_gradient(&mol, &bs, false, choice).unwrap();
+                let (g_cpu, kc, fbc) = cpu.compute_coulomb_gradient_with_telemetry(mol.atoms.len(), &bs, &p).unwrap();
+                assert_eq!((kc, fbc), (0, 0));
+
+                let gpu = RiJEngine::with_basis_for_gradient(&mol, &bs, true, choice).unwrap();
+                let (g_gpu, kg, fbg) = gpu.compute_coulomb_gradient_with_telemetry(mol.atoms.len(), &bs, &p).unwrap();
+                assert!(kg > 0 && fbg == 0, "{choice:?}: expected k>0 fb==0, got ({kg}, {fbg})");
+
+                // Translational invariance check
+                let mut sum_g = [0.0f64; 3];
+                let mut max_diff = 0.0f64;
+                for (ga, gb) in g_cpu.iter().zip(&g_gpu) {
+                    for q in 0..3 {
+                        sum_g[q] += gb[q];
+                        max_diff = max_diff.max((ga[q] - gb[q]).abs());
+                    }
+                }
+                let trans_err = sum_g.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+                assert!(max_diff < 1e-10, "{choice:?}: GPU vs CPU RI-J grad max_diff={max_diff:.3e}");
+                assert!(trans_err < 1e-11, "{choice:?}: GPU RI-J grad translational sum={trans_err:.3e}");
+            }
+        }
+
+        // Disabled GPU telemetry check
+        struct ResetDisable(Option<std::ffi::OsString>);
+        impl Drop for ResetDisable {
+            fn drop(&mut self) {
+                if let Some(ref v) = self.0 {
+                    std::env::set_var("CALCHEM_DISABLE_GPU", v);
+                } else {
+                    std::env::remove_var("CALCHEM_DISABLE_GPU");
+                }
+            }
+        }
+        let _reset = ResetDisable(std::env::var_os("CALCHEM_DISABLE_GPU"));
+        std::env::set_var("CALCHEM_DISABLE_GPU", "1");
+        let dis = RiJEngine::with_basis_for_gradient(&mol, &bs, true, calchem_model::JFitBasis::Auto).unwrap();
+        let (_, kd, fbd) = dis.compute_coulomb_gradient_with_telemetry(mol.atoms.len(), &bs, &p).unwrap();
+        assert_eq!(kd, 0);
+        assert!(fbd > 0, "Expected fallback > 0 under CALCHEM_DISABLE_GPU=1");
+    }
+
+    struct DfEnvGuard {
+        saved: Vec<(&'static str, Option<String>)>,
+    }
+    impl DfEnvGuard {
+        fn new(keys: &[&'static str]) -> Self {
+            Self {
+                saved: keys.iter().map(|&k| (k, std::env::var(k).ok())).collect(),
+            }
+        }
+    }
+    impl Drop for DfEnvGuard {
+        fn drop(&mut self) {
+            for (k, v) in &self.saved {
+                match v {
+                    Some(val) => std::env::set_var(k, val),
+                    None => std::env::remove_var(k),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_gpu_rij_primary_fshell_and_fallback_telemetry_no_double_count() {
+        let _gpu_guard = crate::GPU_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env = DfEnvGuard::new(&["CALCHEM_DISABLE_GPU", "CALCHEM_MAX_GPU_MEM_MB"]);
+
+        let mol = Molecule::new(
+            vec![
+                Atom::from_bohr("Fe", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("H", [0.0, 0.0, 3.0]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        let bs = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+        assert!(bs.shells.iter().any(|s| s.shell_type.angular_momentum() == 3));
+
+        let n = bs.n_ao;
+        let mut p = Matrix2D::zeros(n, n);
+        for i in 0..n {
+            for j in 0..=i {
+                let v = 0.02 / (1.0 + (i as f64 - j as f64).abs());
+                p.set(i, j, v);
+                p.set(j, i, v);
+            }
+        }
+
+        let cpu = RiJEngine::new_with_gpu(&mol, &bs, false).unwrap();
+        let gpu_f = RiJEngine::new_with_gpu(&mol, &bs, true).unwrap();
+
+        let j_cpu = cpu.build_coulomb(&bs, &p);
+        let j_gpu = gpu_f.build_coulomb(&bs, &p);
+        let max_j_err = j_cpu
+            .data
+            .iter()
+            .zip(&j_gpu.data)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f64, f64::max);
+        assert!(max_j_err < 1e-11, "Primary F-shell RI-J J mismatch: {max_j_err:.3e}");
+
+        let (g_cpu, kc, fbc) = cpu.compute_coulomb_gradient_with_telemetry(2, &bs, &p).unwrap();
+        assert_eq!((kc, fbc), (0, 0));
+        let (g_gpu, kg, fbg) = gpu_f.compute_coulomb_gradient_with_telemetry(2, &bs, &p).unwrap();
+        let max_g_err = g_cpu
+            .iter()
+            .zip(&g_gpu)
+            .flat_map(|(a, b)| (0..3).map(move |q| (a[q] - b[q]).abs()))
+            .fold(0.0f64, f64::max);
+        assert!(max_g_err < 1e-11, "Primary F-shell RI-J grad mismatch: {max_g_err:.3e}");
+        assert_eq!(kg, 0);
+        assert_eq!(fbg, 1, "Expected exactly 1 fallback (no double count), got {fbg}");
+
+        if calchem_cuda::is_cuda_available() {
+            let h2o = Molecule::new(
+                vec![
+                    Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
+                    Atom::from_bohr("H", [0.0, 1.432, 0.0]).unwrap(),
+                    Atom::from_bohr("H", [1.112, -0.716, 0.0]).unwrap(),
+                ],
+                0,
+                1,
+            );
+            let bs_w = BasisSet::from_name("6-31g(d)", &h2o).unwrap();
+            let nw = bs_w.n_ao;
+            let pw = Matrix2D::identity(nw);
+            let rij_dev = RiJEngine::new_with_gpu(&h2o, &bs_w, true).unwrap();
+            std::env::set_var("CALCHEM_DISABLE_GPU", "1");
+            let fb_before = rij_dev.gpu_fallback_invocations.load(Ordering::Relaxed);
+            let j_fb = rij_dev.build_coulomb(&bs_w, &pw);
+            let fb_after = rij_dev.gpu_fallback_invocations.load(Ordering::Relaxed);
+            assert_eq!(fb_after - fb_before, 1, "Device-only build_coulomb fallback must count once");
+            let j_ref = RiJEngine::new_with_gpu(&h2o, &bs_w, false).unwrap().build_coulomb(&bs_w, &pw);
+            let err = j_fb.data.iter().zip(&j_ref.data).map(|(a, b)| (a - b).abs()).fold(0.0f64, f64::max);
+            assert!(err < 1e-11);
+        }
+    }
+
+    #[test]
+    fn test_rij_tight_vram_streaming_fallback_def2_missing_element_and_auto_aux_cap() {
+        let _gpu_guard = crate::GPU_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env = DfEnvGuard::new(&["CALCHEM_MAX_GPU_MEM_MB", "CALCHEM_AUTO_AUX_MAX_L"]);
+
+        let he = Molecule::new(vec![Atom::from_bohr("He", [0.0, 0.0, 0.0]).unwrap()], 0, 1);
+        let bs_he = BasisSet::from_name("6-31g(d)", &he).unwrap();
+        let err = RiJEngine::with_basis(&he, &bs_he, false, calchem_model::JFitBasis::Def2UpToF)
+            .err()
+            .expect("He must fail Def2UpToF");
+        assert!(matches!(err, CalcError::UnsupportedBasis(_)));
+
+        std::env::set_var("CALCHEM_AUTO_AUX_MAX_L", "2");
+        let h2o = Molecule::new(
+            vec![
+                Atom::from_bohr("O", [0.0, 0.0, 0.0]).unwrap(),
+                Atom::from_bohr("H", [0.0, 1.432, 0.0]).unwrap(),
+                Atom::from_bohr("H", [1.112, -0.716, 0.0]).unwrap(),
+            ],
+            0,
+            1,
+        );
+        let bs_w = BasisSet::from_name("6-31g(d)", &h2o).unwrap();
+        let aux_d = AuxiliaryBasisSet::build_auto_jfit(&h2o, &bs_w);
+        assert!(aux_d.shells.iter().all(|s| s.shell_type.angular_momentum() <= 2));
+        std::env::remove_var("CALCHEM_AUTO_AUX_MAX_L");
+
+        if calchem_cuda::is_cuda_available() {
+            std::env::set_var("CALCHEM_MAX_GPU_MEM_MB", "0");
+            let oom = RiJEngine::with_cache_limit_gpu(&h2o, &bs_w, 0, true).unwrap();
+            assert!(!oom.has_cached_tensor());
+            let pw = Matrix2D::identity(bs_w.n_ao);
+            let j_oom = oom.build_coulomb(&bs_w, &pw);
+            let j_cpu = RiJEngine::new(&h2o, &bs_w).unwrap().build_coulomb(&bs_w, &pw);
+            let err = j_oom.data.iter().zip(&j_cpu.data).map(|(a, b)| (a - b).abs()).fold(0.0f64, f64::max);
+            assert!(err < 1e-11, "OOM on-the-fly fallback mismatch: {err:.3e}");
+            assert!(oom.gpu_fallback_invocations.load(Ordering::Relaxed) >= 1);
+        }
     }
 }

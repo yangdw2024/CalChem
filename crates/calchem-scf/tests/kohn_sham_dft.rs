@@ -160,3 +160,56 @@ fn test_halogen_ecp_hbr_lanl2dz_b3lyp_rks_and_uks() {
         "Unexpected HBr B3LYP/LANL2DZ vertical IP: {vip_ev:.3} eV"
     );
 }
+
+#[test]
+fn test_wb97xd_rks_and_uks_total_energy_includes_dispersion_after_fixed_point_polish() {
+    let mol = ethylene(0, 1);
+    let bs = BasisSet::from_name("6-31g(d)", &mol).unwrap();
+    let opts = ScfOptions::default();
+
+    let (expected_disp, _) =
+        calchem_dft::wb97xd_chg_d2_energy_and_gradient(&mol.atoms).unwrap();
+    assert!(
+        expected_disp < -1e-4,
+        "Expected negative non-trivial wB97X-D dispersion on C2H4, got {expected_disp}"
+    );
+
+    let wf_rks = rks(&mol, &bs, XcFunctional::Wb97xd, GridLevel::Medium, &opts).unwrap();
+    assert!(wf_rks.converged);
+    let last_hist_rks = *wf_rks.diagnostics.energy_history.last().unwrap();
+    assert!(
+        (wf_rks.total_energy_hartree - last_hist_rks).abs() < 1e-7,
+        "RKS wB97X-D total_energy_hartree ({}) drifted from energy_history.last() ({last_hist_rks})",
+        wf_rks.total_energy_hartree
+    );
+    let rks_disp_delta = wf_rks.total_energy_hartree
+        - (wf_rks.electronic_energy_hartree + wf_rks.nuclear_repulsion_hartree);
+    assert!(
+        (rks_disp_delta - expected_disp).abs() < 1e-12,
+        "RKS wB97X-D dispersion delta {rks_disp_delta} != expected {expected_disp}"
+    );
+
+    let mol_cat = ethylene(1, 2);
+    let bs_cat = BasisSet::from_name("6-31g(d)", &mol_cat).unwrap();
+    let wf_uks = uks(
+        &mol_cat,
+        &bs_cat,
+        XcFunctional::Wb97xd,
+        GridLevel::Medium,
+        &opts,
+    )
+    .unwrap();
+    assert!(wf_uks.converged);
+    let last_hist_uks = *wf_uks.diagnostics.energy_history.last().unwrap();
+    assert!(
+        (wf_uks.total_energy_hartree - last_hist_uks).abs() < 1e-7,
+        "UKS wB97X-D total_energy_hartree ({}) drifted from energy_history.last() ({last_hist_uks})",
+        wf_uks.total_energy_hartree
+    );
+    let uks_disp_delta = wf_uks.total_energy_hartree
+        - (wf_uks.electronic_energy_hartree + wf_uks.nuclear_repulsion_hartree);
+    assert!(
+        (uks_disp_delta - expected_disp).abs() < 1e-12,
+        "UKS wB97X-D dispersion delta {uks_disp_delta} != expected {expected_disp}"
+    );
+}

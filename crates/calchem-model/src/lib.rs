@@ -289,7 +289,7 @@ impl Default for ScfOptions {
     fn default() -> Self {
         Self {
             max_iter: 100,
-            conv_energy: 1e-10,
+            conv_energy: 1e-8,
             conv_density: 1e-8,
             use_diis: true,
             diis_max_vecs: 6,

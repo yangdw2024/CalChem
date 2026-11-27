@@ -23,7 +23,7 @@ use std::sync::OnceLock;
 const N_ANG_THETA: usize = 16;
 const N_ANG_PHI: usize = 32;
 const N_RAD_GL: usize = 48;
-const MAX_SPH_L: usize = 12;
+const MAX_SPH_L: usize = 14;
 
 struct EcpGrids {
     /// Unit vectors `(ux, uy, uz)` and quadrature weights `w` on `S^2` (`sum w = 4 * pi`).
@@ -857,6 +857,34 @@ mod tests {
             assert!(
                 (sum_proj - loc).abs() < 1e-11,
                 "Projector completeness failed for n={r_power}: sum_proj={sum_proj} vs loc={loc}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_ecp_f_shell_local_and_semilocal_completeness() {
+        let r_a = [0.25, -0.15, 0.35];
+        let r_b = [-0.30, 0.20, -0.25];
+        let r_c = [0.10, -0.05, -0.15];
+        let alpha = 0.95;
+        let beta = 1.15;
+        let terms = [EcpTerm {
+            r_power: 2,
+            exponent: 1.5,
+            coeff: 2.0,
+        }];
+        for &(ca, cb) in &[
+            ([3, 0, 0], [1, 1, 1]),
+            ([2, 1, 0], [0, 2, 1]),
+        ] {
+            let loc = ecp_local_primitive(ca, cb, alpha, r_a, beta, r_b, r_c, &terms);
+            let mut sum_proj = 0.0;
+            for l in 0..=10 {
+                sum_proj += ecp_semilocal_primitive(ca, cb, alpha, r_a, beta, r_b, r_c, l, &terms);
+            }
+            assert!(
+                (sum_proj - loc).abs() < 1e-10,
+                "F-shell ECP completeness failed for {ca:?}-{cb:?}: sum_proj={sum_proj} vs loc={loc}"
             );
         }
     }
